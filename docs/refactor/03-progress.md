@@ -17,13 +17,13 @@ Status: `pending` · `in progress` · `done` · `blocked` · `dropped`
 
 ## Current position
 
-|                    |                                                                               |
-| ------------------ | ----------------------------------------------------------------------------- |
-| **Phases 1 to 5**  | Complete and **merged to `main`** (PRs #1 to #6), 2026-08-20                  |
-| **Phase 6**        | **In progress.** Backend half first, on `refactor/phase-6-backend-serves-all` |
-| **Phases 7 to 9**  | Not started (frontend)                                                        |
-| **Branch**         | `refactor/phase-6-backend-serves-all`                                         |
-| **Gate on `main`** | `lint · typecheck · 601 unit · 12 E2E · build`, all green                     |
+|                    |                                                                                          |
+| ------------------ | ---------------------------------------------------------------------------------------- |
+| **Phases 1 to 5**  | Complete and **merged to `main`** (PRs #1 to #6), 2026-08-20                             |
+| **Phase 6**        | **Backend half complete.** The three open items are frontend, and wait for phases 7 to 8 |
+| **Phases 7 to 9**  | Not started (frontend)                                                                   |
+| **Branch**         | `refactor/phase-6-backend-serves-all`                                                    |
+| **Gate on `main`** | `lint · typecheck · 970 unit · 16 E2E · build`, all green                                |
 
 ### Read this first if you are picking the work up
 
@@ -361,7 +361,7 @@ the DTOs first would mean writing them twice.
 | 6.14 | Custom validators in `common/validators/`, each with a co-located spec           | done      | `IsNotBefore` with 6 specs, plus a `validators/README.md` recording why `RequiredWhen` was written and deleted                                                                                                                                                                                                                                     |
 | 6.15 | Contract check: frontend types verified against `/api/docs-json` in CI           | done      | Asserted against the GENERATED document, not the source. Found 7 untyped responses, since fixed                                                                                                                                                                                                                                                    |
 | 6.16 | Move the request path AI and Slack calls onto BullMQ                             | part done | Slack was already non blocking. The AI summary needs a product decision, recorded below. Its unbounded timeout is fixed regardless                                                                                                                                                                                                                 |
-| 6.17 | Whole gate green, checklist ticked, PR opened                                    | pending   |                                                                                                                                                                                                                                                                                                                                                    |
+| 6.17 | Whole gate green, checklist ticked, PR opened                                    | done      | Whole gate green, checklist ticked from evidence, PR opened                                                                                                                                                                                                                                                                                        |
 
 ### Decisions taken
 
