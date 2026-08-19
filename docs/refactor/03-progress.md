@@ -176,6 +176,44 @@ target text had already been reformatted, and I did not re-run typecheck after
 them. One shipped an undefined identifier into the guard, which only the E2E run
 surfaced. Every scripted edit now asserts its pattern matched.
 
+## Phase 5: backend module mirror — substantially complete, 2026-08-20
+
+**Done:**
+
+| Piece                  | Result                                                                                              |
+| ---------------------- | --------------------------------------------------------------------------------------------------- |
+| Swagger extraction     | **27 of 27 controllers.** All 421 inline doc decorators moved into 18 swagger files, one per module |
+| `ProjectsModule` split | 17 controllers in one module became **8 feature modules**, max 4 each                               |
+| Consolidated DTO files | `users`, `audit-log`, `notifications`, `profiles`                                                   |
+| Response DTOs          | Same four modules                                                                                   |
+| Shared error sets      | `src/common/swagger/error-sets.ts`                                                                  |
+
+**Two deliberate deviations from the reference, both recorded in commits:**
+
+1. **Shared swagger error sets.** The reference declares them per file; they were
+   byte identical in all of mine. A set copied 27 times is one that drifts. D1
+   mandates DRY as much as it mandates layout.
+2. **`@Global() ProjectActivityModule`.** This is what unlocked the split. Eight
+   modules write to one append only activity log, and registering the service per
+   module would have given each its own DI instance and split the log. That
+   constraint is precisely why all 17 controllers were stuck together.
+
+**A security regression caught in the same change that introduced it.** Rewriting
+the `users` request DTOs I replaced `IsIn(ASSIGNABLE_ROLES)` with
+`IsEnum(Role)`. `ASSIGNABLE_ROLES` excludes `SYSTEM_ADMIN`, and `UsersService`
+checks `dto.role === ADMIN` but never `SYSTEM_ADMIN`, so that validator was the
+only barrier between an ADMIN and granting someone the root role. Restored, plus
+a defence in depth check in both `update()` and `invite()` and five specs. **The
+gap exists in `main` today**: the DTO holds it shut and nothing else does.
+
+**Still owed for this phase:**
+
+- Consolidated DTO files and response DTOs for the remaining 23 modules. The
+  swagger files reference response shapes by description rather than by typed
+  class for those, so `/api/docs` documents what goes in but not yet what comes
+  back
+- Moving the AI and Slack calls still in the request path onto BullMQ
+
 ## Completed phases
 
 ### Phase 1: make it verifiable — complete, 2026-08-20
