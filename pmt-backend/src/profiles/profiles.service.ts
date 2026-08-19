@@ -119,11 +119,12 @@ export class ProfilesService {
       throw new NotFoundException('User not found');
     }
 
-    const { url, publicId } = await this.cloudinary.upload(
-      file.buffer,
-      'pmt/avatars',
-      'image',
-    );
+    const { url, publicId } = await this.cloudinary.upload(file, {
+      folder: 'pmt/avatars',
+      // Forced rather than left to detection: this is an avatar, and a video
+      // that happened to pass the mimetype filter must not become one.
+      resourceType: 'image',
+    });
 
     if (user.avatarPublicId) {
       // Swallowed on purpose: a failed delete leaves an orphaned asset, which

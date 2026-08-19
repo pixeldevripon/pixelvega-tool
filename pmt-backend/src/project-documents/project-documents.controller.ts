@@ -15,11 +15,11 @@ import { FileInterceptor, FilesInterceptor } from '@nestjs/platform-express';
 import { ApiCookieAuth, ApiTags } from '@nestjs/swagger';
 import { Permission, Role } from '@prisma/client';
 import { CurrentUser } from '@/common/decorators/current-user.decorator';
-import { documentUploadOptions } from '@/uploads/document-upload.options';
 import {
   MAX_BATCH_UPLOAD_FILES,
-  ProjectDocumentsService,
-} from './project-documents.service';
+  documentUploadOptions,
+} from '@/uploads/upload-options';
+import { ProjectDocumentsService } from './project-documents.service';
 import { RequirePermissions } from '@/auth/permissions/require-permissions.decorator';
 import {
   ApiCreateProjectDocumentDocs,

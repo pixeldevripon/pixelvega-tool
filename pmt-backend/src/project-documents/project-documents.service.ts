@@ -33,8 +33,6 @@ const DOCUMENT_FOLDER = 'pmt/project-documents';
 
 // Matches the maxCount passed to FilesInterceptor in the controller. Kept
 // here too since the service is what actually enforces "at least one."
-export const MAX_BATCH_UPLOAD_FILES = 10;
-
 const DOCUMENT_INCLUDE = {
   uploadedBy: { select: { id: true, name: true, email: true } },
 };
@@ -263,28 +261,29 @@ export class ProjectDocumentsService {
     file: Express.Multer.File,
     actorId: string,
   ) {
-    return this.cloudinary
-      .upload(
-        file.buffer,
-        DOCUMENT_FOLDER,
-        file.mimetype.startsWith('image/') ? 'image' : 'raw',
-      )
-      .then(({ url }) =>
-        this.prisma.projectDocument.create({
-          data: {
-            projectId,
-            title: dto.title,
-            description: dto.description,
-            type: dto.type,
-            format: 'FILE',
-            fileUrl: url,
-            fileMimeType: file.mimetype,
-            fileSizeBytes: file.size,
-            uploadedById: actorId,
-          },
-          include: DOCUMENT_INCLUDE,
-        }),
-      );
+    return (
+      this.cloudinary
+        // No resourceType: Cloudinary decides from the bytes. The old
+        // `startsWith('image/') ? 'image' : 'raw'` guess stored a video as an
+        // undeliverable raw blob.
+        .upload(file, { folder: DOCUMENT_FOLDER })
+        .then(({ url }) =>
+          this.prisma.projectDocument.create({
+            data: {
+              projectId,
+              title: dto.title,
+              description: dto.description,
+              type: dto.type,
+              format: 'FILE',
+              fileUrl: url,
+              fileMimeType: file.mimetype,
+              fileSizeBytes: file.size,
+              uploadedById: actorId,
+            },
+            include: DOCUMENT_INCLUDE,
+          }),
+        )
+    );
   }
 
   // Every file shares the same type/description and becomes its own
@@ -306,18 +305,32 @@ export class ProjectDocumentsService {
       throw new BadRequestException('At least one file is required');
     }
 
+    // Every file goes up at once. Sequentially, a ten file batch cost ten
+    // round trips of wall clock for work that has no ordering between items.
+    // uploadMany is all or nothing: if any file fails it deletes the ones that
+    // already landed, so a failed batch leaves neither orphaned assets nor
+    // half a set of rows.
+    const assets = await this.cloudinary.uploadMany(files, {
+      folder: DOCUMENT_FOLDER,
+    });
+
     const documents: Awaited<ReturnType<typeof this.createFileDocument>>[] = [];
-    for (const file of files) {
-      const document = await this.createFileDocument(
-        projectId,
-        {
+    for (const [index, asset] of assets.entries()) {
+      const file = files[index];
+      const document = await this.prisma.projectDocument.create({
+        data: {
+          projectId,
           title: file.originalname,
-          type: dto.type,
           description: dto.description,
+          type: dto.type,
+          format: 'FILE',
+          fileUrl: asset.url,
+          fileMimeType: file.mimetype,
+          fileSizeBytes: asset.bytes,
+          uploadedById: actorId,
         },
-        file,
-        actorId,
-      );
+        include: DOCUMENT_INCLUDE,
+      });
 
       await this.projectActivity.log(projectId, actorId, 'DOCUMENT_ADDED', {
         message: `Document "${document.title}" added`,
