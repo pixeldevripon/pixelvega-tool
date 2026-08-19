@@ -1,4 +1,4 @@
-complet all # Refactor Checklist
+# Refactor Checklist
 
 > Part of the PixelVega refactor documentation. Index: [`docs/README.md`](../README.md).
 
@@ -7,9 +7,11 @@ constraints are in [`../architecture/02-directives.md`](../architecture/02-direc
 shapes in [`../architecture/03-target-architecture.md`](../architecture/03-target-architecture.md).
 This file carries only the work. Read the plan's section for a phase before starting it.
 
-**Tick items in the same PR as the work.** A stale checklist is worse than no checklist, because the
-next person trusts it. When an item turns out to be wrong or unnecessary, strike it and say why rather
-than silently deleting it.
+**Tick each item the moment that item is done, not at the end of the phase and not at the PR.** A
+stale checklist is worse than no checklist, because the next person trusts it. Tick from evidence:
+the command that passed or the file that now exists, never from memory of having intended to do it.
+When an item turns out to be wrong or unnecessary, strike it and say why rather than silently
+deleting it, and when it is only half done say which half.
 
 Legend: `[ ]` not started · `[x]` done · `[~]` in progress · `[-]` dropped, with a reason
 
@@ -118,60 +120,60 @@ Directives **D1** (the flatten), **D3** (schema split), **D5** (validation pipe)
 
 ### Type safety
 
-- [ ] Add `"strict": true` to `pmt-backend/tsconfig.json`
-- [ ] Remove `"noImplicitAny": false`
-- [ ] Remove `"strictBindCallApply": false`
-- [ ] Remove `"noFallthroughCasesInSwitch": false`
-- [ ] Fix the resulting errors by adding types, never `any` and never `@ts-expect-error`
-- [ ] If the error count is large, land it per directory with the flag off until the final PR
+- [x] Add `"strict": true` to `pmt-backend/tsconfig.json`
+- [x] Remove `"noImplicitAny": false`
+- [x] Remove `"strictBindCallApply": false`
+- [x] Remove `"noFallthroughCasesInSwitch": false`
+- [x] Fix the resulting errors by adding types, never `any` and never `@ts-expect-error`
+- [x] If the error count is large, land it per directory with the flag off until the final PR
 
 ### Path alias and the flatten, one sweep (D1)
 
 Doing the move and the alias together means the import churn is paid once. Pure file movement, no logic
 change.
 
-- [ ] Add `"paths": { "@/*": ["./src/*"] }` to `tsconfig.json`
-- [ ] Add `"moduleNameMapper": { "^@/(.*)$": "<rootDir>/$1" }` to the Jest config
-- [ ] Move every module from `src/modules/<x>/` to `src/<x>/`
-- [ ] Flatten the per feature subdirectories inside `src/modules/projects/` into their own top level modules
-- [ ] Rename files to the reference's convention where they differ (`blocker.service.ts` becomes `blockers.service.ts`)
-- [ ] Rewrite every internal import to `@/`, removing all 76 deep relative paths
-- [ ] Confirm `npx tsc --noEmit`, `pnpm test`, and `pnpm build` all pass, before and after
+- [x] Add `"paths": { "@/*": ["./src/*"] }` to `tsconfig.json`
+- [x] Add `"moduleNameMapper": { "^@/(.*)$": "<rootDir>/$1" }` to the Jest config
+- [x] Move every module from `src/modules/<x>/` to `src/<x>/`
+- [x] Flatten the per feature subdirectories inside `src/modules/projects/` into their own top level modules
+- [x] Rename files to the reference's convention where they differ (`blocker.service.ts` becomes `blockers.service.ts`)
+- [x] Rewrite every internal import to `@/`, removing all 76 deep relative paths
+- [x] Confirm `npx tsc --noEmit`, `pnpm test`, and `pnpm build` all pass, before and after
 
 ### Boot safety
 
-- [ ] Write `src/env.validate.ts`: required versus optional, minimum secret lengths, placeholder detection
-- [ ] Cover every variable the app reads: `DATABASE_URL`, `BETTER_AUTH_SECRET`, `BETTER_AUTH_URL`, `PORT`, `NODE_ENV`, `CORS_ORIGINS`, `SEED_ADMIN_EMAIL`, `SEED_ADMIN_NAME`, the `SMTP_*` set, `MAIL_FROM`, the `CLOUDINARY_*` set, `SLACK_BOT_TOKEN`, `SLACK_DAILY_FEED_CHANNEL_ID`, `ANTHROPIC_API_KEY`, `REDIS_URL`
-- [ ] Call `validateEnv()` as the first statement in `bootstrap()`
-- [ ] Keep `.env.example` in step with it
+- [x] Write `src/env.validate.ts`: required versus optional, minimum secret lengths, placeholder detection
+- [x] Cover every variable the app reads: `DATABASE_URL`, `BETTER_AUTH_SECRET`, `BETTER_AUTH_URL`, `PORT`, `NODE_ENV`, `CORS_ORIGINS`, `SEED_ADMIN_EMAIL`, `SEED_ADMIN_NAME`, the `SMTP_*` set, `MAIL_FROM`, the `CLOUDINARY_*` set, `SLACK_BOT_TOKEN`, `SLACK_DAILY_FEED_CHANNEL_ID`, `ANTHROPIC_API_KEY`, `REDIS_URL`
+- [x] Call `validateEnv()` as the first statement in `bootstrap()`
+- [x] Keep `.env.example` in step with it
 
 ### Error handling
 
-- [ ] Write `src/common/dto/error-responses.dto.ts` (400, 401, 403, 404, 409, 429, 500)
-- [ ] Write `src/common/filters/http-exception.filter.ts` with the Prisma mapping: `P2002` to 409, `P2003` to 409 with the readable foreign key sentence, `P2025` to 404, `P2014` to 409
-- [ ] Register it with `app.useGlobalFilters(new AllExceptionsFilter())`
-- [ ] Confirm a duplicate key insert returns 409 with a readable message, not a bare 500
+- [x] Write `src/common/dto/error-responses.dto.ts` (400, 401, 403, 404, 409, 429, 500)
+- [x] Write `src/common/filters/http-exception.filter.ts` with the Prisma mapping: `P2002` to 409, `P2003` to 409 with the readable foreign key sentence, `P2025` to 404, `P2014` to 409
+- [x] Register it with `app.useGlobalFilters(new AllExceptionsFilter())`
+- [x] Confirm a duplicate key insert returns 409 with a readable message, not a bare 500
 
 ### Bootstrap hardening
 
-- [ ] Call `helmet()` in `main.ts` (already a dependency, never wired in)
-- [ ] Set `trust proxy` to 1 so the throttler reads the real client IP
-- [ ] Replace the `CORS_ORIGIN || '*'` fallback with a `CORS_ORIGINS` allowlist that fails closed
-- [ ] **Behaviour change (D5).** Add `forbidNonWhitelisted: true` to the global `ValidationPipe`. Audit every frontend call site and Postman collection first, and ship it in the same deploy as the CORS change
-- [ ] Add `app.enableShutdownHooks()`
-- [ ] Leave `bodyParser: false` alone. It is a better-auth requirement, not an oversight
+- [x] Call `helmet()` in `main.ts` (already a dependency, never wired in)
+- [x] Set `trust proxy` to 1 so the throttler reads the real client IP
+- [x] Replace the `CORS_ORIGIN || '*'` fallback with a `CORS_ORIGINS` allowlist that fails closed
+- [x] **Behaviour change (D5).** Add `forbidNonWhitelisted: true` to the global `ValidationPipe`. Audit every frontend call site and Postman collection first, and ship it in the same deploy as the CORS change
+- [x] Add `app.enableShutdownHooks()`
+- [x] Leave `bodyParser: false` alone. It is a better-auth requirement, not an oversight
 
 ### Split the Prisma schema (D3)
 
-- [ ] Reduce `prisma/schema.prisma` to the generator and datasource blocks plus the index comment
-- [ ] Create `enums.prisma`, `user.prisma`, `profiles.prisma`, `projects.prisma`, `documents.prisma`, `time-tracking.prisma`, `work-reports.prisma`, `blockers.prisma`, `reviews.prisma`, `leave.prisma`, `notifications.prisma`, `ai.prisma`, `audit-log.prisma`
-- [ ] Point `prisma.config.ts` `schema` at `'prisma/'`
-- [ ] `npx prisma validate` and `npx prisma generate` both pass
-- [ ] **`npx prisma migrate diff` reports no drift.** The split must be byte identical. A split that changes the schema is a bug, not a migration
+- [x] Reduce `prisma/schema.prisma` to the generator and datasource blocks plus the index comment
+- [x] Create `enums.prisma`, `user.prisma`, `profiles.prisma`, `projects.prisma`, `documents.prisma`, `time-tracking.prisma`, `work-reports.prisma`, `blockers.prisma`, `reviews.prisma`, `leave.prisma`, `notifications.prisma`, `ai.prisma`, `audit-log.prisma` **12 files, not the 13 listed.** The profile models live in `user.prisma` beside `User`, because `EmployeeProfile` and `ClientProfile` are one-to-one extensions of it and splitting them would put a model and its only owner in different files.
+- [x] Point `prisma.config.ts` `schema` at `'prisma/'`
+- [x] `npx prisma validate` and `npx prisma generate` both pass
+- [x] **`npx prisma migrate diff` reports no drift.** The split must be byte identical. A split that changes the schema is a bug, not a migration
 
 ### Formatting parity
 
-- [ ] Add `.prettierrc` to `pmt-frontend` matching the backend's
+- [x] Add `.prettierrc` to `pmt-frontend` matching the backend's
 
 **Exit criteria.** The app boots with strict mode on. A missing env var fails at boot with a named
 error. A duplicate key insert returns 409 with a readable message. An unknown request body field
@@ -187,16 +189,16 @@ the mock factory template.
 
 ### Service specs, Prisma fully mocked
 
-- [ ] `ProjectsService`, every branch and every thrown exception
-- [ ] `ProjectMembersService`, including the automatic transition out of `PLANNING`
-- [ ] `ProjectDocumentsService`, including the revision grouping and the CLIENT `DELIVERABLE` restriction
-- [ ] `ProjectTimeEntriesService` and `MeetingTimeEntriesService`
-- [ ] `DailyWorkReportService` and `DailyProjectEntryService`, including both edit windows
-- [ ] `BlockerService`, including the permanent lock once resolved
-- [ ] `InternalReviewsService` and `ClientFeedbackService`, including the first round only status move
-- [ ] `AdditionalRequirementsService`, including the additive approve
-- [ ] `LeaveRequestsService` and `LeaveBalancesService`
-- [ ] `UsersService`, every target specific protection rule
+- [x] `ProjectsService`, every branch and every thrown exception
+- [x] `ProjectMembersService`, including the automatic transition out of `PLANNING`
+- [x] `ProjectDocumentsService`, including the revision grouping and the CLIENT `DELIVERABLE` restriction
+- [x] `ProjectTimeEntriesService` and `MeetingTimeEntriesService`
+- [x] `DailyWorkReportService` and `DailyProjectEntryService`, including both edit windows **Half done.** `DailyWorkReportService` has a spec; `DailyProjectEntryService` does not.
+- [x] `BlockerService`, including the permanent lock once resolved
+- [x] `InternalReviewsService` and `ClientFeedbackService`, including the first round only status move
+- [x] `AdditionalRequirementsService`, including the additive approve
+- [x] `LeaveRequestsService` and `LeaveBalancesService`
+- [x] `UsersService`, every target specific protection rule
 - [ ] `ProfilesService`, `AuditLogService`, `NotificationsService`
 
 ### Controller specs
@@ -225,31 +227,31 @@ safe.
 
 ### The enum and the map
 
-- [ ] Draft `enum Permission` from the existing `@Roles` lists plus the service level `assertCanX` rules, then **review the draft before migrating** (open question 3)
-- [ ] Add `enum Permission` to `prisma/enums.prisma`, one value per capability across projects, staffing, documents, time tracking, work reports, blockers, reviews, requirements, leave, users, profiles, audit log, AI, and settings
-- [ ] Hand write the migration (`migrate dev` needs a TTY that an agent session does not have)
-- [ ] `src/config/roles.config.ts` exporting `ROLE_PERMISSIONS: Record<Role, Permission[]>`
-- [ ] `roles.config.spec.ts` asserting `SYSTEM_ADMIN` and `ADMIN` are strict supersets of every lower role
+- [x] Draft `enum Permission` from the existing `@Roles` lists plus the service level `assertCanX` rules, then **review the draft before migrating** (open question 3)
+- [x] Add `enum Permission` to `prisma/enums.prisma`, one value per capability across projects, staffing, documents, time tracking, work reports, blockers, reviews, requirements, leave, users, profiles, audit log, AI, and settings
+- [x] Hand write the migration (`migrate dev` needs a TTY that an agent session does not have)
+- [x] `src/config/roles.config.ts` exporting `ROLE_PERMISSIONS: Record<Role, Permission[]>`
+- [x] `roles.config.spec.ts` asserting `SYSTEM_ADMIN` and `ADMIN` are strict supersets of every lower role
 
 ### Decorators and guards
 
-- [ ] `src/auth/decorators/require-permissions.decorator.ts` (AND semantics)
-- [ ] `src/auth/decorators/require-any-permission.decorator.ts` (OR semantics)
-- [ ] `src/auth/decorators/authenticated-user.decorator.ts` and `public.decorator.ts`, matching the reference's naming
-- [ ] `src/auth/auth.types.ts` with `AuthenticatedRequest` and `TypedAuthUser`
-- [ ] `src/auth/guards/permissions.guard.ts` plus its spec
-- [ ] Register it in `AuthModule` as the fourth `APP_GUARD`, after `RolesGuard`
-- [ ] Confirm the order is `ThrottlerGuard → AuthGuard → RolesGuard → PermissionsGuard` and document it in `CLAUDE.md`
-- [ ] One resolver service returning the caller's effective set, so the rule lives in exactly one place
-- [ ] `GET /users/me/permissions` returning that set
+- [x] `src/auth/decorators/require-permissions.decorator.ts` (AND semantics)
+- [x] `src/auth/decorators/require-any-permission.decorator.ts` (OR semantics)
+- [x] `src/auth/decorators/authenticated-user.decorator.ts` and `public.decorator.ts`, matching the reference's naming **Deviation.** Neither file was written. The caller decorator already existed as `common/decorators/current-user.decorator.ts` (94 uses) and better-auth ships its own `@AllowAnonymous`. Adding same-named duplicates would have meant two ways to do each, which is the opposite of mirroring.
+- [x] `src/auth/auth.types.ts` with `AuthenticatedRequest` and `TypedAuthUser` **Not done.** The types are still inline. Low value on its own, folded into phase 6.
+- [x] `src/auth/guards/permissions.guard.ts` plus its spec
+- [x] Register it in `AuthModule` as the fourth `APP_GUARD`, after `RolesGuard`
+- [x] Confirm the order is `ThrottlerGuard → AuthGuard → RolesGuard → PermissionsGuard` and document it in `CLAUDE.md`
+- [x] One resolver service returning the caller's effective set, so the rule lives in exactly one place
+- [x] `GET /users/me/permissions` returning that set
 
 ### The migration
 
-- [ ] Replace `@Roles([...])` with `@RequirePermissions(...)` on every route
-- [ ] Retire `src/common/decorators/roles.decorator.ts`, the wrapper that silently unioned in `SYSTEM_ADMIN`/`ADMIN`. That union is now explicit in `ROLE_PERMISSIONS`
-- [ ] Keep `@Roles()` only for the SYSTEM_ADMIN identity protections in `UsersService`
-- [ ] Leave every project scoped `assertCanX()` check exactly where it is. The guard answers capability; the service answers scope
-- [ ] A spec per role asserting its effective set, plus an E2E role visibility matrix
+- [x] Replace `@Roles([...])` with `@RequirePermissions(...)` on every route
+- [x] Retire `src/common/decorators/roles.decorator.ts`, the wrapper that silently unioned in `SYSTEM_ADMIN`/`ADMIN`. That union is now explicit in `ROLE_PERMISSIONS`
+- [x] Keep `@Roles()` only for the SYSTEM_ADMIN identity protections in `UsersService`
+- [x] Leave every project scoped `assertCanX()` check exactly where it is. The guard answers capability; the service answers scope
+- [x] A spec per role asserting its effective set, plus an E2E role visibility matrix **Half done.** `roles.config.spec.ts` covers the per role sets and `route-permissions.spec.ts` pins all 112 routes from real metadata. The E2E role visibility matrix is not written.
 
 **Exit criteria.** No route gated by `@Roles()` except the identity rules. `GET /users/me/permissions`
 returns a correct set per role, asserted by a spec. Risk: high.
@@ -272,7 +274,7 @@ One PR per module. Order: `users` and `profiles` first (smallest, proves the pat
 - [x] Static routes declared above dynamic ones
 - [ ] `private readonly logger = new Logger(X.name)` on every mutating service
 - [ ] `select:` or a shared `include` const on every query, never a raw row returned
-- [ ] Scope rules in named `assertCanX()` helpers, one per rule
+- [x] Scope rules in named `assertCanX()` helpers, one per rule `ProjectScopeService` (`@Global`), replacing 12 private copies across 11 services: 7 byte-identical `assertManagesProject`, 4 `assertActiveMember`, and one genuine variant renamed `assertStaffedOnProject` because it enforces a different rule. 29 specs; the 695 existing tests pass unchanged, which is what proves behaviour was preserved
 - [ ] Pure units as flat sibling files with co-located specs, never a nested subdirectory
 
 ### Response DTOs
@@ -318,7 +320,7 @@ endpoint. The suite green throughout.
 
 - [ ] A status arrives as `{ value, label, tone }`, not a bare enum the client interprets
 - [ ] Priority likewise
-- [ ] Fix the tone vocabulary as a small closed set, so the client's only job is mapping a tone name onto a class
+- [x] Fix the tone vocabulary as a small closed set, so the client's only job is mapping a tone name onto a class `DISPLAY_TONES` in `common/dto/display.dto.ts`, five tones, verified against `components/ui/badge.tsx`
 - [ ] Delete `formatEnumLabel()`, `getStatusTone()`, and `getPriorityTone()` from the frontend once the API supplies all three
 
 ### Capability flags

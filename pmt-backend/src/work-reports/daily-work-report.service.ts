@@ -20,6 +20,7 @@ import {
   QueryProjectDailyEntriesDto,
 } from '@/work-reports/dto/query-project-daily-entries.dto';
 import { QueryDailyWorkReportsDto } from '@/work-reports/dto/query-daily-work-reports.dto';
+import { ProjectScopeService } from '@/project-scope/project-scope.service';
 
 const WRAP_UP_EDIT_WINDOW_MS = 2 * 60 * 60 * 1000;
 
@@ -132,6 +133,7 @@ export class DailyWorkReportService {
   private readonly logger = new Logger(DailyWorkReportService.name);
 
   constructor(
+    private readonly projectScope: ProjectScopeService,
     private readonly prisma: PrismaService,
     private readonly projectActivity: ProjectActivityService,
     private readonly slackService: SlackService,
@@ -141,7 +143,7 @@ export class DailyWorkReportService {
     this.assertNoDuplicateProjects(dto.entries.map((entry) => entry.projectId));
 
     for (const entry of dto.entries) {
-      await this.assertActiveMember(entry.projectId, userId);
+      await this.projectScope.assertStaffedOnProject(entry.projectId, userId);
     }
 
     const date = toDateOnly(new Date());
@@ -318,7 +320,7 @@ export class DailyWorkReportService {
     });
 
     for (const entry of dto.entries) {
-      await this.assertActiveMember(entry.projectId, userId);
+      await this.projectScope.assertStaffedOnProject(entry.projectId, userId);
 
       const updatedEntry = await this.prisma.dailyProjectEntry.upsert({
         where: {
@@ -387,7 +389,7 @@ export class DailyWorkReportService {
     }> = [];
 
     for (const entry of dto.entries) {
-      await this.assertActiveMember(entry.projectId, userId);
+      await this.projectScope.assertStaffedOnProject(entry.projectId, userId);
 
       // A wrap up may include a project that wasn't part of the morning plan
       // (unplanned or urgent work). The upsert creates a fresh entry for those.
@@ -558,23 +560,6 @@ export class DailyWorkReportService {
       );
     }
     return report;
-  }
-
-  private async assertActiveMember(projectId: string, userId: string) {
-    const project = await this.prisma.project.findUnique({
-      where: { id: projectId },
-    });
-    if (!project) {
-      throw new NotFoundException('Project not found');
-    }
-    const membership = await this.prisma.projectMember.findFirst({
-      where: { projectId, userId, leftAt: null },
-    });
-    if (!membership) {
-      throw new ForbiddenException(
-        'You are not an active member of this project',
-      );
-    }
   }
 
   private async getProjectOrThrow(projectId: string) {

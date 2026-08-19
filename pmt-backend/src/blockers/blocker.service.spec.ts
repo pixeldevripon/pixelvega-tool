@@ -20,6 +20,7 @@ import { NotificationsService } from '@/notifications/notifications.service';
 import { PrismaService } from '@/prisma/prisma.service';
 import { ProjectActivityService } from '@/project-activity/project-activity.service';
 import { SlackService } from '@/slack/slack.service';
+import { ProjectScopeService } from '@/project-scope/project-scope.service';
 import { BlockerService } from './blocker.service';
 
 const BLOCKER_ID = 'blocker-1';
@@ -107,6 +108,7 @@ describe('BlockerService: the update lifecycle', () => {
 
     const module: TestingModule = await Test.createTestingModule({
       providers: [
+        ProjectScopeService,
         BlockerService,
         { provide: PrismaService, useValue: prisma },
         { provide: ProjectActivityService, useValue: { log: jest.fn() } },

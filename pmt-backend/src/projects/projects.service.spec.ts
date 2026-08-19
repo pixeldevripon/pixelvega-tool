@@ -23,6 +23,7 @@ import { PrismaService } from '@/prisma/prisma.service';
 import { SlackService } from '@/slack/slack.service';
 import { SlackUserResolverService } from '@/slack/slack-user-resolver.service';
 import { ProjectActivityService } from '@/project-activity/project-activity.service';
+import { ProjectScopeService } from '@/project-scope/project-scope.service';
 import { ProjectsService } from './projects.service';
 
 const PROJECT_ID = 'project-1';
@@ -82,6 +83,7 @@ describe('ProjectsService: status, archive and restore', () => {
 
     const module: TestingModule = await Test.createTestingModule({
       providers: [
+        ProjectScopeService,
         ProjectsService,
         { provide: PrismaService, useValue: prisma },
         { provide: ProjectActivityService, useValue: projectActivity },

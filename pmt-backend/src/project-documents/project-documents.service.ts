@@ -19,6 +19,7 @@ import { CreateProjectDocumentDto } from '@/project-documents/dto/create-project
 import { CreateProjectDocumentsBatchDto } from '@/project-documents/dto/create-project-documents-batch.dto';
 import { UpdateProjectDocumentDto } from '@/project-documents/dto/update-project-document.dto';
 import { QueryProjectDocumentsDto } from '@/project-documents/dto/query-project-documents.dto';
+import { ProjectScopeService } from '@/project-scope/project-scope.service';
 
 const DOCUMENT_FOLDER = 'pmt/project-documents';
 
@@ -40,6 +41,7 @@ const CLIENT_VISIBLE_TYPES: ProjectDocumentType[] = [
 @Injectable()
 export class ProjectDocumentsService {
   constructor(
+    private readonly projectScope: ProjectScopeService,
     private readonly prisma: PrismaService,
     private readonly cloudinary: CloudinaryService,
     private readonly projectActivity: ProjectActivityService,
@@ -168,7 +170,7 @@ export class ProjectDocumentsService {
     actorRole: Role,
   ) {
     await this.getProjectOrThrow(projectId);
-    await this.assertManagesProject(projectId, actorId, actorRole);
+    await this.projectScope.assertManagesProject(projectId, actorId, actorRole);
 
     if (file && dto.textContent) {
       throw new BadRequestException(
@@ -253,7 +255,7 @@ export class ProjectDocumentsService {
     actorRole: Role,
   ) {
     await this.getProjectOrThrow(projectId);
-    await this.assertManagesProject(projectId, actorId, actorRole);
+    await this.projectScope.assertManagesProject(projectId, actorId, actorRole);
 
     if (!files || files.length === 0) {
       throw new BadRequestException('At least one file is required');
@@ -325,7 +327,7 @@ export class ProjectDocumentsService {
     actorRole: Role,
   ) {
     const existing = await this.getDocumentOrThrow(projectId, documentId);
-    await this.assertManagesProject(projectId, actorId, actorRole);
+    await this.projectScope.assertManagesProject(projectId, actorId, actorRole);
 
     if (dto.textContent !== undefined && existing.format !== 'TEXT') {
       throw new BadRequestException(
@@ -367,7 +369,7 @@ export class ProjectDocumentsService {
     actorRole: Role,
   ) {
     const existing = await this.getDocumentOrThrow(projectId, documentId);
-    await this.assertManagesProject(projectId, actorId, actorRole);
+    await this.projectScope.assertManagesProject(projectId, actorId, actorRole);
 
     await this.prisma.projectDocument.update({
       where: { id: documentId },
@@ -429,27 +431,6 @@ export class ProjectDocumentsService {
       throw new ForbiddenException(
         'You are not an active member of this project',
       );
-    }
-  }
-
-  private async assertManagesProject(
-    projectId: string,
-    actorId: string,
-    actorRole: Role,
-  ) {
-    if (actorRole === Role.ADMIN || actorRole === Role.SYSTEM_ADMIN) {
-      return;
-    }
-    const membership = await this.prisma.projectMember.findFirst({
-      where: {
-        projectId,
-        userId: actorId,
-        role: ProjectRole.PROJECT_MANAGER,
-        leftAt: null,
-      },
-    });
-    if (!membership) {
-      throw new ForbiddenException('You do not manage this project');
     }
   }
 }

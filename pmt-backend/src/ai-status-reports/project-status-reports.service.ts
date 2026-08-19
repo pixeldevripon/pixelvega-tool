@@ -8,6 +8,7 @@ import { PrismaService } from '@/prisma/prisma.service';
 import { AiJobsService } from '@/ai/ai-jobs.service';
 import { ProjectReportService } from '@/project-reports/project-report.service';
 import { CreateStatusReportDto } from '@/ai-status-reports/dto/create-status-report.dto';
+import { ProjectScopeService } from '@/project-scope/project-scope.service';
 
 const MS_PER_DAY = 24 * 60 * 60 * 1000;
 const DEFAULT_PERIOD_DAYS = 7;
@@ -23,6 +24,7 @@ const DEFAULT_PERIOD_DAYS = 7;
 @Injectable()
 export class ProjectStatusReportsService {
   constructor(
+    private readonly projectScope: ProjectScopeService,
     private readonly prisma: PrismaService,
     private readonly aiJobsService: AiJobsService,
     private readonly projectReport: ProjectReportService,
@@ -35,7 +37,7 @@ export class ProjectStatusReportsService {
     actorRole: Role,
   ) {
     await this.getProjectOrThrow(projectId);
-    await this.assertManagesProject(projectId, actorId, actorRole);
+    await this.projectScope.assertManagesProject(projectId, actorId, actorRole);
 
     const { periodStart, periodEnd } = await this.resolvePeriod(projectId, dto);
 
@@ -113,27 +115,6 @@ export class ProjectStatusReportsService {
       throw new NotFoundException('Project not found');
     }
     return project;
-  }
-
-  private async assertManagesProject(
-    projectId: string,
-    actorId: string,
-    actorRole: Role,
-  ) {
-    if (actorRole === Role.ADMIN || actorRole === Role.SYSTEM_ADMIN) {
-      return;
-    }
-    const membership = await this.prisma.projectMember.findFirst({
-      where: {
-        projectId,
-        userId: actorId,
-        role: ProjectRole.PROJECT_MANAGER,
-        leftAt: null,
-      },
-    });
-    if (!membership) {
-      throw new ForbiddenException('You do not manage this project');
-    }
   }
 
   // Same read scoping as GET /projects/:projectId/ai/summary. CLIENT never

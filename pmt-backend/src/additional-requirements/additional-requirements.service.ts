@@ -20,6 +20,7 @@ import { NotificationsService } from '@/notifications/notifications.service';
 import { CreateAdditionalRequirementDto } from '@/additional-requirements/dto/create-additional-requirement.dto';
 import { ReviewAdditionalRequirementDto } from '@/additional-requirements/dto/review-additional-requirement.dto';
 import { QueryAdditionalRequirementsDto } from '@/additional-requirements/dto/query-additional-requirements.dto';
+import { ProjectScopeService } from '@/project-scope/project-scope.service';
 
 const MS_PER_DAY = 24 * 60 * 60 * 1000;
 
@@ -31,6 +32,7 @@ const REQUIREMENT_INCLUDE = {
 @Injectable()
 export class AdditionalRequirementsService {
   constructor(
+    private readonly projectScope: ProjectScopeService,
     private readonly prisma: PrismaService,
     private readonly projectActivity: ProjectActivityService,
     private readonly aiJobsService: AiJobsService,
@@ -82,7 +84,7 @@ export class AdditionalRequirementsService {
     actorRole: Role,
   ) {
     await this.getProjectOrThrow(projectId);
-    await this.assertManagesProject(projectId, actorId, actorRole);
+    await this.projectScope.assertManagesProject(projectId, actorId, actorRole);
 
     const requirement = await this.prisma.additionalRequirement.create({
       data: {
@@ -134,7 +136,7 @@ export class AdditionalRequirementsService {
       );
     }
 
-    await this.assertManagesProject(projectId, actorId, actorRole);
+    await this.projectScope.assertManagesProject(projectId, actorId, actorRole);
 
     if (
       dto.decision === AdditionalRequirementStatus.REJECTED &&
@@ -235,7 +237,7 @@ export class AdditionalRequirementsService {
     actorRole: Role,
   ) {
     await this.getRequirementOrThrow(projectId, id);
-    await this.assertManagesProject(projectId, actorId, actorRole);
+    await this.projectScope.assertManagesProject(projectId, actorId, actorRole);
 
     const job = await this.aiJobsService.enqueue(AiJobType.CHECK_SCOPE, {
       projectId,
@@ -343,27 +345,6 @@ export class AdditionalRequirementsService {
       throw new ForbiddenException(
         'You are not an active member of this project',
       );
-    }
-  }
-
-  private async assertManagesProject(
-    projectId: string,
-    actorId: string,
-    actorRole: Role,
-  ) {
-    if (actorRole === Role.ADMIN || actorRole === Role.SYSTEM_ADMIN) {
-      return;
-    }
-    const membership = await this.prisma.projectMember.findFirst({
-      where: {
-        projectId,
-        userId: actorId,
-        role: ProjectRole.PROJECT_MANAGER,
-        leftAt: null,
-      },
-    });
-    if (!membership) {
-      throw new ForbiddenException('You do not manage this project');
     }
   }
 }

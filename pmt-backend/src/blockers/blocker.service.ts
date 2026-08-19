@@ -23,6 +23,7 @@ import { AddBlockerDto } from '@/blockers/dto/add-blocker.dto';
 import { UpdateBlockerDto } from '@/blockers/dto/update-blocker.dto';
 import { QueryBlockersDto } from '@/blockers/dto/query-blockers.dto';
 import { QueryProjectBlockersDto } from '@/blockers/dto/query-project-blockers.dto';
+import { ProjectScopeService } from '@/project-scope/project-scope.service';
 
 const MS_PER_MINUTE = 60 * 1000;
 const MS_PER_DAY = 24 * 60 * 60 * 1000;
@@ -68,6 +69,7 @@ export class BlockerService {
   private readonly logger = new Logger(BlockerService.name);
 
   constructor(
+    private readonly projectScope: ProjectScopeService,
     private readonly prisma: PrismaService,
     private readonly projectActivity: ProjectActivityService,
     private readonly slackService: SlackService,
@@ -504,7 +506,11 @@ export class BlockerService {
       await this.assertIsActiveMember(blocker.projectId, actorId);
       return;
     }
-    await this.assertManagesProject(blocker.projectId, actorId, actorRole);
+    await this.projectScope.assertManagesProject(
+      blocker.projectId,
+      actorId,
+      actorRole,
+    );
   }
 
   // Reporting requires being an active member of the target project in any
@@ -543,27 +549,6 @@ export class BlockerService {
       throw new ForbiddenException(
         'You are not an active member of this project',
       );
-    }
-  }
-
-  private async assertManagesProject(
-    projectId: string,
-    actorId: string,
-    actorRole: Role,
-  ) {
-    if (actorRole === Role.ADMIN || actorRole === Role.SYSTEM_ADMIN) {
-      return;
-    }
-    const membership = await this.prisma.projectMember.findFirst({
-      where: {
-        projectId,
-        userId: actorId,
-        role: ProjectRole.PROJECT_MANAGER,
-        leftAt: null,
-      },
-    });
-    if (!membership) {
-      throw new ForbiddenException('You do not manage this project');
     }
   }
 

@@ -13,6 +13,7 @@ import { minutesBetween } from '@/common/utils/date.util';
 import { ProjectActivityService } from '@/project-activity/project-activity.service';
 import { TimeEntryNoteDto } from '@/time-tracking/dto/time-entry-note.dto';
 import { QueryTimeEntriesDto } from '@/time-tracking/dto/query-time-entries.dto';
+import { ProjectScopeService } from '@/project-scope/project-scope.service';
 import { MAX_CONTINUOUS_SESSION_MINUTES } from './time-tracking.constants';
 import {
   buildStartedAtFilter,
@@ -35,6 +36,7 @@ const MEETING_ENTRY_INCLUDE = {
 @Injectable()
 export class ProjectTimeEntriesService {
   constructor(
+    private readonly projectScope: ProjectScopeService,
     private readonly prisma: PrismaService,
     private readonly projectActivity: ProjectActivityService,
   ) {}
@@ -162,7 +164,7 @@ export class ProjectTimeEntriesService {
     actorRole: Role,
   ) {
     await this.getProjectOrThrow(projectId);
-    await this.assertActiveMember(projectId, actorId, actorRole);
+    await this.projectScope.assertActiveMember(projectId, actorId, actorRole);
 
     const {
       page = 1,
@@ -221,7 +223,7 @@ export class ProjectTimeEntriesService {
     actorRole: Role,
   ) {
     await this.getProjectOrThrow(projectId);
-    await this.assertActiveMember(projectId, actorId, actorRole);
+    await this.projectScope.assertActiveMember(projectId, actorId, actorRole);
 
     const { status, startDate, endDate, userId } = query;
     const startedAtFilter = buildStartedAtFilter(startDate, endDate);
@@ -302,7 +304,7 @@ export class ProjectTimeEntriesService {
     actorRole: Role,
   ) {
     await this.getProjectOrThrow(projectId);
-    await this.assertActiveMember(projectId, actorId, actorRole);
+    await this.projectScope.assertActiveMember(projectId, actorId, actorRole);
     await this.assertNoRunningTimer(actorId);
 
     // Generated up front (rather than left to the DB default) so the first
@@ -641,23 +643,5 @@ export class ProjectTimeEntriesService {
       where: { id: projectId },
       data: { actualHours: (_sum.durationMinutes ?? 0) / 60 },
     });
-  }
-
-  private async assertActiveMember(
-    projectId: string,
-    actorId: string,
-    actorRole: Role,
-  ) {
-    if (actorRole !== Role.DEVELOPER && actorRole !== Role.DESIGNER) {
-      return;
-    }
-    const membership = await this.prisma.projectMember.findFirst({
-      where: { projectId, userId: actorId, leftAt: null },
-    });
-    if (!membership) {
-      throw new ForbiddenException(
-        'You are not an active member of this project',
-      );
-    }
   }
 }

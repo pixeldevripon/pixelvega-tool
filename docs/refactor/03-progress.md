@@ -17,13 +17,13 @@ Status: `pending` · `in progress` · `done` · `blocked` · `dropped`
 
 ## Current position
 
-|                    |                                                              |
-| ------------------ | ------------------------------------------------------------ |
-| **Phases 1 to 5**  | Complete and **merged to `main`** (PRs #1 to #6), 2026-08-20 |
-| **Phase 6**        | Not started. This is the next work                           |
-| **Phases 7 to 9**  | Not started (frontend)                                       |
-| **Branch**         | `main`. No open branches or PRs                              |
-| **Gate on `main`** | `lint · typecheck · 601 unit · 12 E2E · build`, all green    |
+|                    |                                                                               |
+| ------------------ | ----------------------------------------------------------------------------- |
+| **Phases 1 to 5**  | Complete and **merged to `main`** (PRs #1 to #6), 2026-08-20                  |
+| **Phase 6**        | **In progress.** Backend half first, on `refactor/phase-6-backend-serves-all` |
+| **Phases 7 to 9**  | Not started (frontend)                                                        |
+| **Branch**         | `refactor/phase-6-backend-serves-all`                                         |
+| **Gate on `main`** | `lint · typecheck · 601 unit · 12 E2E · build`, all green                     |
 
 ### Read this first if you are picking the work up
 
@@ -281,3 +281,61 @@ suites, up from zero. A real commit triggers lint-staged, and the E2E database g
 | CI                 | none, and the one workflow present had never run       | lint, typecheck, test, build on both packages            |
 | Git hooks          | none                                                   | pre-commit and pre-push, both exercised                  |
 | E2E harness        | a starter spec expecting a route that no longer exists | real bootstrap, database guard, six pipeline smoke tests |
+
+---
+
+## Phase 6: the backend serves everything (D4, D5)
+
+Plan: [`01-plan.md`](./01-plan.md) phase 6. Checklist: [`02-checklist.md`](./02-checklist.md) phase 6.
+Inventory of what has to move: [`04-phase-6-inventory.md`](./04-phase-6-inventory.md).
+The three questions this phase had to answer first are settled in
+[`0001`](../decisions/0001-enum-value-label-and-tone.md),
+[`0002`](../decisions/0002-capability-flags-on-resources.md) and
+[`0003`](../decisions/0003-exact-values-in-the-api-rounding-is-display.md).
+
+**Backend first, frontend later.** Every task below is a `pmt-backend` task. The frontend
+cannot delete a single client side computation until the field it needs exists on a response,
+so the client half waits.
+
+### Ordering, and why
+
+The display primitives come before the response DTOs, not after. Twenty two modules need
+response DTOs, and every one of them will carry status objects and capability flags. Building
+the DTOs first would mean writing them twice.
+
+### Tasks
+
+| #    | Task                                                                             | Status      | Outcome                                                                                                                                                                                                        |
+| ---- | -------------------------------------------------------------------------------- | ----------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 6.1  | `EnumDisplayDto` and the closed tone vocabulary in `common/dto/display.dto.ts`   | done        | `EnumDisplayDto` plus `DISPLAY_TONES`, the five tones read off `components/ui/badge.tsx` rather than chosen                                                                                                    |
+| 6.2  | Label and tone maps for every display facing Prisma enum                         | done        | `common/utils/enum-display.util.ts`: 21 maps, each typed `Record<TheEnum, EnumDisplayEntry>` so a new Prisma member fails the build. Tones lifted from the frontend's own tone functions where they existed    |
+| 6.3  | Spec: the maps, including that the tone vocabulary stays closed                  | done        | 94 cases. Completeness driven from `Object.values(TheEnum)`, so the spec cannot pass by being stale itself. Also pins sentence case, the closed tone set, and that nullable stays null                         |
+| 6.4  | Capability flag helpers, computed from permissions plus project scope            | done        | `ProjectScopeService`, `@Global` like `ProjectActivityModule`. 12 private copies across 11 services collapsed into one definition. 29 specs, and the 724 unit tests pass with only a provider added to 8 specs |
+| 6.5  | Response DTOs: `projects` completed, plus `project-members`, `project-documents` | in progress |                                                                                                                                                                                                                |
+| 6.6  | Response DTOs: `time-tracking`, `work-reports`                                   | pending     |                                                                                                                                                                                                                |
+| 6.7  | Response DTOs: `blockers`, `internal-reviews`, `client-feedback`                 | pending     |                                                                                                                                                                                                                |
+| 6.8  | Response DTOs: `additional-requirements`, `project-reports`                      | pending     |                                                                                                                                                                                                                |
+| 6.9  | Response DTOs: `leave` (holidays, types, requests)                               | pending     |                                                                                                                                                                                                                |
+| 6.10 | Response DTOs: `ai`, `ai-summary`, `ai-status-reports`, `auth`                   | pending     |                                                                                                                                                                                                                |
+| 6.11 | Sorting, filtering and grouping become query params                              | pending     |                                                                                                                                                                                                                |
+| 6.12 | Aggregates and derived numbers become response fields                            | pending     |                                                                                                                                                                                                                |
+| 6.13 | D5 validation sweep: `@Type`, `@Transform`, `@IsEnum`, length bounds             | pending     |                                                                                                                                                                                                                |
+| 6.14 | Custom validators in `common/validators/`, each with a co-located spec           | pending     |                                                                                                                                                                                                                |
+| 6.15 | Contract check: frontend types verified against `/api/docs-json` in CI           | pending     |                                                                                                                                                                                                                |
+| 6.16 | Move the request path AI and Slack calls onto BullMQ                             | pending     |                                                                                                                                                                                                                |
+| 6.17 | Whole gate green, checklist ticked, PR opened                                    | pending     |                                                                                                                                                                                                                |
+
+### Decisions taken
+
+| Date       | Decision                                                                                                    | Reason                                                                                                                                                                                                                    |
+| ---------- | ----------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 2026-08-20 | The label and tone maps are typed `Record<TheEnum, EnumDisplayEntry>` rather than checked by a runtime test | TypeScript then fails the build when a Prisma enum gains a member and nobody gave it a label. A runtime spec can only catch that if someone remembers to extend the spec too, which is the same failure one level removed |
+| 2026-08-20 | Tone vocabulary is fixed at `default`, `primary`, `success`, `warning`, `danger`                            | It is exactly what `components/ui/badge.tsx` already implements, so the client's job stays a lookup. Confirmed against the file rather than chosen                                                                        |
+| 2026-08-20 | Labels are sentence case (`Ready for work`), not the title case the frontend produced (`Ready For Work`)    | Sentence case is the house style of every UI vocabulary worth copying, and the server supplying the label is precisely the chance to fix the `AI_SUMMARY` to `Ai Summary` class of bug rather than reproduce it           |
+
+### Findings
+
+| Date       | Finding                                                                                                                                                                                                                                                                                             | Impact                                                                                                                                                                                                                                     |
+| ---------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| 2026-08-20 | Project scoping was implemented **twelve times**: seven byte-identical copies of `assertManagesProject` across `projects`, `project-members`, `internal-reviews`, `additional-requirements`, `ai-status-reports`, `project-documents` and `blockers`, four of `assertActiveMember`, and one variant | They had **not** drifted, checked by hashing each extracted body. But nothing prevented it: a fix to an authorization rule had eleven places to land and no way to know it had missed one. Now one definition, in `ProjectScopeService`    |
+| 2026-08-20 | `daily-work-report.service.ts` had a method called `assertActiveMember` that was a **different rule**: it required membership of every role including admins, and 404s on a missing project                                                                                                         | The shared name hid the difference. Logging work against a project requires being staffed on it, and being an admin is not a reason to appear on a project's timesheet. Extracted as `assertStaffedOnProject`, which says what it enforces |

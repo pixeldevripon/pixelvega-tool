@@ -22,6 +22,7 @@ import { NotificationsService } from '@/notifications/notifications.service';
 import { AddProjectMemberDto } from '@/project-members/dto/add-project-member.dto';
 import { QueryProjectMembersDto } from '@/project-members/dto/query-project-members.dto';
 import { RECOMMENDED_MAX_ACTIVE_PROJECTS } from '@/projects/workload.constants';
+import { ProjectScopeService } from '@/project-scope/project-scope.service';
 
 const MEMBER_INCLUDE = {
   user: { select: { id: true, name: true, email: true, role: true } },
@@ -48,6 +49,7 @@ export class ProjectMembersService {
   private readonly logger = new Logger(ProjectMembersService.name);
 
   constructor(
+    private readonly projectScope: ProjectScopeService,
     private readonly prisma: PrismaService,
     private readonly projectActivity: ProjectActivityService,
     private readonly slackService: SlackService,
@@ -62,7 +64,7 @@ export class ProjectMembersService {
     actorRole: Role,
   ) {
     await this.getProjectOrThrow(projectId);
-    await this.assertActiveMember(projectId, actorId, actorRole);
+    await this.projectScope.assertActiveMember(projectId, actorId, actorRole);
 
     const { page = 1, pageSize = 20, includeLeft = false } = query;
     const where = {
@@ -91,7 +93,7 @@ export class ProjectMembersService {
     actorRole: Role,
   ) {
     const project = await this.getProjectOrThrow(projectId);
-    await this.assertManagesProject(projectId, actorId, actorRole);
+    await this.projectScope.assertManagesProject(projectId, actorId, actorRole);
 
     const user = await this.prisma.user.findFirst({
       where: { id: dto.userId, deletedAt: null },
@@ -191,7 +193,7 @@ export class ProjectMembersService {
     actorRole: Role,
   ) {
     const project = await this.getProjectOrThrow(projectId);
-    await this.assertManagesProject(projectId, actorId, actorRole);
+    await this.projectScope.assertManagesProject(projectId, actorId, actorRole);
 
     const member = await this.prisma.projectMember.findFirst({
       where: { id: memberId, projectId },
@@ -246,7 +248,7 @@ export class ProjectMembersService {
     actorRole: Role,
   ) {
     const project = await this.getProjectOrThrow(projectId);
-    await this.assertManagesProject(projectId, actorId, actorRole);
+    await this.projectScope.assertManagesProject(projectId, actorId, actorRole);
 
     if (!project.slackChannelId) {
       throw new BadRequestException(
@@ -295,47 +297,6 @@ export class ProjectMembersService {
       throw new NotFoundException('Project not found');
     }
     return project;
-  }
-
-  private async assertActiveMember(
-    projectId: string,
-    actorId: string,
-    actorRole: Role,
-  ) {
-    if (actorRole !== Role.DEVELOPER && actorRole !== Role.DESIGNER) {
-      return;
-    }
-    const membership = await this.prisma.projectMember.findFirst({
-      where: { projectId, userId: actorId, leftAt: null },
-    });
-    if (!membership) {
-      throw new ForbiddenException(
-        'You are not an active member of this project',
-      );
-    }
-  }
-
-  // Staffing a project you aren't already on requires an ADMIN/SYSTEM_ADMIN,
-  // or a PM already staffed on that project, to add you first.
-  private async assertManagesProject(
-    projectId: string,
-    actorId: string,
-    actorRole: Role,
-  ) {
-    if (actorRole === Role.ADMIN || actorRole === Role.SYSTEM_ADMIN) {
-      return;
-    }
-    const membership = await this.prisma.projectMember.findFirst({
-      where: {
-        projectId,
-        userId: actorId,
-        role: ProjectRole.PROJECT_MANAGER,
-        leftAt: null,
-      },
-    });
-    if (!membership) {
-      throw new ForbiddenException('You do not manage this project');
-    }
   }
 
   // "A project stays in Planning until a Project Manager and at least one

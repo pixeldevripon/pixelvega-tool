@@ -18,6 +18,7 @@ import { ProjectActivityService } from '@/project-activity/project-activity.serv
 import { NotificationsService } from '@/notifications/notifications.service';
 import { CreateInternalReviewDto } from '@/internal-reviews/dto/create-internal-review.dto';
 import { PaginationQueryDto } from '@/common/dto/pagination-query.dto';
+import { ProjectScopeService } from '@/project-scope/project-scope.service';
 
 const REVIEW_INCLUDE = {
   reviewedBy: { select: { id: true, name: true, email: true } },
@@ -31,6 +32,7 @@ const NEXT_STATUS_BY_DECISION: Record<InternalReviewDecision, ProjectStatus> = {
 @Injectable()
 export class InternalReviewsService {
   constructor(
+    private readonly projectScope: ProjectScopeService,
     private readonly prisma: PrismaService,
     private readonly projectActivity: ProjectActivityService,
     private readonly notificationsService: NotificationsService,
@@ -74,7 +76,7 @@ export class InternalReviewsService {
     actorRole: Role,
   ) {
     const project = await this.getProjectOrThrow(projectId);
-    await this.assertManagesProject(projectId, actorId, actorRole);
+    await this.projectScope.assertManagesProject(projectId, actorId, actorRole);
 
     if (project.status !== ProjectStatus.INTERNAL_REVIEW) {
       throw new ConflictException(
@@ -196,27 +198,6 @@ export class InternalReviewsService {
       throw new ForbiddenException(
         'You are not an active member of this project',
       );
-    }
-  }
-
-  private async assertManagesProject(
-    projectId: string,
-    actorId: string,
-    actorRole: Role,
-  ) {
-    if (actorRole === Role.ADMIN || actorRole === Role.SYSTEM_ADMIN) {
-      return;
-    }
-    const membership = await this.prisma.projectMember.findFirst({
-      where: {
-        projectId,
-        userId: actorId,
-        role: ProjectRole.PROJECT_MANAGER,
-        leftAt: null,
-      },
-    });
-    if (!membership) {
-      throw new ForbiddenException('You do not manage this project');
     }
   }
 }

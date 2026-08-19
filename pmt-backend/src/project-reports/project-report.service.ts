@@ -14,6 +14,7 @@ import {
   Role,
 } from '@prisma/client';
 import { PrismaService } from '@/prisma/prisma.service';
+import { ProjectScopeService } from '@/project-scope/project-scope.service';
 import { QueryProjectReportDto } from '@/project-reports/dto/query-project-report.dto';
 import {
   countWorkingDaysInRange,
@@ -46,7 +47,10 @@ function countBySeverity(
 // in docs/features/ai-integration/DESIGN.MD.
 @Injectable()
 export class ProjectReportService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly projectScope: ProjectScopeService,
+  ) {}
 
   async getProjectReport(
     projectId: string,
@@ -55,7 +59,7 @@ export class ProjectReportService {
     query: QueryProjectReportDto,
   ) {
     const project = await this.getProjectOrThrow(projectId);
-    await this.assertActiveMember(projectId, actorId, actorRole);
+    await this.projectScope.assertActiveMember(projectId, actorId, actorRole);
 
     const rangeStart = toDateOnly(new Date(query.startDate));
     const rangeEndExclusive = endOfRangeExclusive(new Date(query.endDate));
@@ -478,23 +482,5 @@ export class ProjectReportService {
       throw new NotFoundException('Project not found');
     }
     return project;
-  }
-
-  private async assertActiveMember(
-    projectId: string,
-    actorId: string,
-    actorRole: Role,
-  ) {
-    if (actorRole !== Role.DEVELOPER && actorRole !== Role.DESIGNER) {
-      return;
-    }
-    const membership = await this.prisma.projectMember.findFirst({
-      where: { projectId, userId: actorId, leftAt: null },
-    });
-    if (!membership) {
-      throw new ForbiddenException(
-        'You are not an active member of this project',
-      );
-    }
   }
 }

@@ -14,6 +14,7 @@ import { Test, TestingModule } from '@nestjs/testing';
 import { Role, TimeEntryStatus } from '@prisma/client';
 import { PrismaService } from '@/prisma/prisma.service';
 import { ProjectActivityService } from '@/project-activity/project-activity.service';
+import { ProjectScopeService } from '@/project-scope/project-scope.service';
 import { ProjectTimeEntriesService } from './project-time-entries.service';
 
 function createMockPrismaService() {
@@ -46,6 +47,7 @@ describe('ProjectTimeEntriesService: the one active timer rule', () => {
 
     const module: TestingModule = await Test.createTestingModule({
       providers: [
+        ProjectScopeService,
         ProjectTimeEntriesService,
         { provide: PrismaService, useValue: prisma },
         { provide: ProjectActivityService, useValue: projectActivity },

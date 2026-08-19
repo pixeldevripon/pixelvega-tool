@@ -19,6 +19,7 @@ import { AiJobsService } from '@/ai/ai-jobs.service';
 import { NotificationsService } from '@/notifications/notifications.service';
 import { PrismaService } from '@/prisma/prisma.service';
 import { ProjectActivityService } from '@/project-activity/project-activity.service';
+import { ProjectScopeService } from '@/project-scope/project-scope.service';
 import { AdditionalRequirementsService } from './additional-requirements.service';
 
 const PROJECT_ID = 'project-1';
@@ -71,6 +72,7 @@ describe('AdditionalRequirementsService: review', () => {
 
     const module: TestingModule = await Test.createTestingModule({
       providers: [
+        ProjectScopeService,
         AdditionalRequirementsService,
         { provide: PrismaService, useValue: prisma },
         { provide: ProjectActivityService, useValue: { log: jest.fn() } },
