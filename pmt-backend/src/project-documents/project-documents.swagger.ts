@@ -8,6 +8,12 @@ import {
   ApiResponse,
 } from '@nestjs/swagger';
 import { notFound, projectScopedErrors } from '@/common/swagger/error-sets';
+import {
+  PaginatedProjectDocumentsResponseDto,
+  ProjectDocumentDetailResponseDto,
+  ProjectDocumentResponseDto,
+  RemoveProjectDocumentResponseDto,
+} from '@/project-documents/dto/project-document.dto';
 
 const projectIdParam = ApiParam({
   name: 'projectId',
@@ -44,7 +50,11 @@ export const ApiListProjectDocumentsDocs = () =>
     }),
     projectIdParam,
     ApiQuery({ name: 'includeHistory', required: false, type: Boolean }),
-    ApiResponse({ status: 200, description: 'Paginated documents' }),
+    ApiResponse({
+      status: 200,
+      description: 'Paginated documents',
+      type: PaginatedProjectDocumentsResponseDto,
+    }),
     ...projectScopedErrors,
   );
 
@@ -59,7 +69,11 @@ export const ApiGetProjectDocumentDocs = () =>
     }),
     projectIdParam,
     documentIdParam,
-    ApiResponse({ status: 200, description: 'The document' }),
+    ApiResponse({
+      status: 200,
+      description: 'The document',
+      type: ProjectDocumentDetailResponseDto,
+    }),
     ...projectScopedErrors,
     notFound('Document not found'),
   );
@@ -76,7 +90,11 @@ export const ApiCreateProjectDocumentDocs = () =>
     ApiConsumes('multipart/form-data'),
     singleFileBody,
     projectIdParam,
-    ApiResponse({ status: 201, description: 'The created document' }),
+    ApiResponse({
+      status: 201,
+      description: 'The created document',
+      type: ProjectDocumentResponseDto,
+    }),
     ...projectScopedErrors,
   );
 
@@ -92,7 +110,11 @@ export const ApiCreateProjectDocumentsBatchDocs = () =>
     }),
     ApiConsumes('multipart/form-data'),
     projectIdParam,
-    ApiResponse({ status: 201, description: 'The created documents' }),
+    ApiResponse({
+      status: 201,
+      description: 'The created documents',
+      type: [ProjectDocumentResponseDto],
+    }),
     ...projectScopedErrors,
   );
 
@@ -101,7 +123,11 @@ export const ApiUpdateProjectDocumentDocs = () =>
     ApiOperation({ summary: 'Edit a project document' }),
     projectIdParam,
     documentIdParam,
-    ApiResponse({ status: 200, description: 'The updated document' }),
+    ApiResponse({
+      status: 200,
+      description: 'The updated document',
+      type: ProjectDocumentResponseDto,
+    }),
     ...projectScopedErrors,
     notFound('Document not found'),
   );
@@ -114,7 +140,11 @@ export const ApiDeleteProjectDocumentDocs = () =>
     }),
     projectIdParam,
     documentIdParam,
-    ApiResponse({ status: 200, description: 'Deleted' }),
+    ApiResponse({
+      status: 200,
+      description: 'Deleted',
+      type: RemoveProjectDocumentResponseDto,
+    }),
     ...projectScopedErrors,
     notFound('Document not found'),
   );

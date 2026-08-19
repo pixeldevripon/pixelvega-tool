@@ -15,11 +15,18 @@ import { paginate } from '@/common/utils/pagination.util';
 import { CloudinaryService } from '@/uploads/cloudinary.service';
 import { ProjectActivityService } from '@/project-activity/project-activity.service';
 import { NotificationsService } from '@/notifications/notifications.service';
-import { CreateProjectDocumentDto } from '@/project-documents/dto/create-project-document.dto';
-import { CreateProjectDocumentsBatchDto } from '@/project-documents/dto/create-project-documents-batch.dto';
-import { UpdateProjectDocumentDto } from '@/project-documents/dto/update-project-document.dto';
-import { QueryProjectDocumentsDto } from '@/project-documents/dto/query-project-documents.dto';
 import { ProjectScopeService } from '@/project-scope/project-scope.service';
+import {
+  ProjectDocumentContext,
+  toProjectDocumentDetailResponse,
+  toProjectDocumentResponse,
+} from '@/project-documents/project-document.mapper';
+import {
+  CreateProjectDocumentDto,
+  CreateProjectDocumentsBatchDto,
+  QueryProjectDocumentsDto,
+  UpdateProjectDocumentDto,
+} from '@/project-documents/dto/project-document.dto';
 
 const DOCUMENT_FOLDER = 'pmt/project-documents';
 
@@ -66,22 +73,50 @@ export class ProjectDocumentsService {
         : type && { type }),
     };
 
-    if (includeHistory) {
-      return paginate(
-        (args) =>
-          this.prisma.projectDocument.findMany({
-            where,
-            orderBy: { createdAt: 'desc' },
-            include: DOCUMENT_INCLUDE,
-            ...args,
-          }),
-        () => this.prisma.projectDocument.count({ where }),
-        page,
-        pageSize,
-      );
-    }
+    const context = await this.buildDocumentContext(
+      projectId,
+      actorId,
+      actorRole,
+    );
 
-    return this.findLatestPerGroup(where, page, pageSize);
+    const result = includeHistory
+      ? await paginate(
+          (args) =>
+            this.prisma.projectDocument.findMany({
+              where,
+              orderBy: { createdAt: 'desc' },
+              include: DOCUMENT_INCLUDE,
+              ...args,
+            }),
+          () => this.prisma.projectDocument.count({ where }),
+          page,
+          pageSize,
+        )
+      : await this.findLatestPerGroup(where, page, pageSize);
+
+    return {
+      ...result,
+      items: result.items.map((document) =>
+        toProjectDocumentResponse(document, context),
+      ),
+    };
+  }
+
+  // Whether the caller manages the project decides every mutating capability
+  // on every row in the response, so it is asked once here rather than once
+  // per document.
+  private async buildDocumentContext(
+    projectId: string,
+    actorId: string,
+    actorRole: Role,
+  ): Promise<ProjectDocumentContext> {
+    return {
+      managesProject: await this.projectScope.managesProject(
+        projectId,
+        actorId,
+        actorRole,
+      ),
+    };
   }
 
   // Off by default (includeHistory=false): one row per (type, title) group,
@@ -149,17 +184,22 @@ export class ProjectDocumentsService {
       orderBy: { createdAt: 'desc' },
     });
 
-    return {
-      ...document,
-      supersededBy:
-        current && current.id !== document.id
-          ? {
-              id: current.id,
-              title: current.title,
-              createdAt: current.createdAt,
-            }
-          : null,
-    };
+    const context = await this.buildDocumentContext(
+      projectId,
+      actorId,
+      actorRole,
+    );
+    return toProjectDocumentDetailResponse(
+      document,
+      current && current.id !== document.id
+        ? {
+            id: current.id,
+            title: current.title,
+            createdAt: current.createdAt,
+          }
+        : null,
+      context,
+    );
   }
 
   async create(
@@ -209,7 +249,9 @@ export class ProjectDocumentsService {
       `A new document, "${document.title}", was uploaded.`,
     );
 
-    return document;
+    // Reaching a create at all required managing the project, so the context is
+    // known without asking again.
+    return toProjectDocumentResponse(document, { managesProject: true });
   }
 
   private createFileDocument(
@@ -292,7 +334,9 @@ export class ProjectDocumentsService {
         : `${documents.length} new documents were uploaded.`,
     );
 
-    return documents;
+    return documents.map((document) =>
+      toProjectDocumentResponse(document, { managesProject: true }),
+    );
   }
 
   private async notifyDocumentUploaded(
@@ -345,7 +389,7 @@ export class ProjectDocumentsService {
     if (dto.textContent !== undefined) data.textContent = dto.textContent;
 
     if (Object.keys(data).length === 0) {
-      return existing;
+      return toProjectDocumentResponse(existing, { managesProject: true });
     }
 
     const updated = await this.prisma.projectDocument.update({
@@ -359,7 +403,7 @@ export class ProjectDocumentsService {
       metadata: { documentId, changes: data },
     });
 
-    return updated;
+    return toProjectDocumentResponse(updated, { managesProject: true });
   }
 
   async remove(
