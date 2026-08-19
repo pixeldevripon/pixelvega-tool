@@ -1,0 +1,85 @@
+@import "tailwindcss";
+
+@custom-variant dark (&:where(.dark, .dark *));
+
+:root {
+  --background: #f6f7fb;
+  --foreground: #111827;
+  --card: #ffffff;
+  --card-foreground: #111827;
+  --muted: #f1f3f9;
+  --muted-foreground: #64748b;
+  --border: #d9deea;
+  --input: #eef1f8;
+  --primary: #4a3bd8;
+  --primary-foreground: #ffffff;
+  --accent: #ebe8ff;
+  --accent-foreground: #3324a6;
+  --success: #16a34a;
+  --warning: #d97706;
+  --danger: #dc2626;
+  color-scheme: light;
+}
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --font-sans: "Plus Jakarta Sans", Inter, ui-sans-serif, system-ui, sans-serif;
+}
+
+.dark {
+  --background: #0d1020;
+  --foreground: #eef2ff;
+  --card: #14182a;
+  --card-foreground: #eef2ff;
+  --muted: #1c2236;
+  --muted-foreground: #9aa6bd;
+  --border: #2b3348;
+  --input: #1b2133;
+  --primary: #6757f5;
+  --primary-foreground: #ffffff;
+  --accent: #28215d;
+  --accent-foreground: #ddd8ff;
+  color-scheme: dark;
+}
+
+body {
+  background: var(--background);
+  color: var(--foreground);
+  font-family: "Plus Jakarta Sans", Inter, ui-sans-serif, system-ui, sans-serif;
+}
+
+button,
+input,
+select,
+textarea {
+  font: inherit;
+}
+
+.auth-bg {
+  background-color: var(--background);
+  background-image: radial-gradient(
+    circle,
+    color-mix(in srgb, var(--primary) 18%, transparent) 1.2px,
+    transparent 1.2px
+  );
+  background-size: 52px 52px;
+}
+
+.dark .auth-bg {
+  background-image: radial-gradient(
+    circle,
+    color-mix(in srgb, var(--primary) 25%, transparent) 1.1px,
+    transparent 1.1px
+  );
+}

@@ -1,0 +1,814 @@
+<title>PMT Backend Runbook</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,400..800&family=Newsreader:opsz,wght@6..72,400..600&family=JetBrains+Mono:wght@400..700&display=swap">
+
+<style>
+  /* Light palette is the complete set. Neutrals carry a slight green bias
+     toward the accent, since the subject is seeding a database. */
+  :root {
+    --ground: #fcfdfc;
+    --surface: #f1f5f3;
+    --surface-2: #e7ede9;
+    --ink: #141d1a;
+    --ink-soft: #37453f;
+    --muted: #5c6a64;
+    --border: #d9e2dd;
+    --border-strong: #c2cec8;
+    --accent: #0d6b58;
+    --accent-ink: #095446;
+    --accent-soft: #e2f0eb;
+    --warn: #855000;
+    --warn-soft: #fbf1dd;
+    --warn-border: #e6cf9e;
+    --danger: #99232e;
+    --danger-soft: #fbeaeb;
+    --danger-border: #e8bfc3;
+    --code-ground: #f4f7f5;
+
+    --prose: 68ch;
+    --step--1: clamp(0.8rem, 0.78rem + 0.1vw, 0.85rem);
+    --step-0: clamp(1rem, 0.97rem + 0.15vw, 1.08rem);
+    --step-1: clamp(1.2rem, 1.13rem + 0.35vw, 1.4rem);
+    --step-2: clamp(1.5rem, 1.36rem + 0.7vw, 1.95rem);
+    --step-3: clamp(2rem, 1.7rem + 1.5vw, 3.1rem);
+
+    --font-display: 'Bricolage Grotesque', 'Helvetica Neue', Helvetica, Arial, sans-serif;
+    --font-body: 'Newsreader', Georgia, 'Times New Roman', serif;
+    --font-mono: 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  }
+
+  /* Only the tokens change per theme, never the component rules. */
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme='light']) {
+      --ground: #0d1311;
+      --surface: #151d1a;
+      --surface-2: #1c2622;
+      --ink: #dee7e3;
+      --ink-soft: #bcc9c4;
+      --muted: #8a9a94;
+      --border: #243029;
+      --border-strong: #35443c;
+      --accent: #4ec5a6;
+      --accent-ink: #7ad7bd;
+      --accent-soft: #132a24;
+      --warn: #dfa74a;
+      --warn-soft: #241c0d;
+      --warn-border: #4a3a1a;
+      --danger: #ea7d86;
+      --danger-soft: #241214;
+      --danger-border: #4d2328;
+      --code-ground: #121a17;
+    }
+  }
+
+  :root[data-theme='dark'] {
+    --ground: #0d1311;
+    --surface: #151d1a;
+    --surface-2: #1c2622;
+    --ink: #dee7e3;
+    --ink-soft: #bcc9c4;
+    --muted: #8a9a94;
+    --border: #243029;
+    --border-strong: #35443c;
+    --accent: #4ec5a6;
+    --accent-ink: #7ad7bd;
+    --accent-soft: #132a24;
+    --warn: #dfa74a;
+    --warn-soft: #241c0d;
+    --warn-border: #4a3a1a;
+    --danger: #ea7d86;
+    --danger-soft: #241214;
+    --danger-border: #4d2328;
+    --code-ground: #121a17;
+  }
+
+  *, *::before, *::after { box-sizing: border-box; }
+
+  body {
+    margin: 0;
+    background: var(--ground);
+    color: var(--ink);
+    font-family: var(--font-body);
+    font-size: var(--step-0);
+    line-height: 1.65;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  .page {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 0;
+    max-width: 1240px;
+    margin: 0 auto;
+    padding: 0 1.25rem 6rem;
+  }
+
+  @media (min-width: 1100px) {
+    .page {
+      grid-template-columns: 15rem minmax(0, 1fr);
+      gap: 3.5rem;
+      padding-inline: 2rem;
+    }
+  }
+
+  /* ---------- masthead ---------- */
+
+  .masthead {
+    grid-column: 1 / -1;
+    padding: 4rem 0 2.5rem;
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+  }
+
+  .eyebrow {
+    font-family: var(--font-mono);
+    font-size: var(--step--1);
+    font-weight: 500;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: var(--accent);
+    margin: 0;
+  }
+
+  h1 {
+    font-family: var(--font-display);
+    font-size: var(--step-3);
+    font-weight: 800;
+    line-height: 1.02;
+    letter-spacing: -0.02em;
+    text-wrap: balance;
+    margin: 0;
+    color: var(--ink);
+  }
+
+  .lede {
+    margin: 0;
+    max-width: var(--prose);
+    font-size: var(--step-1);
+    color: var(--ink-soft);
+  }
+
+  .facts {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem 0.75rem;
+    margin: 0.5rem 0 0;
+    padding: 0;
+    list-style: none;
+  }
+
+  .facts li {
+    font-family: var(--font-mono);
+    font-size: var(--step--1);
+    color: var(--muted);
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 2px;
+    padding: 0.3rem 0.6rem;
+  }
+
+  .facts b { color: var(--ink); font-weight: 700; }
+
+  /* ---------- section rail ---------- */
+
+  .rail { display: none; }
+
+  @media (min-width: 1100px) {
+    .rail {
+      display: block;
+      align-self: start;
+      position: sticky;
+      top: 2rem;
+      padding-top: 3rem;
+    }
+  }
+
+  .rail h2 {
+    font-family: var(--font-mono);
+    font-size: var(--step--1);
+    font-weight: 500;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: var(--muted);
+    margin: 0 0 0.85rem;
+  }
+
+  .rail ol {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 0.1rem;
+    counter-reset: rail;
+  }
+
+  .rail a {
+    display: grid;
+    grid-template-columns: 1.6rem 1fr;
+    gap: 0.4rem;
+    font-family: var(--font-display);
+    font-size: 0.9rem;
+    font-weight: 500;
+    color: var(--muted);
+    text-decoration: none;
+    padding: 0.3rem 0.4rem;
+    border-radius: 3px;
+    border-left: 2px solid transparent;
+  }
+
+  .rail li { counter-increment: rail; }
+  .rail a::before {
+    content: counter(rail);
+    font-family: var(--font-mono);
+    font-size: 0.75rem;
+    color: var(--border-strong);
+    padding-top: 0.15rem;
+  }
+
+  .rail a:hover { color: var(--ink); background: var(--surface); }
+  .rail a:hover::before { color: var(--accent); }
+
+  /* ---------- content ---------- */
+
+  main { min-width: 0; padding-top: 3rem; display: flex; flex-direction: column; gap: 3.25rem; }
+
+  section { display: flex; flex-direction: column; gap: 1rem; scroll-margin-top: 1.5rem; }
+
+  h2 {
+    font-family: var(--font-display);
+    font-size: var(--step-2);
+    font-weight: 700;
+    letter-spacing: -0.015em;
+    line-height: 1.12;
+    text-wrap: balance;
+    margin: 0;
+    padding-bottom: 0.5rem;
+    border-bottom: 2px solid var(--border);
+    display: flex;
+    align-items: baseline;
+    gap: 0.7rem;
+  }
+
+  h2 .num {
+    font-family: var(--font-mono);
+    font-size: 0.85rem;
+    font-weight: 700;
+    color: var(--accent);
+    letter-spacing: 0.05em;
+    flex: none;
+  }
+
+  h3 {
+    font-family: var(--font-display);
+    font-size: var(--step-1);
+    font-weight: 600;
+    letter-spacing: -0.01em;
+    margin: 0.75rem 0 0;
+    color: var(--ink);
+  }
+
+  p, li { max-width: var(--prose); margin: 0; }
+  main > section > p { color: var(--ink-soft); }
+
+  a { color: var(--accent-ink); text-decoration-thickness: 1px; text-underline-offset: 2px; }
+  a:hover { color: var(--accent); }
+  :focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; border-radius: 2px; }
+
+  ul.plain { margin: 0; padding-left: 1.15rem; display: flex; flex-direction: column; gap: 0.5rem; }
+  ul.plain li { color: var(--ink-soft); }
+
+  strong { font-weight: 600; color: var(--ink); }
+
+  /* ---------- code ---------- */
+
+  code {
+    font-family: var(--font-mono);
+    font-size: 0.85em;
+    background: var(--surface-2);
+    color: var(--ink);
+    padding: 0.12em 0.36em;
+    border-radius: 3px;
+    overflow-wrap: break-word;
+  }
+
+  pre {
+    margin: 0;
+    background: var(--code-ground);
+    border: 1px solid var(--border);
+    border-left: 3px solid var(--accent);
+    border-radius: 3px;
+    padding: 1rem 1.15rem;
+    overflow-x: auto;
+  }
+
+  pre code {
+    background: none;
+    padding: 0;
+    font-size: 0.85rem;
+    line-height: 1.75;
+    color: var(--ink-soft);
+    white-space: pre;
+  }
+
+  pre code .c { color: var(--muted); font-style: italic; }
+  pre code .k { color: var(--accent-ink); font-weight: 500; }
+
+  /* ---------- callouts ---------- */
+
+  .callout {
+    display: flex;
+    flex-direction: column;
+    gap: 0.4rem;
+    padding: 1rem 1.15rem;
+    border-radius: 3px;
+    border: 1px solid var(--warn-border);
+    background: var(--warn-soft);
+    max-width: var(--prose);
+  }
+
+  .callout p { max-width: none; color: var(--ink-soft); }
+
+  .callout .label {
+    font-family: var(--font-mono);
+    font-size: var(--step--1);
+    font-weight: 700;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--warn);
+  }
+
+  .callout.danger { border-color: var(--danger-border); background: var(--danger-soft); }
+  .callout.danger .label { color: var(--danger); }
+
+  .callout.info { border-color: var(--border-strong); background: var(--surface); }
+  .callout.info .label { color: var(--accent); }
+
+  /* ---------- tables ---------- */
+
+  .tablewrap {
+    overflow-x: auto;
+    border: 1px solid var(--border);
+    border-radius: 3px;
+    background: var(--surface);
+  }
+
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 0.92rem;
+    font-variant-numeric: tabular-nums;
+  }
+
+  caption {
+    caption-side: top;
+    text-align: left;
+    font-family: var(--font-mono);
+    font-size: var(--step--1);
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--muted);
+    padding: 0.7rem 0.9rem 0.5rem;
+  }
+
+  th, td {
+    text-align: left;
+    padding: 0.6rem 0.9rem;
+    border-bottom: 1px solid var(--border);
+    vertical-align: top;
+  }
+
+  thead th {
+    font-family: var(--font-display);
+    font-weight: 600;
+    font-size: 0.82rem;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    color: var(--muted);
+    background: var(--surface-2);
+    white-space: nowrap;
+  }
+
+  tbody tr:last-child td { border-bottom: none; }
+  tbody td { color: var(--ink-soft); background: var(--ground); }
+  tbody td code { background: var(--surface-2); }
+
+  td.num { text-align: right; font-family: var(--font-mono); font-size: 0.85rem; color: var(--ink); }
+  td.nowrap, th.nowrap { white-space: nowrap; }
+
+  .yes { color: var(--accent); font-weight: 600; }
+  .no { color: var(--muted); }
+
+  /* Credentials table is the most referenced thing on the page, so it gets
+     the accent ground rather than the plain surface. */
+  .creds { border-color: var(--accent); }
+  .creds table { font-size: 0.95rem; }
+  .creds thead th { background: var(--accent-soft); color: var(--accent-ink); }
+  .creds tbody td:first-child code { background: var(--accent-soft); color: var(--accent-ink); font-weight: 500; }
+  .creds tbody td.pw { font-family: var(--font-mono); font-size: 0.85rem; color: var(--ink); }
+
+  /* ---------- row count grid ---------- */
+
+  .counts {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(15rem, 1fr));
+    gap: 0.35rem 1.5rem;
+    margin: 0;
+    padding: 0;
+  }
+
+  /* A dl > div may only contain dt and dd, so the leader line is the div's own
+     dotted border rather than a filler element. */
+  .counts div {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 0.75rem;
+    border-bottom: 1px dotted var(--border-strong);
+    padding: 0.25rem 0;
+  }
+
+  .counts dt {
+    font-family: var(--font-mono);
+    font-size: 0.8rem;
+    color: var(--ink-soft);
+    margin: 0;
+  }
+
+  .counts dd {
+    margin: 0;
+    font-family: var(--font-mono);
+    font-size: 0.82rem;
+    font-weight: 700;
+    color: var(--accent-ink);
+    font-variant-numeric: tabular-nums;
+  }
+
+  footer {
+    grid-column: 1 / -1;
+    margin-top: 4rem;
+    padding-top: 1.5rem;
+    border-top: 1px solid var(--border);
+    color: var(--muted);
+    font-size: var(--step--1);
+    font-family: var(--font-mono);
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem 1.5rem;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    * { animation: none !important; transition: none !important; scroll-behavior: auto !important; }
+  }
+</style>
+
+<div class="page">
+
+  <header class="masthead">
+    <p class="eyebrow">Runbook</p>
+    <h1>PMT Backend Runbook</h1>
+    <p class="lede">How to set up this API from a fresh clone, fill it with test data, and sign in as every role.</p>
+    <ul class="facts">
+      <li><b>30</b> tables seeded</li>
+      <li><b>100+</b> rows in every table</li>
+      <li><b>6</b> test logins</li>
+      <li><b>~60s</b> to seed</li>
+    </ul>
+  </header>
+
+  <nav class="rail" aria-label="Sections">
+    <h2>Contents</h2>
+    <ol>
+      <li><a href="#prerequisites">Prerequisites</a></li>
+      <li><a href="#install">Install</a></li>
+      <li><a href="#environment">Configure the environment</a></li>
+      <li><a href="#seed">Seed the database</a></li>
+      <li><a href="#credentials">Test credentials</a></li>
+      <li><a href="#signin">Start and sign in</a></li>
+      <li><a href="#verify">Check that it worked</a></li>
+      <li><a href="#guarantees">What the seed guarantees</a></li>
+      <li><a href="#volume">Change the data volume</a></li>
+      <li><a href="#troubleshooting">Troubleshooting</a></li>
+      <li><a href="#reference">Quick reference</a></li>
+    </ol>
+  </nav>
+
+  <main>
+
+    <div class="callout danger">
+      <span class="label">The seed deletes data</span>
+      <p><code>pnpm seed</code> empties every application table before it writes anything. Only point it at a local or development database. It refuses to run when <code>NODE_ENV=production</code> unless you pass <code>--force</code>.</p>
+    </div>
+
+    <p>Follow the sections in order the first time. After that, jump to <a href="#seed">Seed the database</a> or <a href="#credentials">Test credentials</a>.</p>
+
+    <section id="prerequisites">
+      <h2><span class="num">01</span> Prerequisites</h2>
+      <div class="tablewrap">
+        <table>
+          <thead>
+            <tr><th>Tool</th><th class="nowrap">Version</th><th class="nowrap">Required</th><th>Notes</th></tr>
+          </thead>
+          <tbody>
+            <tr><td class="nowrap">Node.js</td><td class="nowrap">20.9 or newer</td><td class="yes">Yes</td><td>Verified on 24.11. Prisma 7 needs 20.9 at minimum.</td></tr>
+            <tr><td class="nowrap">pnpm</td><td class="nowrap">Any recent release</td><td class="yes">Yes</td><td>Verified on 11.10. This repo uses pnpm, not npm or yarn.</td></tr>
+            <tr><td class="nowrap">PostgreSQL</td><td class="nowrap">14 or newer</td><td class="yes">Yes</td><td>A Neon database works and is what this project uses.</td></tr>
+            <tr><td class="nowrap">Redis</td><td class="nowrap">7 or newer</td><td class="no">AI jobs only</td><td>Without it the app still boots, but the two queued AI features fail.</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <p>Everything else is optional and only unlocks one feature at a time. See the table in section 3.</p>
+    </section>
+
+    <section id="install">
+      <h2><span class="num">02</span> Install</h2>
+      <pre><code>git clone https://github.com/pixelvega-limited/pmt-backend.git
+cd pmt-backend
+pnpm install</code></pre>
+      <p><code>pnpm install</code> runs <code>prisma generate</code> for you through the <code>postinstall</code> script, so the Prisma client is ready straight away. If you ever see <code>Cannot find module '@prisma/client'</code>, run <code>npx prisma generate</code> by hand.</p>
+    </section>
+
+    <section id="environment">
+      <h2><span class="num">03</span> Configure the environment</h2>
+      <p>Copy the template and fill it in:</p>
+      <pre><code>cp .env.example .env</code></pre>
+      <div class="callout">
+        <span class="label">Keep secrets out of version control</span>
+        <p><code>.env</code> is gitignored. Never commit it, and never paste real values into a ticket or a chat.</p>
+      </div>
+      <p>Generate the auth secret with:</p>
+      <pre><code>openssl rand -base64 32</code></pre>
+
+      <h3>What each variable does</h3>
+      <div class="tablewrap">
+        <table>
+          <thead>
+            <tr><th>Variable</th><th class="nowrap">Required</th><th>Purpose</th></tr>
+          </thead>
+          <tbody>
+            <tr><td class="nowrap"><code>DATABASE_URL</code></td><td class="yes">Yes</td><td>Postgres connection string. Everything reads and writes through this.</td></tr>
+            <tr><td class="nowrap"><code>BETTER_AUTH_SECRET</code></td><td class="yes">Yes</td><td>Signs sessions and reset tokens. Use the <code>openssl</code> command above.</td></tr>
+            <tr><td class="nowrap"><code>BETTER_AUTH_URL</code></td><td class="yes">Yes</td><td>Base URL used in invite emails as the login link. Defaults to <code>http://localhost:3000</code>.</td></tr>
+            <tr><td class="nowrap"><code>SEED_ADMIN_EMAIL</code></td><td class="yes">Yes</td><td>Email of the single root <code>SYSTEM_ADMIN</code>. Also used by the seed.</td></tr>
+            <tr><td class="nowrap"><code>SEED_ADMIN_NAME</code></td><td class="yes">Yes</td><td>Display name for that account.</td></tr>
+            <tr><td class="nowrap"><code>PORT</code></td><td class="no">No</td><td>HTTP port. Defaults to <code>3000</code>.</td></tr>
+            <tr><td class="nowrap"><code>NODE_ENV</code></td><td class="no">No</td><td>Set to <code>production</code> only in a real deployment. It tightens the auth origin check and blocks the seed.</td></tr>
+            <tr><td class="nowrap"><code>CORS_ORIGIN</code></td><td class="no">No</td><td>Frontend origin. Falls back to <code>*</code>. Needed with credentials so the session cookie is sent.</td></tr>
+            <tr><td class="nowrap"><code>SMTP_HOST</code>, <code>SMTP_PORT</code>, <code>SMTP_USER</code>, <code>SMTP_PASS</code>, <code>MAIL_FROM</code></td><td class="no">No</td><td>Outgoing mail for invites and password reset codes. Leave blank to skip sending email.</td></tr>
+            <tr><td class="nowrap"><code>CLOUDINARY_CLOUD_NAME</code>, <code>CLOUDINARY_API_KEY</code>, <code>CLOUDINARY_API_SECRET</code></td><td class="no">No</td><td>Image and document storage. Needed only for real file uploads.</td></tr>
+            <tr><td class="nowrap"><code>SLACK_BOT_TOKEN</code></td><td class="no">No</td><td>Slack bot token. Every Slack call fails safely and is logged when this is missing.</td></tr>
+            <tr><td class="nowrap"><code>SLACK_DAILY_FEED_CHANNEL_ID</code></td><td class="no">No</td><td>Channel id, not the name, for the combined daily plan and wrap up feed.</td></tr>
+            <tr><td class="nowrap"><code>ANTHROPIC_API_KEY</code></td><td class="no">No</td><td>Needed for the scope checker, project summary, and AI status report.</td></tr>
+            <tr><td class="nowrap"><code>REDIS_URL</code></td><td class="no">No</td><td>Job queue behind the scope checker and status report. The app boots without it and fails the first job instead.</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <p>Keep <code>.env.example</code> in step whenever a new variable is introduced. It is the checked in source of truth for the list above.</p>
+    </section>
+
+    <section id="seed">
+      <h2><span class="num">04</span> Seed the database</h2>
+
+      <h3>Create the schema</h3>
+      <p>You can skip this step. <code>pnpm start:dev</code> runs <code>prisma migrate deploy</code> first through a <code>pre</code> script, so pointing <code>DATABASE_URL</code> at an empty database and starting the app is enough to create every table.</p>
+      <p>To do it on its own:</p>
+      <pre><code>npx prisma migrate deploy</code></pre>
+      <p>Use <code>migrate deploy</code>, not <code>migrate dev</code>. <code>migrate dev</code> needs a real terminal and refuses to run whenever it wants to ask a yes or no question.</p>
+
+      <h3>Run the seed</h3>
+      <pre><code>pnpm seed</code></pre>
+      <p>Three commands reach the same script, so pick whichever fits:</p>
+      <div class="tablewrap">
+        <table>
+          <thead><tr><th class="nowrap">Command</th><th>What it does</th></tr></thead>
+          <tbody>
+            <tr><td class="nowrap"><code>pnpm seed</code></td><td>Empties every application table, then writes the full dataset. The one you want day to day.</td></tr>
+            <tr><td class="nowrap"><code>pnpm seed:reset</code></td><td><code>prisma migrate reset --force</code>. Drops the schema, reapplies all migrations, then seeds. Use this when a migration is wrong.</td></tr>
+            <tr><td class="nowrap"><code>npx prisma db seed</code></td><td>Same script, driven by <code>migrations.seed</code> in <code>prisma.config.ts</code>.</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <p>It takes about a minute against a hosted Neon database. The script prints its progress, a row count per table, and the credentials table as it finishes.</p>
+      <div class="callout info">
+        <span class="label">Migration history is safe</span>
+        <p><code>_prisma_migrations</code> is never touched, so your migration history survives a seed.</p>
+      </div>
+
+      <h3>What you get</h3>
+      <p>At least 100 rows in all 30 tables. Counts from a verified run:</p>
+      <dl class="counts">
+        <div><dt>User</dt><dd>246</dd></div>
+        <div><dt>EmployeeProfile</dt><dd>133</dd></div>
+        <div><dt>ClientProfile</dt><dd>113</dd></div>
+        <div><dt>account</dt><dd>246</dd></div>
+        <div><dt>session</dt><dd>180</dd></div>
+        <div><dt>verification</dt><dd>140</dd></div>
+        <div><dt>PasswordResetCode</dt><dd>150</dd></div>
+        <div><dt>AuditLog</dt><dd>760</dd></div>
+        <div><dt>LeaveType</dt><dd>104</dd></div>
+        <div><dt>Holiday</dt><dd>105</dd></div>
+        <div><dt>LeaveRequest</dt><dd>420</dd></div>
+        <div><dt>LeaveBalance</dt><dd>1587</dd></div>
+        <div><dt>Project</dt><dd>120</dd></div>
+        <div><dt>ProjectTypeTag</dt><dd>228</dd></div>
+        <div><dt>ProjectMember</dt><dd>741</dd></div>
+        <div><dt>ProjectDocument</dt><dd>701</dd></div>
+        <div><dt>ProjectActivity</dt><dd>1894</dd></div>
+        <div><dt>TimeEntry</dt><dd>1840</dd></div>
+        <div><dt>MeetingTimeEntry</dt><dd>606</dd></div>
+        <div><dt>AdditionalRequirement</dt><dd>294</dd></div>
+        <div><dt>DailyWorkReport</dt><dd>697</dd></div>
+        <div><dt>DailyProjectEntry</dt><dd>1255</dd></div>
+        <div><dt>BlockerReason</dt><dd>106</dd></div>
+        <div><dt>Blocker</dt><dd>312</dd></div>
+        <div><dt>ProjectInternalReview</dt><dd>160</dd></div>
+        <div><dt>ClientFeedback</dt><dd>130</dd></div>
+        <div><dt>AiTemplate</dt><dd>110</dd></div>
+        <div><dt>AiJob</dt><dd>231</dd></div>
+        <div><dt>ProjectStatusReport</dt><dd>222</dd></div>
+        <div><dt>Notification</dt><dd>1400</dd></div>
+      </dl>
+      <p>The 120 projects are spread across all ten statuses on purpose, so every filter, every report, and every stage of the workflow has rows behind it.</p>
+      <p>Reseeding is repeatable. The same random seed always produces the same rows and the same ids, so a Postman collection can keep real ids as default variable values. Changing any row count in <code>prisma/seed/config.ts</code> shifts those ids, so reseed and refresh your saved ids together.</p>
+    </section>
+
+    <section id="credentials">
+      <h2><span class="num">05</span> Test credentials</h2>
+      <p>Six fixed accounts, one per role. They are always <code>ACTIVE</code>, always email verified, and never asked to reset their password, so they work the moment the seed finishes.</p>
+      <div class="tablewrap creds">
+        <table>
+          <caption>Seeded test logins</caption>
+          <thead><tr><th>Role</th><th>Email</th><th>Password</th></tr></thead>
+          <tbody>
+            <tr><td class="nowrap"><code>SYSTEM_ADMIN</code></td><td class="nowrap">jabed@pixelvega.com</td><td class="pw">Password123!</td></tr>
+            <tr><td class="nowrap"><code>ADMIN</code></td><td class="nowrap">admin@pixelvega.com</td><td class="pw">Password123!</td></tr>
+            <tr><td class="nowrap"><code>PROJECT_MANAGER</code></td><td class="nowrap">pm@pixelvega.com</td><td class="pw">Password123!</td></tr>
+            <tr><td class="nowrap"><code>DEVELOPER</code></td><td class="nowrap">developer@pixelvega.com</td><td class="pw">Password123!</td></tr>
+            <tr><td class="nowrap"><code>DESIGNER</code></td><td class="nowrap">designer@pixelvega.com</td><td class="pw">Password123!</td></tr>
+            <tr><td class="nowrap"><code>CLIENT</code></td><td class="nowrap">client@pixelvega.com</td><td class="pw">Password123!</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <div class="callout danger">
+        <span class="label">Development only</span>
+        <p>These are test fixtures for a seeded development database. They are deliberately weak and publicly documented. Never create them in a production environment.</p>
+      </div>
+      <p>The <code>SYSTEM_ADMIN</code> email comes from <code>SEED_ADMIN_EMAIL</code> in your <code>.env</code>. If you change that variable, that row changes with it. The other five are fixed in <code>prisma/seed/config.ts</code>.</p>
+
+      <h3>Each account has real data</h3>
+      <p>The first 14 projects are wired to these accounts, so none of them opens onto an empty dashboard:</p>
+      <div class="tablewrap">
+        <table>
+          <thead><tr><th class="nowrap">Account</th><th>What it can see</th></tr></thead>
+          <tbody>
+            <tr><td class="nowrap"><code>SYSTEM_ADMIN</code>, <code>ADMIN</code></td><td>Everything company wide, plus about 90 notifications each.</td></tr>
+            <tr><td class="nowrap"><code>PROJECT_MANAGER</code></td><td>Runs 14 projects. Has meeting hours, daily reports, and leave requests.</td></tr>
+            <tr><td class="nowrap"><code>DEVELOPER</code></td><td>Staffed on 16 projects, 13 unarchived. Has time entries, daily reports, and a leave balance.</td></tr>
+            <tr><td class="nowrap"><code>DESIGNER</code></td><td>Same shape as the developer.</td></tr>
+            <tr><td class="nowrap"><code>CLIENT</code></td><td>Owns 15 projects, and sees only the reduced client view of each.</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <h3>Every other account works too</h3>
+      <p>All 246 seeded accounts share the same password, so you can sign in as anyone to test a specific case. Three things to know:</p>
+      <ul class="plain">
+        <li>Some generated accounts are <code>INVITED</code> on purpose. They can sign in, and the first successful login flips them to <code>ACTIVE</code>.</li>
+        <li>Some are <code>SUSPENDED</code> on purpose. Signing in as one returns <code>403</code> with <code>ACCOUNT_SUSPENDED</code>, which is the app working correctly, not a broken seed.</li>
+        <li>A few accounts are soft deleted and are hidden from <code>GET /users</code>, while their past project data stays in place.</li>
+      </ul>
+    </section>
+
+    <section id="signin">
+      <h2><span class="num">06</span> Start the app and sign in</h2>
+      <pre><code>pnpm start:dev</code></pre>
+      <p>Swagger UI is at <code>http://localhost:3000/api/docs</code>, and the raw spec is at <code>/api/docs-json</code>.</p>
+      <p>Sign in from the command line:</p>
+      <pre><code>curl -s -c cookies.txt -X POST http://localhost:3000/api/auth/sign-in/email \
+  -H 'Content-Type: application/json' \
+  -d '{"email":"pm@pixelvega.com","password":"Password123!"}'</code></pre>
+      <p>Then reuse the cookie on any request:</p>
+      <pre><code>curl -s -b cookies.txt "http://localhost:3000/api/projects/mine?pageSize=5"</code></pre>
+      <p>The session lives in a <code>better-auth.session_token</code> cookie. In Postman, sign in once and let the built in cookie jar carry it. Do not set a <code>Cookie</code> header by hand.</p>
+    </section>
+
+    <section id="verify">
+      <h2><span class="num">07</span> Check that it worked</h2>
+      <p>Sign in as the project manager, then run these. All five should return <code>200</code> with real rows:</p>
+      <pre><code>curl -s -b cookies.txt "http://localhost:3000/api/projects/mine?pageSize=3"
+curl -s -b cookies.txt "http://localhost:3000/api/leave-requests?pageSize=3"
+curl -s -b cookies.txt "http://localhost:3000/api/blockers?pageSize=3"
+curl -s -b cookies.txt "http://localhost:3000/api/notifications/unread-count"
+curl -s -b cookies.txt "http://localhost:3000/api/daily-work-reports?pageSize=3"</code></pre>
+      <div class="callout info">
+        <span class="label">Two results that look wrong but are correct</span>
+        <p><code>GET /projects/mine</code> returns nothing for <code>SYSTEM_ADMIN</code> and <code>ADMIN</code>. Admins are never staffed onto a project, because their access is unscoped already.</p>
+        <p>The client account gets <code>403</code> on <code>/projects/:id/internal-reviews</code> and <code>/projects/:id/time-entries</code>. Both are internal views a client is not meant to read.</p>
+      </div>
+    </section>
+
+    <section id="guarantees">
+      <h2><span class="num">08</span> What the seed guarantees</h2>
+      <p>The seed reproduces the rules the service layer enforces, not just the column types. It matters because the read endpoints assume these hold:</p>
+      <ul class="plain">
+        <li><code>Project.actualHours</code> equals the summed minutes of every ended time segment divided by 60.</li>
+        <li>Approved additional requirements and resolved blockers are added on top of <code>estimatedHours</code> and <code>deadline</code>, the same additive way the app applies them.</li>
+        <li>A <code>RUNNING</code> time entry has no end time and no duration, sits on the current day, and never coexists with a second running timer for the same person across project time and meeting time.</li>
+        <li><code>LeaveBalance.usedDays</code> equals the summed days of that person's approved requests for that year and leave type.</li>
+        <li>Internal review rounds and client feedback rounds start at 1 and never skip a number.</li>
+        <li>A project waiting on client feedback has no feedback rows yet, because the first round is what would move it out of that status.</li>
+        <li>A project still in planning has a manager but no developer or designer, because gaining both is what moves it forward.</li>
+      </ul>
+      <p>If you add a feature, extend the matching seed module so new rows keep these true.</p>
+    </section>
+
+    <section id="volume">
+      <h2><span class="num">09</span> Change the data volume</h2>
+      <p>Everything is driven by <code>prisma/seed/config.ts</code>. Common knobs:</p>
+      <div class="tablewrap">
+        <table>
+          <thead><tr><th class="nowrap">Setting</th><th>Meaning</th></tr></thead>
+          <tbody>
+            <tr><td class="nowrap"><code>VOLUME.projects</code></td><td>How many projects to create. Drives most other counts.</td></tr>
+            <tr><td class="nowrap"><code>VOLUME.clients</code>, <code>VOLUME.developers</code>, <code>VOLUME.designers</code>, <code>VOLUME.projectManagers</code>, <code>VOLUME.admins</code></td><td>Account counts per role. Employee and client profiles are one per person, so each group needs 100 or more for both profile tables to clear 100.</td></tr>
+            <tr><td class="nowrap"><code>VOLUME.timeTrackingDays</code>, <code>VOLUME.workReportDays</code></td><td>How far back the work history runs.</td></tr>
+            <tr><td class="nowrap"><code>SEED_PASSWORD</code></td><td>The shared password.</td></tr>
+            <tr><td class="nowrap"><code>SEED_TODAY</code></td><td>The fixed date history is built backwards from.</td></tr>
+            <tr><td class="nowrap"><code>RANDOM_SEED</code></td><td>Change it for a different but still repeatable dataset.</td></tr>
+            <tr><td class="nowrap"><code>GUARANTEED_TEST_PROJECTS</code></td><td>How many projects the test accounts share.</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <h3>Layout of the seed</h3>
+      <div class="tablewrap">
+        <table>
+          <thead><tr><th class="nowrap">Path</th><th>Role</th></tr></thead>
+          <tbody>
+            <tr><td class="nowrap"><code>prisma/seed.ts</code></td><td>Entry point. Wipes, calls each module in order, prints the report.</td></tr>
+            <tr><td class="nowrap"><code>prisma/seed/config.ts</code></td><td>Volumes, password, dates, test accounts.</td></tr>
+            <tr><td class="nowrap"><code>prisma/seed/random.ts</code></td><td>The repeatable random generator and date helpers.</td></tr>
+            <tr><td class="nowrap"><code>prisma/seed/pools.ts</code></td><td>Names, companies, and other text the data is built from.</td></tr>
+            <tr><td class="nowrap"><code>prisma/seed/reset.ts</code></td><td>The table list that gets emptied.</td></tr>
+            <tr><td class="nowrap"><code>prisma/seed/users.ts</code></td><td>Users, profiles, accounts, sessions, reset codes.</td></tr>
+            <tr><td class="nowrap"><code>prisma/seed/reference.ts</code></td><td>Leave types, holidays, blocker reasons, AI templates.</td></tr>
+            <tr><td class="nowrap"><code>prisma/seed/leave.ts</code></td><td>Leave requests and balances.</td></tr>
+            <tr><td class="nowrap"><code>prisma/seed/projects.ts</code></td><td>Projects, type tags, staffing.</td></tr>
+            <tr><td class="nowrap"><code>prisma/seed/documents.ts</code></td><td>Project documents, including revision history.</td></tr>
+            <tr><td class="nowrap"><code>prisma/seed/time-tracking.ts</code></td><td>Project and meeting time segments.</td></tr>
+            <tr><td class="nowrap"><code>prisma/seed/workflow.ts</code></td><td>Additional requirements, blockers, internal reviews, client feedback.</td></tr>
+            <tr><td class="nowrap"><code>prisma/seed/work-reports.ts</code></td><td>Daily plans and wrap ups.</td></tr>
+            <tr><td class="nowrap"><code>prisma/seed/ai.ts</code></td><td>AI status reports and jobs.</td></tr>
+            <tr><td class="nowrap"><code>prisma/seed/logs.ts</code></td><td>Project activity, audit logs, notifications.</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <section id="troubleshooting">
+      <h2><span class="num">10</span> Troubleshooting</h2>
+      <div class="tablewrap">
+        <table>
+          <thead><tr><th>Symptom</th><th>Cause</th><th>Fix</th></tr></thead>
+          <tbody>
+            <tr><td><code>ECONNREFUSED ... 6379</code> on startup</td><td>Redis is not running.</td><td>Start <code>redis-server</code>, or ignore it. Only the two queued AI features need it. The API still works.</td></tr>
+            <tr><td>AI endpoints return an error</td><td><code>ANTHROPIC_API_KEY</code> is empty, or Redis is down.</td><td>Set the key and start Redis. Everything else in the app runs without either.</td></tr>
+            <tr><td><code>GET /projects/:id/ai/summary</code> returns 400</td><td><code>startDate</code> and <code>endDate</code> are required query parameters.</td><td>Add both as ISO dates.</td></tr>
+            <tr><td><code>Cannot find module '@prisma/client'</code></td><td>The client was never generated.</td><td>Run <code>npx prisma generate</code>.</td></tr>
+            <tr><td><code>Prisma Migrate has detected that the environment is non-interactive</code></td><td>You ran <code>migrate dev</code> from a script or an agent.</td><td>Use <code>npx prisma migrate deploy</code>. To add a migration, hand write the folder under <code>prisma/migrations/</code> and then deploy it.</td></tr>
+            <tr><td>Sign in returns 403 with <code>ACCOUNT_SUSPENDED</code></td><td>That account is suspended on purpose.</td><td>Use one of the six accounts in section 5.</td></tr>
+            <tr><td>Sign in returns 401</td><td>Wrong password, or the account was never seeded.</td><td>Reseed, then use the password in section 5.</td></tr>
+            <tr><td>Seed stops with a message about production</td><td><code>NODE_ENV=production</code> in your <code>.env</code>.</td><td>Confirm you are pointed at a development database, then unset it, or pass <code>--force</code>.</td></tr>
+            <tr><td>Ids changed after a reseed</td><td>You edited a row count in <code>config.ts</code>.</td><td>Expected. Refresh any saved ids in Postman.</td></tr>
+            <tr><td>A table has fewer than 100 rows</td><td>A volume was lowered.</td><td>The seed report names the table. Raise the matching value in <code>config.ts</code>.</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <section id="reference">
+      <h2><span class="num">11</span> Quick reference</h2>
+      <pre><code>pnpm install                  <span class="c"># install, and generate the Prisma client</span>
+pnpm seed                     <span class="c"># wipe and refill the database</span>
+pnpm seed:reset               <span class="c"># drop the schema, migrate, then seed</span>
+pnpm start:dev                <span class="c"># dev server on PORT, migrations applied first</span>
+pnpm build                    <span class="c"># compile to dist</span>
+pnpm lint                     <span class="c"># eslint with fixes</span>
+pnpm format                   <span class="c"># prettier</span>
+npx tsc --noEmit              <span class="c"># typecheck only</span>
+npx prisma migrate deploy     <span class="c"># apply pending migrations</span>
+npx prisma studio             <span class="c"># browse the seeded data</span></code></pre>
+    </section>
+
+  </main>
+
+  <footer>
+    <span>PMT Backend</span>
+    <span>NestJS, Prisma 7, PostgreSQL, better-auth</span>
+    <span>Seed verified across 30 tables</span>
+  </footer>
+
+</div>

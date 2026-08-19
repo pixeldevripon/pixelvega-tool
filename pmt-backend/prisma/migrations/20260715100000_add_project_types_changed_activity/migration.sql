@@ -1,0 +1,2 @@
+-- AlterEnum
+ALTER TYPE "ProjectActivityType" ADD VALUE 'PROJECT_TYPES_CHANGED';
