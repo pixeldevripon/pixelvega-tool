@@ -1,8 +1,7 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '@/prisma/prisma.service';
 import { AuditLogService } from '@/audit-log/audit-log.service';
-import { CreateLeaveTypeDto } from '@/leave/dto/create-leave-type.dto';
-import { UpdateLeaveTypeDto } from '@/leave/dto/update-leave-type.dto';
+import { CreateLeaveTypeDto, UpdateLeaveTypeDto } from '@/leave/dto/leave.dto';
 
 @Injectable()
 export class LeaveTypesService {

@@ -5,16 +5,8 @@ import {
 } from '@nestjs/common';
 import { PrismaService } from '@/prisma/prisma.service';
 import { AuditLogService } from '@/audit-log/audit-log.service';
-import { daysBetweenInclusive } from '@/common/utils/date.util';
-import { CreateHolidayDto } from '@/leave/dto/create-holiday.dto';
-import { UpdateHolidayDto } from '@/leave/dto/update-holiday.dto';
-
-function withDays<T extends { startDate: Date; endDate: Date }>(holiday: T) {
-  return {
-    ...holiday,
-    days: daysBetweenInclusive(holiday.startDate, holiday.endDate),
-  };
-}
+import { CreateHolidayDto, UpdateHolidayDto } from '@/leave/dto/leave.dto';
+import { toHolidayResponse } from '@/leave/leave.mapper';
 
 @Injectable()
 export class HolidaysService {
@@ -27,7 +19,7 @@ export class HolidaysService {
     const holidays = await this.prisma.holiday.findMany({
       orderBy: { startDate: 'asc' },
     });
-    return holidays.map(withDays);
+    return holidays.map((holiday) => toHolidayResponse(holiday));
   }
 
   async findOne(id: string) {
@@ -63,7 +55,7 @@ export class HolidaysService {
       },
     });
 
-    return withDays(holiday);
+    return toHolidayResponse(holiday);
   }
 
   async update(id: string, dto: UpdateHolidayDto, actorId: string) {
@@ -89,7 +81,7 @@ export class HolidaysService {
       metadata: { ...dto },
     });
 
-    return withDays(holiday);
+    return toHolidayResponse(holiday);
   }
 
   async remove(id: string, actorId: string) {

@@ -10,8 +10,6 @@ import {
 import { ApiCookieAuth, ApiTags } from '@nestjs/swagger';
 import { Permission, Role } from '@prisma/client';
 import { LeaveTypesService } from './leave-types.service';
-import { CreateLeaveTypeDto } from '@/leave/dto/create-leave-type.dto';
-import { UpdateLeaveTypeDto } from '@/leave/dto/update-leave-type.dto';
 import { CurrentUser } from '@/common/decorators/current-user.decorator';
 import { RequirePermissions } from '@/auth/decorators/require-permissions.decorator';
 import {
@@ -20,6 +18,7 @@ import {
   ApiListLeaveTypesDocs,
   ApiUpdateLeaveTypeDocs,
 } from '@/leave/leave.swagger';
+import { CreateLeaveTypeDto, UpdateLeaveTypeDto } from '@/leave/dto/leave.dto';
 
 @ApiTags('Leave Types')
 @ApiCookieAuth('better-auth.session_token')
