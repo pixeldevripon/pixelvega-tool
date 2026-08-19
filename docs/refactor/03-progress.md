@@ -123,6 +123,24 @@ carries. Phase 4 rewrites every one of those decorators, so writing 27 controlle
 specs now and rewriting them immediately after would be wasted work. They move to
 the end of phase 4, written once against the final decorators.
 
+## Phase 4: permission gate — complete, 2026-08-20
+
+All 19 items. A 52 value `Permission` enum, `ROLE_PERMISSIONS`, both decorators,
+`PermissionsService`, `PermissionsGuard` registered after `AuthGuard`, and
+`GET /users/me/permissions`. All 97 `@Roles` decorators migrated across 25
+controllers, and the wrapper that silently unioned the admins into every list is
+deleted.
+
+**Modelling correction, found while migrating.** The first draft modelled
+`PROJECT_MANAGER` as "DEVELOPER plus management". That is wrong: PMs are
+deliberately excluded from `TRACK_PROJECT_TIME` and `SUBMIT_WORK_REPORT` by the
+routes as they stand. Shipping the draft would have silently granted PMs time
+tracking. They are siblings, not a ladder, and the spec now asserts that in both
+directions. Only ADMIN and SYSTEM_ADMIN are strict supersets.
+
+**Still owed for this phase:** the E2E role visibility matrix (checklist item),
+which needs a live test database.
+
 ## Completed phases
 
 ### Phase 1: make it verifiable — complete, 2026-08-20
