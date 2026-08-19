@@ -7,18 +7,19 @@ import {
   Patch,
   Post,
 } from '@nestjs/common';
-import {
-  ApiCookieAuth,
-  ApiOperation,
-  ApiResponse,
-  ApiTags,
-} from '@nestjs/swagger';
+import { ApiCookieAuth, ApiTags } from '@nestjs/swagger';
 import { Permission, Role } from '@prisma/client';
 import { CurrentUser } from '@/common/decorators/current-user.decorator';
 import { BlockerReasonsService } from './blocker-reasons.service';
 import { CreateBlockerReasonDto } from '@/blockers/dto/create-blocker-reason.dto';
 import { UpdateBlockerReasonDto } from '@/blockers/dto/update-blocker-reason.dto';
 import { RequirePermissions } from '@/auth/decorators/require-permissions.decorator';
+import {
+  ApiCreateBlockerReasonDocs,
+  ApiDeleteBlockerReasonDocs,
+  ApiListBlockerReasonsDocs,
+  ApiUpdateBlockerReasonDocs,
+} from '@/blockers/blockers.swagger';
 
 // Read is open to anyone who can see blockers, excluding CLIENT, who never
 // touches the Blocker feature at all. Writes are limited to PROJECT_MANAGER
@@ -32,23 +33,14 @@ import { RequirePermissions } from '@/auth/decorators/require-permissions.decora
 export class BlockerReasonsController {
   constructor(private readonly blockerReasonsService: BlockerReasonsService) {}
 
-  @ApiOperation({ summary: 'List all blocker reasons' })
-  @ApiResponse({ status: 200, description: 'Blocker reasons' })
+  @ApiListBlockerReasonsDocs()
   @RequirePermissions(Permission.VIEW_BLOCKERS)
   @Get()
   findAll() {
     return this.blockerReasonsService.findAll();
   }
 
-  @ApiOperation({
-    summary: 'Create a blocker reason. PROJECT_MANAGER/ADMIN only.',
-  })
-  @ApiResponse({ status: 201, description: 'Blocker reason created' })
-  @ApiResponse({ status: 403, description: 'Caller is not PM/ADMIN' })
-  @ApiResponse({
-    status: 409,
-    description: 'A reason with this name already exists',
-  })
+  @ApiCreateBlockerReasonDocs()
   @RequirePermissions(Permission.MANAGE_BLOCKER_REASONS)
   @Post()
   create(
@@ -58,21 +50,7 @@ export class BlockerReasonsController {
     return this.blockerReasonsService.create(dto, user.id);
   }
 
-  @ApiOperation({
-    summary: 'Rename a blocker reason. PROJECT_MANAGER/ADMIN only.',
-    description: 'The default "Unspecified" reason cannot be renamed.',
-  })
-  @ApiResponse({ status: 200, description: 'Blocker reason updated' })
-  @ApiResponse({
-    status: 403,
-    description:
-      'Caller is not PM/ADMIN, or attempting to rename the default reason',
-  })
-  @ApiResponse({ status: 404, description: 'Blocker reason not found' })
-  @ApiResponse({
-    status: 409,
-    description: 'A reason with this name already exists',
-  })
+  @ApiUpdateBlockerReasonDocs()
   @RequirePermissions(Permission.MANAGE_BLOCKER_REASONS)
   @Patch(':id')
   update(
@@ -83,18 +61,7 @@ export class BlockerReasonsController {
     return this.blockerReasonsService.update(id, dto, user.id);
   }
 
-  @ApiOperation({
-    summary: 'Delete a blocker reason. PROJECT_MANAGER/ADMIN only.',
-    description:
-      'Soft delete (sets deletedAt) — existing blockers keep referencing it, it just drops out of the picker for new blockers. The default "Unspecified" reason cannot be deleted.',
-  })
-  @ApiResponse({ status: 200, description: 'Blocker reason deleted' })
-  @ApiResponse({
-    status: 403,
-    description:
-      'Caller is not PM/ADMIN, or attempting to delete the default reason',
-  })
-  @ApiResponse({ status: 404, description: 'Blocker reason not found' })
+  @ApiDeleteBlockerReasonDocs()
   @RequirePermissions(Permission.MANAGE_BLOCKER_REASONS)
   @Delete(':id')
   remove(@Param('id') id: string, @CurrentUser() user: { id: string }) {
