@@ -84,6 +84,45 @@ Nothing here changes application behaviour.
 
 ---
 
+## Phase 2: backend foundations — complete, 2026-08-20
+
+All 33 items. Strict mode on with only 5 errors (all TS2564 on auth DTO fields,
+fixed with the reference's `!` convention). The `@/` alias and the `src/modules`
+flatten landed as one sweep: 470 import specifiers rewritten, zero deep relative
+paths remain. `env.validate.ts` covers all 20 variables. `AllExceptionsFilter`
+maps the four Prisma constraint codes. `main.ts` gained helmet, trust proxy, a
+fail-closed CORS allowlist, `forbidNonWhitelisted`, and shutdown hooks. The
+schema split into 12 domain files with `prisma migrate diff` reporting **no
+difference**.
+
+## Phase 3: backend test floor — substantially complete, 2026-08-20
+
+417 tests across 22 suites, up from 213. Every service with real branching
+business logic now has a co-located spec with Prisma fully mocked:
+
+| Service                                         | What it pins                                                        |
+| ----------------------------------------------- | ------------------------------------------------------------------- |
+| `ProjectsService`                               | status guards, archive as a flag, restore always to READY_FOR_WORK  |
+| `ProjectMembersService`                         | role matching, the (project, user, role) guard, the auto transition |
+| `ProjectTimeEntriesService`                     | the one active timer rule, keyed on user alone                      |
+| `MeetingTimeEntriesService`                     | the rule spans both tables                                          |
+| `DailyWorkReportService`                        | the two independent edit windows                                    |
+| `BlockerService`                                | RESOLVED permanently locked, forward only, additive extension       |
+| `InternalReviewsService`                        | the only path out of INTERNAL_REVIEW                                |
+| `ClientFeedbackService`                         | only the first round moves the project                              |
+| `AdditionalRequirementsService`                 | approving is additive                                               |
+| `ProjectDocumentsService`                       | the CLIENT DELIVERABLE restriction                                  |
+| `LeaveRequestsService` / `LeaveBalancesService` | approve increments, reject does not                                 |
+| `UsersService`                                  | every target specific protection rule                               |
+
+**Deliberately deferred:** controller specs, and specs for the 25 thin services
+(mail, slack, cloudinary, prisma, reference data CRUD, AI infrastructure).
+
+**Resequencing decision:** controller specs assert which decorators a route
+carries. Phase 4 rewrites every one of those decorators, so writing 27 controller
+specs now and rewriting them immediately after would be wasted work. They move to
+the end of phase 4, written once against the final decorators.
+
 ## Completed phases
 
 ### Phase 1: make it verifiable — complete, 2026-08-20
