@@ -10,7 +10,7 @@ import { DailyWorkReportStatus, Role } from '@prisma/client';
 import { PrismaService } from '@/prisma/prisma.service';
 import { paginate } from '@/common/utils/pagination.util';
 import { SlackService } from '@/slack/slack.service';
-import { ProjectActivityService } from '@/projects/project-activity.service';
+import { ProjectActivityService } from '@/project-activity/project-activity.service';
 import { SubmitPlanDto } from '@/work-reports/dto/submit-plan.dto';
 import { UpdatePlanDto } from '@/work-reports/dto/update-plan.dto';
 import { SubmitWrapUpDto } from '@/work-reports/dto/submit-wrap-up.dto';

@@ -31,7 +31,7 @@ import { ConnectSlackChannelDto } from '@/projects/dto/connect-slack-channel.dto
 import { QueryProjectsDto } from '@/projects/dto/query-projects.dto';
 import { QueryMyProjectsDto } from '@/projects/dto/query-my-projects.dto';
 import { PaginationQueryDto } from '@/common/dto/pagination-query.dto';
-import { ProjectActivityService } from './project-activity.service';
+import { ProjectActivityService } from '@/project-activity/project-activity.service';
 import { RECOMMENDED_MAX_ACTIVE_PROJECTS } from './workload.constants';
 
 // Sequence validation only. Who is allowed to trigger a given transition is

@@ -17,7 +17,7 @@ import {
 import { Test, TestingModule } from '@nestjs/testing';
 import { DailyWorkReportStatus } from '@prisma/client';
 import { PrismaService } from '@/prisma/prisma.service';
-import { ProjectActivityService } from '@/projects/project-activity.service';
+import { ProjectActivityService } from '@/project-activity/project-activity.service';
 import { SlackService } from '@/slack/slack.service';
 import { DailyWorkReportService } from './daily-work-report.service';
 

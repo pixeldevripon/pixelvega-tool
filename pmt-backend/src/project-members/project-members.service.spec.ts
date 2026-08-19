@@ -18,7 +18,7 @@ import { Test, TestingModule } from '@nestjs/testing';
 import { ProjectRole, ProjectStatus, Role } from '@prisma/client';
 import { NotificationsService } from '@/notifications/notifications.service';
 import { PrismaService } from '@/prisma/prisma.service';
-import { ProjectActivityService } from '@/projects/project-activity.service';
+import { ProjectActivityService } from '@/project-activity/project-activity.service';
 import { SlackService } from '@/slack/slack.service';
 import { SlackUserResolverService } from '@/slack/slack-user-resolver.service';
 import { ProjectMembersService } from './project-members.service';

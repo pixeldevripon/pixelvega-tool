@@ -18,7 +18,7 @@ import { ProjectDocumentType, Role } from '@prisma/client';
 import { CloudinaryService } from '@/uploads/cloudinary.service';
 import { NotificationsService } from '@/notifications/notifications.service';
 import { PrismaService } from '@/prisma/prisma.service';
-import { ProjectActivityService } from '@/projects/project-activity.service';
+import { ProjectActivityService } from '@/project-activity/project-activity.service';
 import { ProjectDocumentsService } from './project-documents.service';
 
 const PROJECT_ID = 'project-1';

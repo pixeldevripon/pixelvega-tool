@@ -11,7 +11,7 @@ import {
   Role,
 } from '@prisma/client';
 import { PrismaService } from '@/prisma/prisma.service';
-import { ProjectActivityService } from '@/projects/project-activity.service';
+import { ProjectActivityService } from '@/project-activity/project-activity.service';
 import { NotificationsService } from '@/notifications/notifications.service';
 import { ReviewEntryDto } from '@/work-reports/dto/review-entry.dto';
 

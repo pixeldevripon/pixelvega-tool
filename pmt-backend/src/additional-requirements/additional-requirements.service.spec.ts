@@ -18,7 +18,7 @@ import { AdditionalRequirementStatus, Role } from '@prisma/client';
 import { AiJobsService } from '@/ai/ai-jobs.service';
 import { NotificationsService } from '@/notifications/notifications.service';
 import { PrismaService } from '@/prisma/prisma.service';
-import { ProjectActivityService } from '@/projects/project-activity.service';
+import { ProjectActivityService } from '@/project-activity/project-activity.service';
 import { AdditionalRequirementsService } from './additional-requirements.service';
 
 const PROJECT_ID = 'project-1';

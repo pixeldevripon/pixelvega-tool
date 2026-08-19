@@ -14,7 +14,7 @@ import {
 } from '@prisma/client';
 import { PrismaService } from '@/prisma/prisma.service';
 import { paginate } from '@/common/utils/pagination.util';
-import { ProjectActivityService } from '@/projects/project-activity.service';
+import { ProjectActivityService } from '@/project-activity/project-activity.service';
 import { NotificationsService } from '@/notifications/notifications.service';
 import { CreateClientFeedbackDto } from '@/client-feedback/dto/create-client-feedback.dto';
 import { PaginationQueryDto } from '@/common/dto/pagination-query.dto';

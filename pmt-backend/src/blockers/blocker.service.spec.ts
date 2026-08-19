@@ -18,7 +18,7 @@ import { Test, TestingModule } from '@nestjs/testing';
 import { BlockerStatus, Role } from '@prisma/client';
 import { NotificationsService } from '@/notifications/notifications.service';
 import { PrismaService } from '@/prisma/prisma.service';
-import { ProjectActivityService } from '@/projects/project-activity.service';
+import { ProjectActivityService } from '@/project-activity/project-activity.service';
 import { SlackService } from '@/slack/slack.service';
 import { BlockerService } from './blocker.service';
 

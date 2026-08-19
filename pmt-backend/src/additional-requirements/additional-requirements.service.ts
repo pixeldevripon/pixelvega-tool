@@ -14,7 +14,7 @@ import {
 } from '@prisma/client';
 import { PrismaService } from '@/prisma/prisma.service';
 import { paginate } from '@/common/utils/pagination.util';
-import { ProjectActivityService } from '@/projects/project-activity.service';
+import { ProjectActivityService } from '@/project-activity/project-activity.service';
 import { AiJobsService } from '@/ai/ai-jobs.service';
 import { NotificationsService } from '@/notifications/notifications.service';
 import { CreateAdditionalRequirementDto } from '@/additional-requirements/dto/create-additional-requirement.dto';

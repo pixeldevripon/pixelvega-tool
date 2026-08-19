@@ -13,7 +13,7 @@ import { Test, TestingModule } from '@nestjs/testing';
 import { ClientFeedbackDecision, ProjectStatus, Role } from '@prisma/client';
 import { NotificationsService } from '@/notifications/notifications.service';
 import { PrismaService } from '@/prisma/prisma.service';
-import { ProjectActivityService } from '@/projects/project-activity.service';
+import { ProjectActivityService } from '@/project-activity/project-activity.service';
 import { ClientFeedbackService } from './client-feedback.service';
 
 const PROJECT_ID = 'project-1';

@@ -17,7 +17,7 @@ import { PrismaService } from '@/prisma/prisma.service';
 import { paginate } from '@/common/utils/pagination.util';
 import { SlackService } from '@/slack/slack.service';
 import { SlackUserResolverService } from '@/slack/slack-user-resolver.service';
-import { ProjectActivityService } from '@/projects/project-activity.service';
+import { ProjectActivityService } from '@/project-activity/project-activity.service';
 import { NotificationsService } from '@/notifications/notifications.service';
 import { AddProjectMemberDto } from '@/project-members/dto/add-project-member.dto';
 import { QueryProjectMembersDto } from '@/project-members/dto/query-project-members.dto';

@@ -22,7 +22,7 @@ import { NotificationsService } from '@/notifications/notifications.service';
 import { PrismaService } from '@/prisma/prisma.service';
 import { SlackService } from '@/slack/slack.service';
 import { SlackUserResolverService } from '@/slack/slack-user-resolver.service';
-import { ProjectActivityService } from './project-activity.service';
+import { ProjectActivityService } from '@/project-activity/project-activity.service';
 import { ProjectsService } from './projects.service';
 
 const PROJECT_ID = 'project-1';

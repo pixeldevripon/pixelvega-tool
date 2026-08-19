@@ -10,7 +10,7 @@ import { Role, TimeEntryStatus } from '@prisma/client';
 import { PrismaService } from '@/prisma/prisma.service';
 import { paginate } from '@/common/utils/pagination.util';
 import { minutesBetween } from '@/common/utils/date.util';
-import { ProjectActivityService } from '@/projects/project-activity.service';
+import { ProjectActivityService } from '@/project-activity/project-activity.service';
 import { TimeEntryNoteDto } from '@/time-tracking/dto/time-entry-note.dto';
 import { QueryTimeEntriesDto } from '@/time-tracking/dto/query-time-entries.dto';
 import { MAX_CONTINUOUS_SESSION_MINUTES } from './time-tracking.constants';

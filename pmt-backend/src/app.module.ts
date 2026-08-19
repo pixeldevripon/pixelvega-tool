@@ -10,7 +10,15 @@ import { AuthModule } from '@/auth/auth.module';
 import { ProfilesModule } from '@/profiles/profiles.module';
 import { AuditLogModule } from '@/audit-log/audit-log.module';
 import { LeaveModule } from '@/leave/leave.module';
+import { ProjectActivityModule } from '@/project-activity/project-activity.module';
 import { ProjectsModule } from '@/projects/projects.module';
+import { ProjectStaffingModule } from '@/project-members/project-staffing.module';
+import { ProjectDocumentsModule } from '@/project-documents/project-documents.module';
+import { TimeTrackingModule } from '@/time-tracking/time-tracking.module';
+import { WorkReportsModule } from '@/work-reports/work-reports.module';
+import { BlockersModule } from '@/blockers/blockers.module';
+import { ReviewsModule } from '@/internal-reviews/reviews.module';
+import { ReportingModule } from '@/project-reports/reporting.module';
 import { SlackModule } from '@/slack/slack.module';
 import { NotificationsModule } from '@/notifications/notifications.module';
 import { auth } from '@/auth/auth.instance';
@@ -34,7 +42,18 @@ import { PermissionsModule } from '@/auth/permissions.module';
     AuditLogModule,
     NotificationsModule,
     LeaveModule,
+    // The project domain, split out of what used to be one ProjectsModule
+    // holding seventeen controllers. ProjectActivityModule is @Global, which is
+    // what makes the split possible without splitting the activity log.
+    ProjectActivityModule,
     ProjectsModule,
+    ProjectStaffingModule,
+    ProjectDocumentsModule,
+    TimeTrackingModule,
+    WorkReportsModule,
+    BlockersModule,
+    ReviewsModule,
+    ReportingModule,
     SlackModule,
   ],
   providers: [
