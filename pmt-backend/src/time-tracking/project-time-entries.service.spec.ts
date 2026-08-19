@@ -82,7 +82,21 @@ describe('ProjectTimeEntriesService: the one active timer rule', () => {
       expect(entry).toMatchObject({
         projectId: PROJECT_A,
         userId: DEVELOPER_ID,
-        status: TimeEntryStatus.RUNNING,
+        // The status is a display object now, not a bare enum (ADR 0001). The
+        // canonical value is still `value`, which is the only field anything
+        // may branch on.
+        status: {
+          value: TimeEntryStatus.RUNNING,
+          label: 'Running',
+          tone: 'success',
+        },
+      });
+      // A freshly started timer is the caller's own and still running, so they
+      // may pause or stop it but have nothing to resume.
+      expect(entry.capabilities).toEqual({
+        canPause: true,
+        canResume: false,
+        canStop: true,
       });
     });
 

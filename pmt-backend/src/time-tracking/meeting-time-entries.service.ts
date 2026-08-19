@@ -10,14 +10,22 @@ import { Role, TimeEntryStatus } from '@prisma/client';
 import { PrismaService } from '@/prisma/prisma.service';
 import { paginate } from '@/common/utils/pagination.util';
 import { minutesBetween } from '@/common/utils/date.util';
+import { formatDuration } from '@/common/utils/duration.util';
+import {
+  MeetingTimeEntryWithRelations,
+  toMeetingTimeEntryResponse,
+  toTotals,
+} from '@/time-tracking/time-entry.mapper';
 import { ProjectTimeEntriesService } from './project-time-entries.service';
-import { TimeEntryNoteDto } from '@/time-tracking/dto/time-entry-note.dto';
-import { QueryMeetingTimeEntriesDto } from '@/time-tracking/dto/query-meeting-time-entries.dto';
 import {
   buildStartedAtFilter,
   getAutoStopCutoff,
   isPreviousUtcDay,
 } from './time-entry-date.util';
+import {
+  QueryMeetingTimeEntriesDto,
+  TimeEntryNoteDto,
+} from '@/time-tracking/dto/time-entry.dto';
 
 const MEETING_ENTRY_INCLUDE = {
   user: { select: { id: true, name: true, email: true } },
@@ -80,10 +88,13 @@ export class MeetingTimeEntriesService {
     ]);
 
     const totalMinutes = totals._sum.durationMinutes ?? 0;
+    const context = { callerId: actorId };
     return {
       ...result,
-      totalMinutes,
-      totalHours: Math.round((totalMinutes / 60) * 100) / 100,
+      items: result.items.map((entry) =>
+        toMeetingTimeEntryResponse(entry, context),
+      ),
+      ...toTotals(totalMinutes),
     };
   }
 
@@ -135,8 +146,10 @@ export class MeetingTimeEntriesService {
       return {
         date,
         projectMinutes,
+        projectLabel: formatDuration(projectMinutes) as string,
         meetingMinutes,
-        totalMinutes: projectMinutes + meetingMinutes,
+        meetingLabel: formatDuration(meetingMinutes) as string,
+        ...toTotals(projectMinutes + meetingMinutes),
       };
     });
 
@@ -153,8 +166,10 @@ export class MeetingTimeEntriesService {
       userId,
       days,
       totalProjectMinutes,
+      totalProjectLabel: formatDuration(totalProjectMinutes) as string,
       totalMeetingMinutes,
-      totalMinutes: totalProjectMinutes + totalMeetingMinutes,
+      totalMeetingLabel: formatDuration(totalMeetingMinutes) as string,
+      ...toTotals(totalProjectMinutes + totalMeetingMinutes),
     };
   }
 
@@ -191,7 +206,7 @@ export class MeetingTimeEntriesService {
     // Generated up front (rather than left to the DB default) so the first
     // segment's sessionId can equal its own id, same pattern as TimeEntry.
     const id = randomUUID();
-    return this.prisma.meetingTimeEntry.create({
+    const created = await this.prisma.meetingTimeEntry.create({
       data: {
         id,
         userId: actorId,
@@ -201,6 +216,7 @@ export class MeetingTimeEntriesService {
       },
       include: MEETING_ENTRY_INCLUDE,
     });
+    return toMeetingTimeEntryResponse(created, { callerId: actorId });
   }
 
   async pause(entryId: string, dto: TimeEntryNoteDto, actorId: string) {
@@ -217,7 +233,7 @@ export class MeetingTimeEntriesService {
     }
 
     const endedAt = new Date();
-    return this.prisma.meetingTimeEntry.update({
+    const paused = await this.prisma.meetingTimeEntry.update({
       where: { id: entryId },
       data: {
         endedAt,
@@ -227,6 +243,7 @@ export class MeetingTimeEntriesService {
       },
       include: MEETING_ENTRY_INCLUDE,
     });
+    return toMeetingTimeEntryResponse(paused, { callerId: actorId });
   }
 
   async resume(entryId: string, dto: TimeEntryNoteDto, actorId: string) {
@@ -250,7 +267,7 @@ export class MeetingTimeEntriesService {
 
     await this.assertNoRunningTimer(actorId);
 
-    return this.prisma.meetingTimeEntry.create({
+    const resumed = await this.prisma.meetingTimeEntry.create({
       data: {
         userId: actorId,
         sessionId: entry.sessionId,
@@ -259,6 +276,7 @@ export class MeetingTimeEntriesService {
       },
       include: MEETING_ENTRY_INCLUDE,
     });
+    return toMeetingTimeEntryResponse(resumed, { callerId: actorId });
   }
 
   async stop(entryId: string, dto: TimeEntryNoteDto, actorId: string) {
@@ -266,11 +284,11 @@ export class MeetingTimeEntriesService {
     this.assertNotLockedByPreviousDay(entry);
     // Already over the cap. The caller wanted it stopped anyway, so just
     // hand back the capped result rather than erroring.
-    const { entry: current, wasAutoStopped } =
-      await this.autoStopIfExpired(entry);
-    if (wasAutoStopped) {
-      return current;
+    const autoStop = await this.autoStopIfExpired(entry);
+    if (autoStop.wasAutoStopped) {
+      return toMeetingTimeEntryResponse(autoStop.entry, { callerId: actorId });
     }
+    const current = autoStop.entry;
     if (current.status === TimeEntryStatus.STOPPED) {
       throw new BadRequestException('This timer has already been stopped');
     }
@@ -291,11 +309,12 @@ export class MeetingTimeEntriesService {
       data.notes = dto.notes;
     }
 
-    return this.prisma.meetingTimeEntry.update({
+    const stopped = await this.prisma.meetingTimeEntry.update({
       where: { id: entryId },
       data,
       include: MEETING_ENTRY_INCLUDE,
     });
+    return toMeetingTimeEntryResponse(stopped, { callerId: actorId });
   }
 
   private async getOwnEntryOrThrow(entryId: string, actorId: string) {
@@ -359,18 +378,29 @@ export class MeetingTimeEntriesService {
   // Enforces the same 9 hour continuous session cap and same day
   // completion rule as ProjectTimeEntriesService's copy, minus
   // recalculateActualHours/ProjectActivity since there is no project here.
-  private async autoStopIfExpired(entry: {
-    id: string;
-    userId: string;
-    status: TimeEntryStatus;
-    startedAt: Date;
-  }) {
+  //
+  // A discriminated union for the same reason the project side is one: the two
+  // branches return genuinely different rows, and collapsing them to one shape
+  // narrows a full row down to the smaller one on its way to a response.
+  private async autoStopIfExpired<
+    T extends {
+      id: string;
+      userId: string;
+      status: TimeEntryStatus;
+      startedAt: Date;
+    },
+  >(
+    entry: T,
+  ): Promise<
+    | { entry: T; wasAutoStopped: false }
+    | { entry: MeetingTimeEntryWithRelations; wasAutoStopped: true }
+  > {
     if (entry.status !== TimeEntryStatus.RUNNING) {
-      return { entry, wasAutoStopped: false };
+      return { entry, wasAutoStopped: false as const };
     }
     const cutoff = getAutoStopCutoff(entry.startedAt);
     if (new Date() < cutoff) {
-      return { entry, wasAutoStopped: false };
+      return { entry, wasAutoStopped: false as const };
     }
 
     const stopped = await this.prisma.meetingTimeEntry.update({
@@ -383,6 +413,6 @@ export class MeetingTimeEntriesService {
       include: MEETING_ENTRY_INCLUDE,
     });
 
-    return { entry: stopped, wasAutoStopped: true };
+    return { entry: stopped, wasAutoStopped: true as const };
   }
 }
