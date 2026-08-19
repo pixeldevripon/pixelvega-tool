@@ -6,7 +6,8 @@
     "dev": "next dev -p 3001",
     "build": "next build",
     "start": "next start -p 3001",
-    "lint": "eslint"
+    "lint": "eslint",
+    "test": "echo \"pmt-frontend: no test suite yet, Vitest lands in refactor phase 7\" && exit 0"
   },
   "dependencies": {
     "@radix-ui/react-avatar": "^1.2.2",
