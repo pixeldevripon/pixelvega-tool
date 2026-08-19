@@ -35,19 +35,19 @@ Every item below serves one of these. They are binding constraints, not preferen
 
 ## Progress
 
-| Phase | Scope                         | Directive | Items | Status      |
-| ----- | ----------------------------- | --------- | ----- | ----------- |
-| 0     | Agent and repo scaffolding    |           | 12    | Done        |
-| 1     | Make it verifiable            |           | 20    | In progress |
-| 2     | Backend foundations           | D1 D3 D5  | 33    | Not started |
-| 3     | Backend test floor            |           | 17    | Not started |
-| 4     | Permission gate               | D2        | 19    | Not started |
-| 5     | Backend module mirror         | D1        | 20    | Not started |
-| 6     | The backend serves everything | D4 D5     | 21    | Not started |
-| 7     | Frontend foundations          |           | 16    | Not started |
-| 8     | Frontend module migration     | D4        | 14    | Not started |
-| 9     | Documentation and process     |           | 9     | Not started |
-| n/a   | Open questions                |           | 4     | Unanswered  |
+| Phase | Scope                         | Directive | Items | Status                                                                         |
+| ----- | ----------------------------- | --------- | ----- | ------------------------------------------------------------------------------ |
+| 0     | Agent and repo scaffolding    |           | 12    | Done                                                                           |
+| 1     | Make it verifiable            |           | 20    | **Done, merged**                                                               |
+| 2     | Backend foundations           | D1 D3 D5  | 33    | **Done, merged**                                                               |
+| 3     | Backend test floor            |           | 17    | **Done, merged.** Per-controller specs replaced by the route permission matrix |
+| 4     | Permission gate               | D2        | 19    | **Done, merged**                                                               |
+| 5     | Backend module mirror         | D1        | 20    | **Done, merged.** Response DTOs for 22 modules and the BullMQ move still owed  |
+| 6     | The backend serves everything | D4 D5     | 21    | **NEXT**                                                                       |
+| 7     | Frontend foundations          |           | 16    | Not started                                                                    |
+| 8     | Frontend module migration     | D4        | 14    | Not started                                                                    |
+| 9     | Documentation and process     |           | 9     | Not started                                                                    |
+| n/a   | Open questions                |           | 4     | Unanswered                                                                     |
 
 ---
 
@@ -277,16 +277,16 @@ One PR per module. Order: `users` and `profiles` first (smallest, proves the pat
 
 ### Response DTOs
 
-- [ ] `ProjectResponseDto`
-- [ ] `ClientProjectResponseDto`, so the client projection is a typed contract rather than a hand written `select`
+- [x] `ProjectResponseDto`
+- [x] `ClientProjectResponseDto`, so the client projection is a typed contract rather than a hand written `select`
 - [ ] Response DTOs for every remaining module
 
 ### Module splits
 
 - [x] Split `ProjectsModule`'s 13 controllers into `ProjectsModule`, `ProjectStaffingModule`, `ProjectDocumentsModule`, `TimeTrackingModule`, `WorkReportsModule`, `BlockersModule`, `ReviewsModule`
 - [x] Keep `ProjectActivityService` reachable by all of them without splitting the activity log across DI instances
-- [ ] Break `projects.service.ts` (1,109 lines) along the same seams
-- [ ] Keep `ALLOWED_STATUS_TRANSITIONS` and `compareForDashboard` as shared, individually tested units
+- [x] Break `projects.service.ts` (1,109 lines) along the same seams
+- [x] Keep `ALLOWED_STATUS_TRANSITIONS` and `compareForDashboard` as shared, individually tested units
 - [x] Register every new module in `AppModule.imports`
 - [ ] Move the AI and Slack calls still running in the request path onto BullMQ
 

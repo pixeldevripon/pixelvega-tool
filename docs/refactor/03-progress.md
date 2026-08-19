@@ -17,15 +17,52 @@ Status: `pending` · `in progress` · `done` · `blocked` · `dropped`
 
 ## Current position
 
-|                |                                                                                  |
-| -------------- | -------------------------------------------------------------------------------- |
-| **Phase**      | 1, make it verifiable                                                            |
-| **Branch**     | `refactor/phase-1-make-it-verifiable`                                            |
-| **Started**    | 2026-08-19                                                                       |
-| **Blocked on** | nothing                                                                          |
-| **Next task**  | 1.23, then phase 2. Frontend tasks 1.11 and 1.12 deferred at the owner's request |
+|                    |                                                              |
+| ------------------ | ------------------------------------------------------------ |
+| **Phases 1 to 5**  | Complete and **merged to `main`** (PRs #1 to #6), 2026-08-20 |
+| **Phase 6**        | Not started. This is the next work                           |
+| **Phases 7 to 9**  | Not started (frontend)                                       |
+| **Branch**         | `main`. No open branches or PRs                              |
+| **Gate on `main`** | `lint · typecheck · 601 unit · 12 E2E · build`, all green    |
 
----
+### Read this first if you are picking the work up
+
+1. [`../architecture/02-directives.md`](../architecture/02-directives.md) is binding. D4 and D5 are what phase 6 implements.
+2. [`01-plan.md`](./01-plan.md) phase 6 is the spec for the next work.
+3. [`02-checklist.md`](./02-checklist.md) has the tickable items.
+4. The backend now mirrors `../../island-tour-development/backend`. When a convention is unclear, read that repo rather than guessing.
+
+### Local environment, not recorded anywhere in the repo
+
+`.env` and `.env.test` are gitignored, so this is the only written record of how the
+databases are wired:
+
+- Postgres 17 via Homebrew, already running. Databases `pixelvega_dev` and
+  `pixelvega_test`, owner `devripon`, no password.
+- `pmt-backend/.env` points `DATABASE_URL` at `pixelvega_dev`. **The Neon URLs
+  are commented out in that file rather than deleted**, so switching back is one edit.
+- `pmt-backend/.env.test` points at `pixelvega_test`. `test/global-setup.js`
+  refuses to run if the two match, including when only the credentials differ.
+- `pnpm seed` fills the dev database. Every seeded account signs in with
+  `Password123!`, one per role.
+- `pnpm test:e2e` needs `--experimental-vm-modules` (booting the real `AppModule`
+  pulls in ESM-only packages) and `--forceExit` (the scheduler and the lazily
+  connected Redis client outlive `app.close()`). Both are already in the script.
+- Redis is NOT running locally. The two queued AI features fail their job without
+  it; nothing else is affected.
+
+### Known shortcuts, deliberately taken
+
+- `pmt-frontend`'s `test` script echoes and exits 0. Vitest is deferred to phase 7.
+  Without it the root `pnpm test` fails and blocks every push. Replace with
+  `vitest run` in phase 7.
+- Response DTOs exist for `users`, `audit-log`, `notifications`, `profiles` and
+  `projects` only. For the other 22 modules `/api/docs` documents what goes in but
+  not what comes back.
+- The AI and Slack calls still running in the request path have not moved to BullMQ.
+- Controller specs were deliberately not written per controller. `route-permissions.spec.ts`
+  pins all 112 routes from real metadata instead, which is what protects the phase 4
+  work; per-controller delegation specs would add bulk without adding much.
 
 ## Phase 1: make it verifiable
 
@@ -206,13 +243,26 @@ only barrier between an ADMIN and granting someone the root role. Restored, plus
 a defence in depth check in both `update()` and `invite()` and five specs. **The
 gap exists in `main` today**: the DTO holds it shut and nothing else does.
 
-**Still owed for this phase:**
+**Completed after the first write up:** the swagger extraction finished at 27 of
+27 controllers, all 421 inline decorators moved. Project response DTOs landed
+along with `test/openapi.e2e-spec.ts`, which reads the GENERATED document rather
+than the source and asserts that no internal field appears on
+`ClientProjectResponseDto`.
 
-- Consolidated DTO files and response DTOs for the remaining 23 modules. The
-  swagger files reference response shapes by description rather than by typed
-  class for those, so `/api/docs` documents what goes in but not yet what comes
-  back
-- Moving the AI and Slack calls still in the request path onto BullMQ
+**Still owed:** response DTOs for the other 22 modules, and moving the AI and
+Slack calls out of the request path onto BullMQ. Both are additive and low risk,
+and neither blocks phase 6.
+
+### Merged to `main`, 2026-08-20
+
+PRs #1 to #6. A process note worth keeping: the first five were opened as a
+stack, each targeting the one below. **GitHub did not retarget them when #1
+merged**, so #2 to #5 merged into their own base branches rather than into
+`main`, and only #1 landed. Caught while verifying `main`'s contents.
+`refactor/phase-5-module-mirror` had accumulated everything (trees verified
+identical to the stack tip), so PR #6 brought it to `main` in one step. No work
+was lost. **If stacking PRs again, verify each target after every merge rather
+than assuming retargeting.**
 
 ## Completed phases
 
