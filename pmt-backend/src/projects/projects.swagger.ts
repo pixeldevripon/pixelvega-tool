@@ -1,11 +1,23 @@
 import { applyDecorators } from '@nestjs/common';
-import { ApiOperation, ApiParam, ApiQuery, ApiResponse } from '@nestjs/swagger';
+import {
+  ApiExtraModels,
+  ApiOperation,
+  ApiParam,
+  ApiQuery,
+  ApiResponse,
+} from '@nestjs/swagger';
 import {
   conflict,
   gatedErrors,
   notFound,
   projectScopedErrors,
 } from '@/common/swagger/error-sets';
+import {
+  ClientProjectResponseDto,
+  PaginatedProjectsResponseDto,
+  ProjectActivityResponseDto,
+  ProjectResponseDto,
+} from '@/projects/dto/project-response.dto';
 
 /** Documentation for the core Project entity. */
 
@@ -32,7 +44,11 @@ export const ApiCreateProjectDocs = () =>
         'be locked out of editing it the moment they created it. An admin is not, since ' +
         'they already have unscoped access.',
     }),
-    ApiResponse({ status: 201, description: 'The created project' }),
+    ApiResponse({
+      status: 201,
+      description: 'The created project',
+      type: ProjectResponseDto,
+    }),
     ...gatedErrors,
     notFound('Client not found'),
   );
@@ -48,7 +64,11 @@ export const ApiListProjectsDocs = () =>
     }),
     archivedQuery,
     ApiQuery({ name: 'search', required: false }),
-    ApiResponse({ status: 200, description: 'Paginated projects' }),
+    ApiResponse({
+      status: 200,
+      description: 'Paginated projects',
+      type: PaginatedProjectsResponseDto,
+    }),
     ...gatedErrors,
   );
 
@@ -68,6 +88,7 @@ export const ApiListOwnProjectsDocs = () =>
     ApiResponse({
       status: 200,
       description: 'Paginated, scoped to the caller',
+      type: PaginatedProjectsResponseDto,
     }),
     ...gatedErrors,
   );
@@ -85,6 +106,7 @@ export const ApiListUserProjectsDocs = () =>
     ApiResponse({
       status: 200,
       description: 'Paginated, scoped to the target user',
+      type: PaginatedProjectsResponseDto,
     }),
     ...gatedErrors,
     notFound('User not found'),
@@ -105,7 +127,9 @@ export const ApiGetProjectDocs = () =>
     ApiResponse({
       status: 200,
       description: 'The project, in the projection for this caller',
+      type: ProjectResponseDto,
     }),
+    ApiExtraModels(ClientProjectResponseDto),
     ...projectScopedErrors,
   );
 
@@ -122,6 +146,7 @@ export const ApiGetProjectActivityDocs = () =>
     ApiResponse({
       status: 200,
       description: 'Paginated activity, newest first',
+      type: [ProjectActivityResponseDto],
     }),
     ...projectScopedErrors,
   );
@@ -135,7 +160,11 @@ export const ApiUpdateProjectDocs = () =>
         'holding the role company wide is not enough. An admin bypasses that.',
     }),
     idParam,
-    ApiResponse({ status: 200, description: 'The updated project' }),
+    ApiResponse({
+      status: 200,
+      description: 'The updated project',
+      type: ProjectResponseDto,
+    }),
     ...projectScopedErrors,
   );
 
@@ -148,7 +177,11 @@ export const ApiUpdateProjectPriorityDocs = () =>
         'to null when moving off them.',
     }),
     idParam,
-    ApiResponse({ status: 200, description: 'The updated project' }),
+    ApiResponse({
+      status: 200,
+      description: 'The updated project',
+      type: ProjectResponseDto,
+    }),
     ...projectScopedErrors,
   );
 
@@ -162,7 +195,11 @@ export const ApiUpdateEstimatedHoursDocs = () =>
         'resolved blockers add onto this estimate rather than replacing it.',
     }),
     idParam,
-    ApiResponse({ status: 200, description: 'The updated project' }),
+    ApiResponse({
+      status: 200,
+      description: 'The updated project',
+      type: ProjectResponseDto,
+    }),
     ...projectScopedErrors,
   );
 
@@ -181,6 +218,7 @@ export const ApiConnectProjectSlackDocs = () =>
     ApiResponse({
       status: 200,
       description: 'The project, now with a channel',
+      type: ProjectResponseDto,
     }),
     ...projectScopedErrors,
     conflict('This project already has a Slack channel'),
@@ -196,7 +234,11 @@ export const ApiUpdateProjectTypesDocs = () =>
         'actually changed.',
     }),
     idParam,
-    ApiResponse({ status: 200, description: 'The updated project' }),
+    ApiResponse({
+      status: 200,
+      description: 'The updated project',
+      type: ProjectResponseDto,
+    }),
     ...projectScopedErrors,
   );
 
@@ -215,7 +257,11 @@ export const ApiUpdateProjectStatusDocs = () =>
         'once the project is archived, where restore is the way back.',
     }),
     idParam,
-    ApiResponse({ status: 200, description: 'The updated project' }),
+    ApiResponse({
+      status: 200,
+      description: 'The updated project',
+      type: ProjectResponseDto,
+    }),
     ...projectScopedErrors,
     conflict('That transition is not allowed from the current status'),
   );
@@ -230,7 +276,11 @@ export const ApiArchiveProjectDocs = () =>
         'project can be archived.',
     }),
     idParam,
-    ApiResponse({ status: 200, description: 'The archived project' }),
+    ApiResponse({
+      status: 200,
+      description: 'The archived project',
+      type: ProjectResponseDto,
+    }),
     ...projectScopedErrors,
     conflict('Not completed or cancelled, or already archived'),
   );
@@ -245,7 +295,11 @@ export const ApiRestoreProjectDocs = () =>
         'closed status it had. No time limit.',
     }),
     idParam,
-    ApiResponse({ status: 200, description: 'The restored project' }),
+    ApiResponse({
+      status: 200,
+      description: 'The restored project',
+      type: ProjectResponseDto,
+    }),
     ...projectScopedErrors,
     conflict('This project is not archived'),
   );
