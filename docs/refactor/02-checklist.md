@@ -199,11 +199,11 @@ the mock factory template.
 - [x] `AdditionalRequirementsService`, including the additive approve
 - [x] `LeaveRequestsService` and `LeaveBalancesService`
 - [x] `UsersService`, every target specific protection rule
-- [ ] `ProfilesService`, `AuditLogService`, `NotificationsService`
+- [x] `ProfilesService`, `AuditLogService`, `NotificationsService` 13, 11 and 12 cases. Plus `DailyProjectEntryService`, which completes the half-done row above.
 
 ### Controller specs
 
-- [ ] One beside every controller, asserting delegation and the decorators present
+- [-] One beside every controller, asserting delegation and the decorators present **Dropped, deliberately.** `auth/route-permissions.spec.ts` pins all 112 routes' permissions from real Nest metadata, which is the thing worth protecting. A delegation spec per controller would assert that a one line method calls the service it was written to call, which fails only if someone deletes the line, and 27 of them would be bulk rather than cover.
 
 ### E2E against a real test database
 
