@@ -21,19 +21,23 @@ import { SlackService } from '@/slack/slack.service';
 import { SlackUserResolverService } from '@/slack/slack-user-resolver.service';
 import { buildChannelName } from '@/slack/slack-channel-naming.util';
 import { NotificationsService } from '@/notifications/notifications.service';
-import { CreateProjectDto } from '@/projects/dto/create-project.dto';
-import { UpdateProjectDto } from '@/projects/dto/update-project.dto';
-import { UpdateProjectPriorityDto } from '@/projects/dto/update-project-priority.dto';
-import { UpdateProjectStatusDto } from '@/projects/dto/update-project-status.dto';
-import { UpdateProjectTypesDto } from '@/projects/dto/update-project-types.dto';
-import { UpdateEstimatedHoursDto } from '@/projects/dto/update-estimated-hours.dto';
-import { ConnectSlackChannelDto } from '@/projects/dto/connect-slack-channel.dto';
-import { QueryProjectsDto } from '@/projects/dto/query-projects.dto';
-import { QueryMyProjectsDto } from '@/projects/dto/query-my-projects.dto';
 import { PaginationQueryDto } from '@/common/dto/pagination-query.dto';
 import { ProjectActivityService } from '@/project-activity/project-activity.service';
 import { ProjectScopeService } from '@/project-scope/project-scope.service';
+import { PermissionsService } from '@/auth/permissions.service';
+import { ProjectContext, toProjectResponse } from '@/projects/project.mapper';
 import { RECOMMENDED_MAX_ACTIVE_PROJECTS } from './workload.constants';
+import {
+  ConnectSlackChannelDto,
+  CreateProjectDto,
+  QueryMyProjectsDto,
+  QueryProjectsDto,
+  UpdateEstimatedHoursDto,
+  UpdateProjectDto,
+  UpdateProjectPriorityDto,
+  UpdateProjectStatusDto,
+  UpdateProjectTypesDto,
+} from '@/projects/dto/project.dto';
 
 // Sequence validation only. Who is allowed to trigger a given transition is
 // checked separately, in assertCanChangeStatus() below.
@@ -104,20 +108,6 @@ export const PRIORITY_RANK: Record<ProjectPriority, number> = {
   LOW: 4,
 };
 
-// remainingHours is computed here, never stored, so it can't drift out of
-// sync with estimatedHours/actualHours the way a persisted column could.
-export function withRemainingHours<
-  T extends { estimatedHours: number | null; actualHours: number },
->(project: T): T & { remainingHours: number | null } {
-  return {
-    ...project,
-    remainingHours:
-      project.estimatedHours === null
-        ? null
-        : project.estimatedHours - project.actualHours,
-  };
-}
-
 export function compareNullableDates(a: Date | null, b: Date | null): number {
   if (a === null && b === null) return 0;
   if (a === null) return 1; // nulls sort last
@@ -155,6 +145,7 @@ export class ProjectsService {
     private readonly slackService: SlackService,
     private readonly slackUserResolver: SlackUserResolverService,
     private readonly notificationsService: NotificationsService,
+    private readonly permissions: PermissionsService,
   ) {}
 
   async create(dto: CreateProjectDto, actorId: string, actorRole: Role) {
@@ -304,7 +295,7 @@ export class ProjectsService {
     }
   }
 
-  async findAll(query: QueryProjectsDto) {
+  async findAll(query: QueryProjectsDto, actorId: string, actorRole: Role) {
     const {
       page = 1,
       pageSize = 20,
@@ -341,7 +332,17 @@ export class ProjectsService {
       page,
       pageSize,
     );
-    return { ...result, items: result.items.map(withRemainingHours) };
+    const contexts = await this.buildProjectContexts(
+      result.items.map((item) => item.id),
+      actorId,
+      actorRole,
+    );
+    return {
+      ...result,
+      items: result.items.map((item) =>
+        toProjectResponse(item, contexts.get(item.id) as ProjectContext),
+      ),
+    };
   }
 
   // CLIENT sees only their own project, with a reduced field set. Staff
@@ -367,7 +368,10 @@ export class ProjectsService {
       throw new NotFoundException('Project not found');
     }
     await this.projectScope.assertActiveMember(id, actorId, actorRole);
-    return withRemainingHours(project);
+    return toProjectResponse(
+      project,
+      await this.buildProjectContext(id, actorId, actorRole),
+    );
   }
 
   // Staff only, no CLIENT. The activity timeline includes internal events
@@ -461,10 +465,17 @@ export class ProjectsService {
     const isIndividualContributor =
       role === Role.DEVELOPER || role === Role.DESIGNER;
 
+    const pageItems = sorted.slice((page - 1) * pageSize, page * pageSize);
+    const contexts = await this.buildProjectContexts(
+      pageItems.map((item) => item.id),
+      userId,
+      role,
+    );
+
     return {
-      items: sorted
-        .slice((page - 1) * pageSize, page * pageSize)
-        .map(withRemainingHours),
+      items: pageItems.map((item) =>
+        toProjectResponse(item, contexts.get(item.id) as ProjectContext),
+      ),
       total,
       page,
       pageSize,
@@ -616,7 +627,10 @@ export class ProjectsService {
     await this.projectScope.assertManagesProject(id, actorId, actorRole);
 
     if (dto.estimatedHours === existing.estimatedHours) {
-      return withRemainingHours(await this.getProjectWithInclude(id));
+      return toProjectResponse(
+        await this.getProjectWithInclude(id),
+        await this.buildProjectContext(id, actorId, actorRole),
+      );
     }
 
     const updated = await this.prisma.project.update({
@@ -629,7 +643,10 @@ export class ProjectsService {
       metadata: { from: existing.estimatedHours, to: dto.estimatedHours },
     });
 
-    return withRemainingHours(updated);
+    return toProjectResponse(
+      updated,
+      await this.buildProjectContext(id, actorId, actorRole),
+    );
   }
 
   // The caller sends the full desired set of types, not a delta, and this
@@ -1001,7 +1018,10 @@ export class ProjectsService {
 
     await this.inviteCurrentRosterToSlackChannel(id, slackChannelId);
 
-    return withRemainingHours(updated);
+    return toProjectResponse(
+      updated,
+      await this.buildProjectContext(id, actorId, actorRole),
+    );
   }
 
   private async inviteCurrentRosterToSlackChannel(
@@ -1040,6 +1060,48 @@ export class ProjectsService {
   // which are already gated to PROJECT_MANAGER/ADMIN/SYSTEM_ADMIN at the
   // controller level. Unlike findOne(), no CLIENT/DEVELOPER/DESIGNER
   // scoping applies here.
+  // Resolved once per request. `permissions` depends only on the caller, so it
+  // is asked once; `managesProject` depends on the project, so it is asked per
+  // distinct project id and cached for the rest of the page.
+  private async buildProjectContext(
+    projectId: string,
+    actorId: string,
+    actorRole: Role,
+  ): Promise<ProjectContext> {
+    return {
+      permissions: this.permissions.getEffectivePermissions({
+        role: actorRole,
+      }),
+      managesProject: await this.projectScope.managesProject(
+        projectId,
+        actorId,
+        actorRole,
+      ),
+    };
+  }
+
+  private async buildProjectContexts(
+    projectIds: string[],
+    actorId: string,
+    actorRole: Role,
+  ): Promise<Map<string, ProjectContext>> {
+    const permissions = this.permissions.getEffectivePermissions({
+      role: actorRole,
+    });
+    const contexts = new Map<string, ProjectContext>();
+    for (const projectId of new Set(projectIds)) {
+      contexts.set(projectId, {
+        permissions,
+        managesProject: await this.projectScope.managesProject(
+          projectId,
+          actorId,
+          actorRole,
+        ),
+      });
+    }
+    return contexts;
+  }
+
   private async getProjectWithInclude(id: string) {
     const project = await this.prisma.project.findUnique({
       where: { id },
