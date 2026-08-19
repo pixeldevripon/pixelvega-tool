@@ -22,7 +22,12 @@ export class AuthService {
   ) {}
 
   async forgotPassword(email: string) {
-    const user = await this.prisma.user.findUnique({ where: { email } });
+    const user = await this.prisma.user.findUnique({
+      where: { email },
+      // Only the id. This is an unauthenticated route, and the password hash
+      // has no business being loaded into memory on it.
+      select: { id: true },
+    });
     if (user) {
       const code = generateResetCode();
       await this.prisma.passwordResetCode.create({
@@ -42,7 +47,12 @@ export class AuthService {
   }
 
   async verifyResetCode(email: string, code: string) {
-    const user = await this.prisma.user.findUnique({ where: { email } });
+    const user = await this.prisma.user.findUnique({
+      where: { email },
+      // Only the id. This is an unauthenticated route, and the password hash
+      // has no business being loaded into memory on it.
+      select: { id: true },
+    });
     const record = user
       ? await this.prisma.passwordResetCode.findFirst({
           where: {

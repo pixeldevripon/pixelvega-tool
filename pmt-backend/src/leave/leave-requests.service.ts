@@ -104,6 +104,7 @@ export class LeaveRequestsService {
     // case has no submission notification bullet in the build spec.
     const requester = await this.prisma.user.findUniqueOrThrow({
       where: { id: userId },
+      select: { name: true, role: true },
     });
     if (requester.role === Role.DEVELOPER || requester.role === Role.DESIGNER) {
       const admins = await this.prisma.user.findMany({
@@ -159,6 +160,7 @@ export class LeaveRequestsService {
   async balanceForUser(userId: string) {
     const user = await this.prisma.user.findFirst({
       where: { id: userId, deletedAt: null },
+      select: { id: true },
     });
     if (!user) {
       throw new NotFoundException('User not found');
@@ -402,6 +404,7 @@ export class LeaveRequestsService {
 
     const requester = await this.prisma.user.findUniqueOrThrow({
       where: { id: leaveRequest.userId },
+      select: { id: true, name: true, role: true },
     });
     await this.notificationsService.notify({
       userId: leaveRequest.userId,

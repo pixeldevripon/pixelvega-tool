@@ -156,6 +156,7 @@ export class ProjectsService {
   async create(dto: CreateProjectDto, actorId: string, actorRole: Role) {
     const client = await this.prisma.user.findFirst({
       where: { id: dto.clientId, deletedAt: null },
+      select: { id: true, role: true },
     });
     if (!client) {
       throw new NotFoundException('Client not found');
@@ -275,6 +276,7 @@ export class ProjectsService {
     if (creatorRole === Role.PROJECT_MANAGER) {
       const creator = await this.prisma.user.findUnique({
         where: { id: creatorId },
+        select: { id: true, email: true, slackUserId: true },
       });
       if (creator) {
         const creatorSlackId =
@@ -290,6 +292,7 @@ export class ProjectsService {
 
     const admins = await this.prisma.user.findMany({
       where: { role: { in: [Role.ADMIN, Role.SYSTEM_ADMIN] }, deletedAt: null },
+      select: { id: true, email: true, slackUserId: true },
     });
     for (const admin of admins) {
       const adminSlackId =
@@ -451,6 +454,7 @@ export class ProjectsService {
   async findForUser(userId: string, query: QueryMyProjectsDto) {
     const user = await this.prisma.user.findFirst({
       where: { id: userId, deletedAt: null },
+      select: { id: true, role: true },
     });
     if (!user) {
       throw new NotFoundException('User not found');

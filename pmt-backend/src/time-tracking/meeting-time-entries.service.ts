@@ -121,6 +121,7 @@ export class MeetingTimeEntriesService {
 
     const user = await this.prisma.user.findFirst({
       where: { id: userId, deletedAt: null },
+      select: { id: true },
     });
     if (!user) {
       throw new NotFoundException('User not found');

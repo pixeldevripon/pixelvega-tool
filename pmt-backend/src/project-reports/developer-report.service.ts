@@ -51,6 +51,7 @@ export class DeveloperReportService {
 
     const user = await this.prisma.user.findFirst({
       where: { id: userId, deletedAt: null },
+      select: { id: true, role: true },
     });
     if (!user) {
       throw new NotFoundException('User not found');

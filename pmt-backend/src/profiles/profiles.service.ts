@@ -45,6 +45,7 @@ export class ProfilesService {
     if (name !== undefined) {
       const existingUser = await this.prisma.user.findUniqueOrThrow({
         where: { id: userId },
+        select: { name: true },
       });
       if (name !== existingUser.name) {
         await this.prisma.user.update({
@@ -110,6 +111,7 @@ export class ProfilesService {
   async updateAvatar(userId: string, file: Express.Multer.File) {
     const user = await this.prisma.user.findFirst({
       where: { id: userId, deletedAt: null },
+      select: { id: true, avatarPublicId: true },
     });
     if (!user) {
       throw new NotFoundException('User not found');

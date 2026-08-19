@@ -273,7 +273,7 @@ One PR per module. Order: `users` and `profiles` first (smallest, proves the pat
 - [x] Controller reduced to routing only: no Prisma, no business rules, no try/catch
 - [x] Static routes declared above dynamic ones
 - [ ] `private readonly logger = new Logger(X.name)` on every mutating service
-- [ ] `select:` or a shared `include` const on every query, never a raw row returned
+- [x] `select:` or a shared `include` const on every query, never a raw row returned No raw row reaches a client any more: every module has a mapper that builds its response explicitly. Separately, all 14 `user.find*` lookups gained a `select`, because `User.password` holds a real hash and every unselected lookup was loading it into memory, including on the unauthenticated forgot-password route.
 - [x] Scope rules in named `assertCanX()` helpers, one per rule `ProjectScopeService` (`@Global`), replacing 12 private copies across 11 services: 7 byte-identical `assertManagesProject`, 4 `assertActiveMember`, and one genuine variant renamed `assertStaffedOnProject` because it enforces a different rule. 29 specs; the 695 existing tests pass unchanged, which is what proves behaviour was preserved
 - [ ] Pure units as flat sibling files with co-located specs, never a nested subdirectory
 

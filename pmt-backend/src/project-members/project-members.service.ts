@@ -129,6 +129,13 @@ export class ProjectMembersService {
 
     const user = await this.prisma.user.findFirst({
       where: { id: dto.userId, deletedAt: null },
+      select: {
+        id: true,
+        name: true,
+        email: true,
+        role: true,
+        slackUserId: true,
+      },
     });
     if (!user) {
       throw new NotFoundException('User not found');

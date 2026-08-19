@@ -219,6 +219,7 @@ export class UsersService {
 
     const existing = await this.prisma.user.findUnique({
       where: { email: dto.email },
+      select: { id: true },
     });
     if (existing) {
       throw new ConflictException('A user with this email already exists');
