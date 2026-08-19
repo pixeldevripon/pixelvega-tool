@@ -3,7 +3,7 @@ import { Role } from '@prisma/client';
 import { PrismaService } from '@/prisma/prisma.service';
 import { CloudinaryService } from '@/uploads/cloudinary.service';
 import { AuditLogService } from '@/audit-log/audit-log.service';
-import { UpdateProfileDto } from '@/profiles/dto/update-profile.dto';
+import { UpdateProfileRequestDto } from '@/profiles/dto/profile.dto';
 
 const USER_WITH_PROFILE_SELECT = {
   id: true,
@@ -38,7 +38,7 @@ export class ProfilesService {
     return user;
   }
 
-  async update(userId: string, role: Role, dto: UpdateProfileDto) {
+  async update(userId: string, role: Role, dto: UpdateProfileRequestDto) {
     const { name, ...profileFields } = dto;
 
     if (name !== undefined) {
