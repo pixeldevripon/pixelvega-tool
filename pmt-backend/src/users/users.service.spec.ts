@@ -215,6 +215,53 @@ describe('UsersService: target specific protection rules', () => {
     });
   });
 
+  describe('update: nobody is ever granted SYSTEM_ADMIN', () => {
+    // This is the root role. The DTO's IsIn(ASSIGNABLE_ROLES) rejects it at
+    // validation, but the service checks it too: the boundary must not rest on
+    // one decorator that a later refactor could relax to @IsEnum(Role) without
+    // realising what it was holding up. A phase 5 rewrite did exactly that,
+    // which is why these tests exist.
+    it.each([Role.SYSTEM_ADMIN, Role.ADMIN, Role.PROJECT_MANAGER])(
+      'rejects a %s actor granting SYSTEM_ADMIN',
+      async (actorRole) => {
+        await expect(
+          service.update(
+            DEVELOPER_ID,
+            { role: Role.SYSTEM_ADMIN },
+            'actor-1',
+            actorRole,
+          ),
+        ).rejects.toBeInstanceOf(ForbiddenException);
+      },
+    );
+
+    it('rejects an invite with role SYSTEM_ADMIN, even from the SYSTEM_ADMIN', async () => {
+      await expect(
+        service.invite(
+          {
+            email: 'root2@pixelvega.com',
+            name: 'Second Root',
+            role: Role.SYSTEM_ADMIN,
+          },
+          SYSTEM_ADMIN_ID,
+          Role.SYSTEM_ADMIN,
+        ),
+      ).rejects.toBeInstanceOf(ForbiddenException);
+    });
+
+    it('never reaches the database when SYSTEM_ADMIN is requested', async () => {
+      await expect(
+        service.update(
+          DEVELOPER_ID,
+          { role: Role.SYSTEM_ADMIN },
+          ADMIN_ID,
+          Role.ADMIN,
+        ),
+      ).rejects.toThrow();
+      expect(prisma.user.update).not.toHaveBeenCalled();
+    });
+  });
+
   describe('update: promotion to ADMIN', () => {
     it('rejects an ADMIN promoting someone to ADMIN', async () => {
       await expect(

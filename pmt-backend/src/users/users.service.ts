@@ -15,9 +15,11 @@ import { auth } from '@/auth/auth.instance';
 import { generateTempPassword } from '@/common/utils/password.util';
 import { paginate } from '@/common/utils/pagination.util';
 import { PaginationQueryDto } from '@/common/dto/pagination-query.dto';
-import { InviteUserDto } from '@/users/dto/invite-user.dto';
-import { ChangePasswordDto } from '@/users/dto/change-password.dto';
-import { UpdateUserDto } from '@/users/dto/update-user.dto';
+import {
+  ChangeOwnPasswordRequestDto,
+  InviteUserRequestDto,
+  UpdateUserRequestDto,
+} from '@/users/dto/user.dto';
 
 const USER_SELECT = {
   id: true,
@@ -72,7 +74,7 @@ export class UsersService {
 
   async update(
     id: string,
-    dto: UpdateUserDto,
+    dto: UpdateUserRequestDto,
     actorId: string,
     actorRole: Role,
   ) {
@@ -99,6 +101,16 @@ export class UsersService {
       id !== actorId
     ) {
       throw new ForbiddenException('Only the system admin can modify an admin');
+    }
+    // Defence in depth. `ASSIGNABLE_ROLES` in user.dto.ts already rejects this
+    // at validation, and that is the primary control, but a privilege boundary
+    // this important must not rest on a single decorator someone could relax
+    // without realising what it was holding up. SYSTEM_ADMIN is a single
+    // account bootstrapped on first boot and is never assignable through the API.
+    if (dto.role === Role.SYSTEM_ADMIN) {
+      throw new ForbiddenException(
+        'The system admin role cannot be assigned through the API',
+      );
     }
     if (dto.role === Role.ADMIN && actorRole !== Role.SYSTEM_ADMIN) {
       throw new ForbiddenException(
@@ -161,7 +173,21 @@ export class UsersService {
     return { message: 'User deleted.' };
   }
 
-  async invite(dto: InviteUserDto, invitedById: string, actorRole: Role) {
+  async invite(
+    dto: InviteUserRequestDto,
+    invitedById: string,
+    actorRole: Role,
+  ) {
+    // Defence in depth. `ASSIGNABLE_ROLES` in user.dto.ts already rejects this
+    // at validation, and that is the primary control, but a privilege boundary
+    // this important must not rest on a single decorator someone could relax
+    // without realising what it was holding up. SYSTEM_ADMIN is a single
+    // account bootstrapped on first boot and is never assignable through the API.
+    if (dto.role === Role.SYSTEM_ADMIN) {
+      throw new ForbiddenException(
+        'The system admin role cannot be assigned through the API',
+      );
+    }
     if (dto.role === Role.ADMIN && actorRole !== Role.SYSTEM_ADMIN) {
       throw new ForbiddenException(
         'Only the system admin can invite an ADMIN user',
@@ -204,7 +230,11 @@ export class UsersService {
     return user;
   }
 
-  async changePassword(dto: ChangePasswordDto, userId: string, req: Request) {
+  async changePassword(
+    dto: ChangeOwnPasswordRequestDto,
+    userId: string,
+    req: Request,
+  ) {
     await auth.api.changePassword({
       body: {
         currentPassword: dto.currentPassword,
