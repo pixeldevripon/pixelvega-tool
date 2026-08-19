@@ -21,16 +21,16 @@ See [customization.md](../customization.md) for theming, CSS variables, and addi
 **Incorrect:**
 
 ```tsx
-<div className="bg-blue-500 text-white">
-  <p className="text-gray-600">Secondary text</p>
+<div className='bg-blue-500 text-white'>
+    <p className='text-gray-600'>Secondary text</p>
 </div>
 ```
 
 **Correct:**
 
 ```tsx
-<div className="bg-primary text-primary-foreground">
-  <p className="text-muted-foreground">Secondary text</p>
+<div className='bg-primary text-primary-foreground'>
+    <p className='text-muted-foreground'>Secondary text</p>
 </div>
 ```
 
@@ -65,15 +65,15 @@ If you need a success/positive color that doesn't exist as a semantic token, use
 **Incorrect:**
 
 ```tsx
-<Button className="border border-input bg-transparent hover:bg-accent">
-  Click me
+<Button className='border border-input bg-transparent hover:bg-accent'>
+    Click me
 </Button>
 ```
 
 **Correct:**
 
 ```tsx
-<Button variant="outline">Click me</Button>
+<Button variant='outline'>Click me</Button>
 ```
 
 ---
@@ -85,16 +85,16 @@ Use `className` for layout (e.g. `max-w-md`, `mx-auto`, `mt-4`), **not** for ove
 **Incorrect:**
 
 ```tsx
-<Card className="bg-blue-100 text-blue-900 font-normal">
-  <CardContent>Dashboard</CardContent>
+<Card className='bg-blue-100 text-blue-900 font-normal'>
+    <CardContent>Dashboard</CardContent>
 </Card>
 ```
 
 **Correct:**
 
 ```tsx
-<Card className="max-w-md mx-auto">
-  <CardContent>Dashboard</CardContent>
+<Card className='max-w-md mx-auto'>
+    <CardContent>Dashboard</CardContent>
 </Card>
 ```
 
@@ -111,10 +111,10 @@ To customize a component's appearance, prefer these approaches in order:
 Use `gap-*` instead. `space-y-4` → `flex flex-col gap-4`. `space-x-2` → `flex gap-2`.
 
 ```tsx
-<div className="flex flex-col gap-4">
-  <Input />
-  <Input />
-  <Button>Submit</Button>
+<div className='flex flex-col gap-4'>
+    <Input />
+    <Input />
+    <Button>Submit</Button>
 </div>
 ```
 
@@ -161,3 +161,4 @@ import { cn } from "@/lib/utils"
 ## No manual z-index on overlay components
 
 `Dialog`, `Sheet`, `Drawer`, `AlertDialog`, `DropdownMenu`, `Popover`, `Tooltip`, `HoverCard` handle their own stacking. Never add `z-50` or `z-[999]`.
+
