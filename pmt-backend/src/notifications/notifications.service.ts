@@ -10,7 +10,7 @@ import { PrismaService } from '@/prisma/prisma.service';
 import { paginate } from '@/common/utils/pagination.util';
 import { SlackService } from '@/slack/slack.service';
 import { SlackUserResolverService } from '@/slack/slack-user-resolver.service';
-import { QueryNotificationsDto } from '@/notifications/dto/query-notifications.dto';
+import { QueryNotificationsDto } from '@/notifications/dto/notification.dto';
 
 export interface NotifyOptions {
   userId: string;

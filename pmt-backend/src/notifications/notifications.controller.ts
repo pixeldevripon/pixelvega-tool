@@ -1,78 +1,60 @@
 import { Controller, Get, Param, Patch, Query } from '@nestjs/common';
-import {
-  ApiCookieAuth,
-  ApiOperation,
-  ApiResponse,
-  ApiTags,
-} from '@nestjs/swagger';
-import { Permission, Role } from '@prisma/client';
-import { CurrentUser } from '@/common/decorators/current-user.decorator';
-import { NotificationsService } from './notifications.service';
-import { QueryNotificationsDto } from '@/notifications/dto/query-notifications.dto';
+import { ApiCookieAuth, ApiTags } from '@nestjs/swagger';
+import { Permission } from '@prisma/client';
 import { RequirePermissions } from '@/auth/decorators/require-permissions.decorator';
+import { CurrentUser } from '@/common/decorators/current-user.decorator';
+import { QueryNotificationsDto } from '@/notifications/dto/notification.dto';
+import {
+  ApiListNotificationsDocs,
+  ApiMarkAllNotificationsReadDocs,
+  ApiMarkNotificationReadDocs,
+  ApiUnreadCountDocs,
+} from './notifications.swagger';
+import { NotificationsService } from './notifications.service';
 
-// Always self scoped. Unlike most of ProjectsModule, no staff role ever
-// sees anyone else's notifications, there is no company wide or
-// PM/Admin-sees-more variant here, so this controller declares no permission
-// restriction at all, any authenticated user reads only their own rows.
+/**
+ * Routing only. Documentation lives in notifications.swagger.ts.
+ *
+ * Every route here is self scoped. Unlike most of the project domain there is
+ * no company wide or PM-sees-more variant: no role ever reads another person's
+ * notifications, so the permissions are the self service ones every role holds.
+ * Static routes are declared above dynamic ones.
+ */
 @ApiTags('Notifications')
 @ApiCookieAuth('better-auth.session_token')
 @Controller('notifications')
 export class NotificationsController {
   constructor(private readonly notificationsService: NotificationsService) {}
 
-  @ApiOperation({
-    summary: "List the current user's notifications, newest first",
-    description:
-      "Paginated. Optional ?unreadOnly=true filter. Always scoped to the caller, there is no way to view another user's notifications through this endpoint regardless of role.",
-  })
-  @ApiResponse({ status: 200, description: 'Paginated notifications' })
+  @ApiListNotificationsDocs()
   @RequirePermissions(Permission.VIEW_OWN_NOTIFICATIONS)
   @Get()
   findAll(
     @Query() query: QueryNotificationsDto,
-    @CurrentUser() user: { id: string; role: Role },
+    @CurrentUser() user: { id: string },
   ) {
     return this.notificationsService.findAllForUser(user.id, query);
   }
 
-  @ApiOperation({
-    summary: "The current user's unread notification count",
-  })
-  @ApiResponse({ status: 200, description: 'Unread count' })
+  @ApiUnreadCountDocs()
   @RequirePermissions(Permission.VIEW_OWN_NOTIFICATIONS)
   @Get('unread-count')
-  async getUnreadCount(@CurrentUser() user: { id: string; role: Role }) {
+  async getUnreadCount(@CurrentUser() user: { id: string }) {
     const count = await this.notificationsService.getUnreadCount(user.id);
     return { count };
   }
 
-  @ApiOperation({
-    summary: 'Mark one notification read',
-    description:
-      "Only the notification's own recipient can mark it read. Marking an already read notification read again is a harmless no-op.",
-  })
-  @ApiResponse({ status: 200, description: 'Notification marked read' })
-  @ApiResponse({
-    status: 404,
-    description: 'Notification not found, or belongs to someone else',
-  })
-  @RequirePermissions(Permission.MANAGE_OWN_NOTIFICATIONS)
-  @Patch(':id/read')
-  markRead(
-    @Param('id') id: string,
-    @CurrentUser() user: { id: string; role: Role },
-  ) {
-    return this.notificationsService.markRead(id, user.id);
-  }
-
-  @ApiOperation({
-    summary: "Mark all of the current user's unread notifications read",
-  })
-  @ApiResponse({ status: 200, description: 'Count of notifications updated' })
+  @ApiMarkAllNotificationsReadDocs()
   @RequirePermissions(Permission.MANAGE_OWN_NOTIFICATIONS)
   @Patch('read-all')
-  markAllRead(@CurrentUser() user: { id: string; role: Role }) {
+  markAllRead(@CurrentUser() user: { id: string }) {
     return this.notificationsService.markAllRead(user.id);
+  }
+
+  @ApiMarkNotificationReadDocs()
+  @RequirePermissions(Permission.MANAGE_OWN_NOTIFICATIONS)
+  @Patch(':id/read')
+  markRead(@Param('id') id: string, @CurrentUser() user: { id: string }) {
+    return this.notificationsService.markRead(id, user.id);
   }
 }
