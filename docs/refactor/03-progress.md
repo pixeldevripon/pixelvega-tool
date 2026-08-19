@@ -380,3 +380,32 @@ the DTOs first would mean writing them twice.
 | 2026-08-20 | Mapping `UsersService.findOne` broke two authorization rules. `update()` and `remove()` called it to fetch the record they then compare against, so once `findOne` returned `role` as a display object, every `existing.role === Role.SYSTEM_ADMIN` check became object-versus-string and silently false | The SYSTEM_ADMIN protections and the one-admin-cannot-edit-another rule both stopped firing. Caught by the phase 1 specs, which is exactly what they were written for. Fixed by splitting a private `getUserOrThrow` returning the raw row from the public mapped `findOne`, with the reason written above it. Every other module's internal lookup was audited and returns raw rows                                                 |
 | 2026-08-20 | **Every boolean query parameter was broken.** All six used `@Type(() => Boolean)`, which calls `Boolean(value)`, and `Boolean('false')` is `true`                                                                                                                                                        | `?archived=false` returned archived projects, `?includeLeft=false` included departed members, `?unreadOnly=false` returned only unread. The bug only bit a client that sent the value explicitly, since an absent param fell through to the field default, which is why it survived. Replaced with a `@ToBoolean()` decorator that parses `true`/`false`/`1`/`0`/bare-flag and refuses anything else with a 400 rather than guessing |
 | 2026-08-20 | Every `user.find*` lookup without a `select` was loading `User.password`, which holds a real hash written by `auth.service.ts` on reset                                                                                                                                                                  | Not a leak to clients, since responses are built by mappers, but a hash in memory that a stray log or error serializer could surface. Two of the fourteen were on the **unauthenticated** forgot-password route. All now select only the columns they use                                                                                                                                                                            |
+
+---
+
+## Phase 6b: auth on better-auth, module and route naming, reusable uploads
+
+Four asks, on `refactor/phase-7-auth-routing-uploads`.
+
+### Decisions taken up front
+
+| Question                                                                             | Answer                                     | Consequence                                                                                                                                            |
+| ------------------------------------------------------------------------------------ | ------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| Add `/api/v1` like the reference?                                                    | **No, keep `/api`**                        | Deviates from the reference on this one point, deliberately. Recorded here so nobody "fixes" it later                                                  |
+| Reset flow: better-auth's link, or its emailOTP plugin keeping today's 6 digit code? | **Link based, exactly like the reference** | A product change: the user clicks a link instead of typing a code. The custom `PasswordResetCode` table, `AuthService` and `/auth-flows` routes all go |
+
+### Tasks
+
+| #   | Task                                                                  | Status      | Outcome |
+| --- | --------------------------------------------------------------------- | ----------- | ------- |
+| A.1 | Review `auth.instance.ts` against the reference, and report findings  | in progress |         |
+| A.2 | Rewrite `auth.instance.ts`: `sendResetPassword`, rate limits, hooks   | pending     |         |
+| A.3 | Delete the custom flow: controller, service, DTOs, swagger, code util | pending     |         |
+| A.4 | Drop `PasswordResetCode` (hand written migration)                     | pending     |         |
+| A.5 | `MailService.sendPasswordResetEmail(email, url)`                      | pending     |         |
+| A.6 | Update `route-permissions.spec.ts` and the OpenAPI contract check     | pending     |         |
+| B.1 | Group the AI modules, and any other related set, under one parent     | pending     |         |
+| B.2 | Rename routes and modules to the standard the reference uses          | pending     |         |
+| C.1 | One reusable uploader: every file type, single and multiple           | pending     |         |
+| C.2 | Specs for the uploader                                                | pending     |         |
+| D.1 | Whole gate green, checklist ticked, PR opened                         | pending     |         |
