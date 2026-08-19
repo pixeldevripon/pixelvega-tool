@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, Logger } from '@nestjs/common';
 import { Job } from 'bullmq';
 import {
   AiTemplateKind,
@@ -39,6 +39,8 @@ const DEFAULT_SYSTEM_PROMPT =
 // Feature 1's scope checker avoids one.
 @Injectable()
 export class StatusReportService {
+  private readonly logger = new Logger(StatusReportService.name);
+
   constructor(
     private readonly prisma: PrismaService,
     private readonly claude: ClaudeService,
@@ -49,6 +51,7 @@ export class StatusReportService {
     const aiJob = await this.prisma.aiJob.findUniqueOrThrow({
       where: { id: job.data.aiJobId },
     });
+    this.logger.log(`Generating a status report for AI job ${aiJob.id}`);
     const { periodStart, periodEnd, reportSnapshot } =
       aiJob.input as unknown as StatusReportJobInput;
     const projectId = aiJob.projectId!;

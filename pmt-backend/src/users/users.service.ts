@@ -2,6 +2,7 @@ import {
   ConflictException,
   ForbiddenException,
   Injectable,
+  Logger,
   NotFoundException,
 } from '@nestjs/common';
 import type { Request } from 'express';
@@ -15,6 +16,8 @@ import { auth } from '@/auth/auth.instance';
 import { generateTempPassword } from '@/common/utils/password.util';
 import { paginate } from '@/common/utils/pagination.util';
 import { PaginationQueryDto } from '@/common/dto/pagination-query.dto';
+import { toUserResponse } from '@/users/user.mapper';
+import { QueryUsersDto } from '@/users/dto/user.dto';
 import {
   ChangeOwnPasswordRequestDto,
   InviteUserRequestDto,
@@ -36,6 +39,8 @@ const USER_SELECT = {
 
 @Injectable()
 export class UsersService {
+  private readonly logger = new Logger(UsersService.name);
+
   constructor(
     private readonly prisma: PrismaService,
     private readonly mail: MailService,
@@ -43,25 +48,46 @@ export class UsersService {
     private readonly auditLog: AuditLogService,
   ) {}
 
-  findAll(query: PaginationQueryDto) {
-    const { page = 1, pageSize = 20 } = query;
+  async findAll(query: QueryUsersDto) {
+    const {
+      page = 1,
+      pageSize = 20,
+      sortBy = 'name',
+      sortOrder = 'asc',
+    } = query;
     const where = { deletedAt: null };
 
-    return paginate(
+    const result = await paginate(
       (args) =>
         this.prisma.user.findMany({
           where,
           select: USER_SELECT,
-          orderBy: { createdAt: 'desc' },
+          orderBy: { [sortBy]: sortOrder },
           ...args,
         }),
       () => this.prisma.user.count({ where }),
       page,
       pageSize,
     );
+
+    return { ...result, items: result.items.map(toUserResponse) };
   }
 
   async findOne(id: string) {
+    return toUserResponse(await this.getUserOrThrow(id));
+  }
+
+  /**
+   * The raw row, for the protection rules to compare against.
+   *
+   * Deliberately NOT `findOne`. Every `existing.role === Role.SYSTEM_ADMIN`
+   * check below compares against a Prisma enum, and `findOne` returns `role`
+   * as a display object. Routing the internal lookups through the mapped
+   * version turned every one of those comparisons into object-versus-string,
+   * which is silently false: the SYSTEM_ADMIN protections and the peer-ADMIN
+   * rule both stopped firing. Keep the two separate.
+   */
+  private async getUserOrThrow(id: string) {
     const user = await this.prisma.user.findFirst({
       where: { id, deletedAt: null },
       select: USER_SELECT,
@@ -78,7 +104,7 @@ export class UsersService {
     actorId: string,
     actorRole: Role,
   ) {
-    const existing = await this.findOne(id);
+    const existing = await this.getUserOrThrow(id);
 
     if (
       dto.role !== undefined &&
@@ -145,11 +171,11 @@ export class UsersService {
       await this.prisma.session.deleteMany({ where: { userId: id } });
     }
 
-    return user;
+    return toUserResponse(user);
   }
 
   async remove(id: string, actorId: string, actorRole: Role) {
-    const existing = await this.findOne(id);
+    const existing = await this.getUserOrThrow(id);
 
     if (existing.role === Role.SYSTEM_ADMIN) {
       throw new ForbiddenException(
@@ -170,6 +196,7 @@ export class UsersService {
       targetType: 'User',
       targetId: id,
     });
+    this.logger.log(`User ${id} deleted by ${actorId}`);
     return { message: 'User deleted.' };
   }
 
@@ -196,6 +223,7 @@ export class UsersService {
 
     const existing = await this.prisma.user.findUnique({
       where: { email: dto.email },
+      select: { id: true },
     });
     if (existing) {
       throw new ConflictException('A user with this email already exists');
@@ -227,7 +255,7 @@ export class UsersService {
     });
     await this.mail.sendInviteEmail(dto.email, dto.name, tempPassword);
 
-    return user;
+    return toUserResponse(user);
   }
 
   async changePassword(

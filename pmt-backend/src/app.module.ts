@@ -11,6 +11,7 @@ import { ProfilesModule } from '@/profiles/profiles.module';
 import { AuditLogModule } from '@/audit-log/audit-log.module';
 import { LeaveModule } from '@/leave/leave.module';
 import { ProjectActivityModule } from '@/project-activity/project-activity.module';
+import { ProjectScopeModule } from '@/project-scope/project-scope.module';
 import { ProjectsModule } from '@/projects/projects.module';
 import { ProjectStaffingModule } from '@/project-members/project-staffing.module';
 import { ProjectDocumentsModule } from '@/project-documents/project-documents.module';
@@ -46,6 +47,7 @@ import { PermissionsModule } from '@/auth/permissions.module';
     // holding seventeen controllers. ProjectActivityModule is @Global, which is
     // what makes the split possible without splitting the activity log.
     ProjectActivityModule,
+    ProjectScopeModule,
     ProjectsModule,
     ProjectStaffingModule,
     ProjectDocumentsModule,

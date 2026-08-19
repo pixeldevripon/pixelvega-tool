@@ -11,6 +11,15 @@ import {
   gatedErrors,
   notFound,
 } from '@/common/swagger/error-sets';
+import {
+  HolidayResponseDto,
+  LeaveBalanceResponseDto,
+  LeaveRequestResponseDto,
+  LeaveSummaryResponseDto,
+  LeaveTypeResponseDto,
+  PaginatedLeaveRequestsResponseDto,
+} from '@/leave/dto/leave.dto';
+import { MessageResponseDto } from '@/users/dto/user.dto';
 
 /**
  * Documentation for all three controllers LeaveModule owns: leave requests,
@@ -32,14 +41,22 @@ export const ApiRequestLeaveDocs = () =>
         'is a record rather than a gate, and is only touched at approval time. days is ' +
         'computed inclusive of both endpoints, so a single day request is one day.',
     }),
-    ApiResponse({ status: 201, description: 'The pending request' }),
+    ApiResponse({
+      status: 201,
+      description: 'The pending request',
+      type: LeaveRequestResponseDto,
+    }),
     ...gatedErrors,
   );
 
 export const ApiListOwnLeaveDocs = () =>
   applyDecorators(
     ApiOperation({ summary: "List the caller's own leave requests" }),
-    ApiResponse({ status: 200, description: 'Paginated, newest first' }),
+    ApiResponse({
+      status: 200,
+      description: 'Paginated, newest first',
+      type: [LeaveRequestResponseDto],
+    }),
     ...commonErrors,
   );
 
@@ -52,7 +69,11 @@ export const ApiGetOwnLeaveBalanceDocs = () =>
         "the leave type's default. There is no year end carry forward: a new year " +
         'starts fresh.',
     }),
-    ApiResponse({ status: 200, description: 'Balance per leave type' }),
+    ApiResponse({
+      status: 200,
+      description: 'Balance per leave type',
+      type: [LeaveBalanceResponseDto],
+    }),
     ...commonErrors,
   );
 
@@ -62,7 +83,11 @@ export const ApiGetUserLeaveBalanceDocs = () =>
       summary: "Get another user's leave balance for the current year",
     }),
     idParam('userId', 'The user id'),
-    ApiResponse({ status: 200, description: 'Balance per leave type' }),
+    ApiResponse({
+      status: 200,
+      description: 'Balance per leave type',
+      type: [LeaveBalanceResponseDto],
+    }),
     ...gatedErrors,
     notFound('User not found'),
   );
@@ -76,7 +101,11 @@ export const ApiCancelOwnLeaveDocs = () =>
         'Only the requester may cancel, and only while it is still PENDING.',
     }),
     idParam('id', 'The leave request id'),
-    ApiResponse({ status: 200, description: 'The cancelled request' }),
+    ApiResponse({
+      status: 200,
+      description: 'The cancelled request',
+      type: LeaveRequestResponseDto,
+    }),
     ...gatedErrors,
     notFound('Leave request not found'),
     conflict('Already reviewed, so it can no longer be cancelled'),
@@ -92,7 +121,11 @@ export const ApiListLeaveRequestsDocs = () =>
         'allowlist rather than a denylist, so any status added to the enum later is ' +
         'excluded by default rather than leaking.',
     }),
-    ApiResponse({ status: 200, description: 'Paginated, newest first' }),
+    ApiResponse({
+      status: 200,
+      description: 'Paginated, newest first',
+      type: PaginatedLeaveRequestsResponseDto,
+    }),
     ...gatedErrors,
   );
 
@@ -103,7 +136,11 @@ export const ApiLeaveSummaryDocs = () =>
       description:
         'Aggregated days taken per user and leave type over a range.',
     }),
-    ApiResponse({ status: 200, description: 'The summary' }),
+    ApiResponse({
+      status: 200,
+      description: 'The summary',
+      type: LeaveSummaryResponseDto,
+    }),
     ...gatedErrors,
   );
 
@@ -116,7 +153,15 @@ export const ApiLeaveSummaryCsvDocs = () =>
         'Content-Disposition filename.',
     }),
     ApiProduces('text/csv'),
-    ApiResponse({ status: 200, description: 'A CSV file' }),
+    ApiResponse({
+      status: 200,
+      description: 'A CSV file',
+      // Not a DTO: this route sets text/csv and streams a string. Declaring a
+      // schema here would tell a client to parse JSON out of a spreadsheet.
+      content: {
+        'text/csv': { schema: { type: 'string', format: 'binary' } },
+      },
+    }),
     ...gatedErrors,
   );
 
@@ -129,7 +174,11 @@ export const ApiApproveLeaveDocs = () =>
         "request's days, against the year the leave STARTS in.",
     }),
     idParam('id', 'The leave request id'),
-    ApiResponse({ status: 200, description: 'The approved request' }),
+    ApiResponse({
+      status: 200,
+      description: 'The approved request',
+      type: LeaveRequestResponseDto,
+    }),
     ...gatedErrors,
     notFound('Leave request not found'),
     conflict('Not pending, so it cannot be reviewed again'),
@@ -144,7 +193,11 @@ export const ApiRejectLeaveDocs = () =>
         'rejection changes nothing about their availability, so no PM is told.',
     }),
     idParam('id', 'The leave request id'),
-    ApiResponse({ status: 200, description: 'The rejected request' }),
+    ApiResponse({
+      status: 200,
+      description: 'The rejected request',
+      type: LeaveRequestResponseDto,
+    }),
     ...gatedErrors,
     notFound('Leave request not found'),
     conflict('Not pending, so it cannot be reviewed again'),
@@ -160,14 +213,22 @@ export const ApiListLeaveTypesDocs = () =>
         'ADMIN managed reference data. Everyone reads it, because requesting leave ' +
         'needs the list. defaultDaysPerYear seeds a new balance row.',
     }),
-    ApiResponse({ status: 200, description: 'Every leave type' }),
+    ApiResponse({
+      status: 200,
+      description: 'Every leave type',
+      type: [LeaveTypeResponseDto],
+    }),
     ...commonErrors,
   );
 
 export const ApiCreateLeaveTypeDocs = () =>
   applyDecorators(
     ApiOperation({ summary: 'Create a leave type' }),
-    ApiResponse({ status: 201, description: 'The created leave type' }),
+    ApiResponse({
+      status: 201,
+      description: 'The created leave type',
+      type: LeaveTypeResponseDto,
+    }),
     ...gatedErrors,
   );
 
@@ -180,7 +241,11 @@ export const ApiUpdateLeaveTypeDocs = () =>
         'that already exist.',
     }),
     idParam('id', 'The leave type id'),
-    ApiResponse({ status: 200, description: 'The updated leave type' }),
+    ApiResponse({
+      status: 200,
+      description: 'The updated leave type',
+      type: LeaveTypeResponseDto,
+    }),
     ...gatedErrors,
     notFound('Leave type not found'),
   );
@@ -189,7 +254,11 @@ export const ApiDeleteLeaveTypeDocs = () =>
   applyDecorators(
     ApiOperation({ summary: 'Delete a leave type' }),
     idParam('id', 'The leave type id'),
-    ApiResponse({ status: 200, description: 'Deleted' }),
+    ApiResponse({
+      status: 200,
+      description: 'Deleted',
+      type: MessageResponseDto,
+    }),
     ...gatedErrors,
     notFound('Leave type not found'),
     conflict('Still referenced by existing leave requests or balances'),
@@ -205,7 +274,11 @@ export const ApiListHolidaysDocs = () =>
         'A holiday models a RANGE, with startDate equal to endDate for a single day, ' +
         'rather than one row per day. days is computed inclusive on the way out.',
     }),
-    ApiResponse({ status: 200, description: 'Every holiday' }),
+    ApiResponse({
+      status: 200,
+      description: 'Every holiday',
+      type: [HolidayResponseDto],
+    }),
     ...commonErrors,
   );
 
@@ -216,7 +289,11 @@ export const ApiCreateHolidayDocs = () =>
       description:
         'Only startDate is required; an omitted endDate defaults to it.',
     }),
-    ApiResponse({ status: 201, description: 'The created holiday' }),
+    ApiResponse({
+      status: 201,
+      description: 'The created holiday',
+      type: HolidayResponseDto,
+    }),
     ...gatedErrors,
     conflict('A holiday with the same name already starts on that date'),
   );
@@ -225,7 +302,11 @@ export const ApiUpdateHolidayDocs = () =>
   applyDecorators(
     ApiOperation({ summary: 'Update a company holiday' }),
     idParam('id', 'The holiday id'),
-    ApiResponse({ status: 200, description: 'The updated holiday' }),
+    ApiResponse({
+      status: 200,
+      description: 'The updated holiday',
+      type: HolidayResponseDto,
+    }),
     ...gatedErrors,
     notFound('Holiday not found'),
   );
@@ -234,7 +315,11 @@ export const ApiDeleteHolidayDocs = () =>
   applyDecorators(
     ApiOperation({ summary: 'Delete a company holiday' }),
     idParam('id', 'The holiday id'),
-    ApiResponse({ status: 200, description: 'Deleted' }),
+    ApiResponse({
+      status: 200,
+      description: 'Deleted',
+      type: MessageResponseDto,
+    }),
     ...gatedErrors,
     notFound('Holiday not found'),
   );

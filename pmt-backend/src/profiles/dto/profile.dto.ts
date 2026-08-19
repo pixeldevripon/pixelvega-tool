@@ -6,7 +6,10 @@ import {
   IsOptional,
   IsString,
   MaxLength,
+  IsEnum,
 } from 'class-validator';
+import { EnumDisplayDto } from '@/common/dto/display.dto';
+import * as FieldLength from '@/common/constants/field-lengths';
 
 const WORK_STATUSES = Object.values(EmployeeWorkStatus);
 const AVAILABILITY_STATUSES = Object.values(AvailabilityStatus);
@@ -41,19 +44,17 @@ export class EmployeeProfileResponseDto {
   bio!: string | null;
 
   @ApiProperty({
-    enum: EmployeeWorkStatus,
-    example: EmployeeWorkStatus.WORKING,
+    type: EnumDisplayDto,
     description: 'Whether they are working or on leave right now.',
   })
-  currentStatus!: EmployeeWorkStatus;
+  currentStatus!: EnumDisplayDto;
 
   @ApiProperty({
-    enum: AvailabilityStatus,
-    example: AvailabilityStatus.AVAILABLE,
+    type: EnumDisplayDto,
     description:
       'An informational staffing signal only. Adding someone to a project is never blocked by it.',
   })
-  availabilityStatus!: AvailabilityStatus;
+  availabilityStatus!: EnumDisplayDto;
 }
 
 export class ClientProfileResponseDto {
@@ -95,8 +96,8 @@ export class ProfileResponseDto {
   })
   avatarUrl!: string | null;
 
-  @ApiProperty({ enum: Role, example: Role.DEVELOPER })
-  role!: Role;
+  @ApiProperty({ type: EnumDisplayDto })
+  role!: EnumDisplayDto;
 
   @ApiPropertyOptional({
     type: EmployeeProfileResponseDto,
@@ -162,7 +163,7 @@ export class UpdateProfileRequestDto {
 
   @ApiPropertyOptional({ enum: WORK_STATUSES, description: 'Employee only' })
   @IsOptional()
-  @IsIn(WORK_STATUSES)
+  @IsEnum(EmployeeWorkStatus)
   currentStatus?: EmployeeWorkStatus;
 
   @ApiPropertyOptional({
@@ -170,7 +171,7 @@ export class UpdateProfileRequestDto {
     description: 'Employee only',
   })
   @IsOptional()
-  @IsIn(AVAILABILITY_STATUSES)
+  @IsEnum(AvailabilityStatus)
   availabilityStatus?: AvailabilityStatus;
 
   @ApiPropertyOptional({ description: 'Client only', maxLength: 160 })
@@ -182,5 +183,6 @@ export class UpdateProfileRequestDto {
   @ApiPropertyOptional({ description: 'Client only' })
   @IsOptional()
   @IsEmail()
+  @MaxLength(FieldLength.EMAIL)
   billingEmail?: string;
 }

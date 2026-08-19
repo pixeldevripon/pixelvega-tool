@@ -19,9 +19,16 @@ import { SlackService } from '@/slack/slack.service';
 import { SlackUserResolverService } from '@/slack/slack-user-resolver.service';
 import { ProjectActivityService } from '@/project-activity/project-activity.service';
 import { NotificationsService } from '@/notifications/notifications.service';
-import { AddProjectMemberDto } from '@/project-members/dto/add-project-member.dto';
-import { QueryProjectMembersDto } from '@/project-members/dto/query-project-members.dto';
+import {
+  AddProjectMemberDto,
+  QueryProjectMembersDto,
+} from '@/project-members/dto/project-member.dto';
 import { RECOMMENDED_MAX_ACTIVE_PROJECTS } from '@/projects/workload.constants';
+import { ProjectScopeService } from '@/project-scope/project-scope.service';
+import {
+  ProjectMemberContext,
+  toProjectMemberResponse,
+} from '@/project-members/project-member.mapper';
 
 const MEMBER_INCLUDE = {
   user: { select: { id: true, name: true, email: true, role: true } },
@@ -48,6 +55,7 @@ export class ProjectMembersService {
   private readonly logger = new Logger(ProjectMembersService.name);
 
   constructor(
+    private readonly projectScope: ProjectScopeService,
     private readonly prisma: PrismaService,
     private readonly projectActivity: ProjectActivityService,
     private readonly slackService: SlackService,
@@ -61,8 +69,8 @@ export class ProjectMembersService {
     actorId: string,
     actorRole: Role,
   ) {
-    await this.getProjectOrThrow(projectId);
-    await this.assertActiveMember(projectId, actorId, actorRole);
+    const project = await this.getProjectOrThrow(projectId);
+    await this.projectScope.assertActiveMember(projectId, actorId, actorRole);
 
     const { page = 1, pageSize = 20, includeLeft = false } = query;
     const where = {
@@ -70,7 +78,11 @@ export class ProjectMembersService {
       ...(includeLeft ? {} : { leftAt: null }),
     };
 
-    return paginate(
+    // Asked once for the whole page rather than once per row: the answer is a
+    // property of the caller and the project, not of any individual member.
+    const context = await this.buildMemberContext(project, actorId, actorRole);
+
+    const result = await paginate(
       (args) =>
         this.prisma.projectMember.findMany({
           where,
@@ -82,6 +94,28 @@ export class ProjectMembersService {
       page,
       pageSize,
     );
+
+    return {
+      ...result,
+      items: result.items.map((member) =>
+        toProjectMemberResponse(member, context),
+      ),
+    };
+  }
+
+  private async buildMemberContext(
+    project: { id: string; slackChannelId: string | null },
+    actorId: string,
+    actorRole: Role,
+  ): Promise<ProjectMemberContext> {
+    return {
+      managesProject: await this.projectScope.managesProject(
+        project.id,
+        actorId,
+        actorRole,
+      ),
+      hasSlackChannel: project.slackChannelId !== null,
+    };
   }
 
   async add(
@@ -91,10 +125,17 @@ export class ProjectMembersService {
     actorRole: Role,
   ) {
     const project = await this.getProjectOrThrow(projectId);
-    await this.assertManagesProject(projectId, actorId, actorRole);
+    await this.projectScope.assertManagesProject(projectId, actorId, actorRole);
 
     const user = await this.prisma.user.findFirst({
       where: { id: dto.userId, deletedAt: null },
+      select: {
+        id: true,
+        name: true,
+        email: true,
+        role: true,
+        slackUserId: true,
+      },
     });
     if (!user) {
       throw new NotFoundException('User not found');
@@ -177,11 +218,15 @@ export class ProjectMembersService {
         },
       });
       if (activeProjectCount > RECOMMENDED_MAX_ACTIVE_PROJECTS) {
-        workloadWarning = `${user.name} is now assigned to ${activeProjectCount} active projects (recommended max: ${RECOMMENDED_MAX_ACTIVE_PROJECTS}) — they may be overloaded.`;
+        workloadWarning = `${user.name} is now assigned to ${activeProjectCount} active projects (recommended max: ${RECOMMENDED_MAX_ACTIVE_PROJECTS}). They may be overloaded.`;
       }
     }
 
-    return { ...member, ...(workloadWarning && { workloadWarning }) };
+    const context = await this.buildMemberContext(project, actorId, actorRole);
+    return {
+      ...toProjectMemberResponse(member, context),
+      ...(workloadWarning && { workloadWarning }),
+    };
   }
 
   async remove(
@@ -191,7 +236,7 @@ export class ProjectMembersService {
     actorRole: Role,
   ) {
     const project = await this.getProjectOrThrow(projectId);
-    await this.assertManagesProject(projectId, actorId, actorRole);
+    await this.projectScope.assertManagesProject(projectId, actorId, actorRole);
 
     const member = await this.prisma.projectMember.findFirst({
       where: { id: memberId, projectId },
@@ -231,7 +276,8 @@ export class ProjectMembersService {
     // Removing a member, even the last Developer/Designer or the only
     // Project Manager, never changes the project's status on its own. It
     // just stays in whatever status it was already in.
-    return updated;
+    const context = await this.buildMemberContext(project, actorId, actorRole);
+    return toProjectMemberResponse(updated, context);
   }
 
   // Covers the case where a member was added to the project before they had
@@ -246,7 +292,7 @@ export class ProjectMembersService {
     actorRole: Role,
   ) {
     const project = await this.getProjectOrThrow(projectId);
-    await this.assertManagesProject(projectId, actorId, actorRole);
+    await this.projectScope.assertManagesProject(projectId, actorId, actorRole);
 
     if (!project.slackChannelId) {
       throw new BadRequestException(
@@ -295,47 +341,6 @@ export class ProjectMembersService {
       throw new NotFoundException('Project not found');
     }
     return project;
-  }
-
-  private async assertActiveMember(
-    projectId: string,
-    actorId: string,
-    actorRole: Role,
-  ) {
-    if (actorRole !== Role.DEVELOPER && actorRole !== Role.DESIGNER) {
-      return;
-    }
-    const membership = await this.prisma.projectMember.findFirst({
-      where: { projectId, userId: actorId, leftAt: null },
-    });
-    if (!membership) {
-      throw new ForbiddenException(
-        'You are not an active member of this project',
-      );
-    }
-  }
-
-  // Staffing a project you aren't already on requires an ADMIN/SYSTEM_ADMIN,
-  // or a PM already staffed on that project, to add you first.
-  private async assertManagesProject(
-    projectId: string,
-    actorId: string,
-    actorRole: Role,
-  ) {
-    if (actorRole === Role.ADMIN || actorRole === Role.SYSTEM_ADMIN) {
-      return;
-    }
-    const membership = await this.prisma.projectMember.findFirst({
-      where: {
-        projectId,
-        userId: actorId,
-        role: ProjectRole.PROJECT_MANAGER,
-        leftAt: null,
-      },
-    });
-    if (!membership) {
-      throw new ForbiddenException('You do not manage this project');
-    }
   }
 
   // "A project stays in Planning until a Project Manager and at least one

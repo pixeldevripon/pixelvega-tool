@@ -12,9 +12,6 @@ import { ApiCookieAuth, ApiTags } from '@nestjs/swagger';
 import { Permission, Role } from '@prisma/client';
 import { CurrentUser } from '@/common/decorators/current-user.decorator';
 import { AiTemplatesService } from './ai-templates.service';
-import { CreateAiTemplateDto } from '@/ai/dto/create-ai-template.dto';
-import { UpdateAiTemplateDto } from '@/ai/dto/update-ai-template.dto';
-import { QueryAiTemplatesDto } from '@/ai/dto/query-ai-templates.dto';
 import { RequirePermissions } from '@/auth/decorators/require-permissions.decorator';
 import {
   ApiCreateAiTemplateDocs,
@@ -22,6 +19,11 @@ import {
   ApiListAiTemplatesDocs,
   ApiUpdateAiTemplateDocs,
 } from '@/ai/ai.swagger';
+import {
+  CreateAiTemplateDto,
+  QueryAiTemplatesDto,
+  UpdateAiTemplateDto,
+} from '@/ai/dto/ai.dto';
 
 @ApiTags('AI Templates')
 @ApiCookieAuth('better-auth.session_token')

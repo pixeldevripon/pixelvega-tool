@@ -11,8 +11,6 @@ import { ApiCookieAuth, ApiTags } from '@nestjs/swagger';
 import { Permission, Role } from '@prisma/client';
 import { CurrentUser } from '@/common/decorators/current-user.decorator';
 import { BlockerReasonsService } from './blocker-reasons.service';
-import { CreateBlockerReasonDto } from '@/blockers/dto/create-blocker-reason.dto';
-import { UpdateBlockerReasonDto } from '@/blockers/dto/update-blocker-reason.dto';
 import { RequirePermissions } from '@/auth/decorators/require-permissions.decorator';
 import {
   ApiCreateBlockerReasonDocs,
@@ -20,6 +18,10 @@ import {
   ApiListBlockerReasonsDocs,
   ApiUpdateBlockerReasonDocs,
 } from '@/blockers/blockers.swagger';
+import {
+  CreateBlockerReasonDto,
+  UpdateBlockerReasonDto,
+} from '@/blockers/dto/blocker.dto';
 
 // Read is open to anyone who can see blockers, excluding CLIENT, who never
 // touches the Blocker feature at all. Writes are limited to PROJECT_MANAGER

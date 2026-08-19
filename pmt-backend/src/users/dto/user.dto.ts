@@ -14,6 +14,11 @@ import {
   Min,
   MinLength,
 } from 'class-validator';
+import { EnumDisplayDto } from '@/common/dto/display.dto';
+import { PaginationQueryDto } from '@/common/dto/pagination-query.dto';
+import { SORT_ORDERS } from '@/common/dto/sort-query.dto';
+import type { SortOrder } from '@/common/dto/sort-query.dto';
+import * as FieldLength from '@/common/constants/field-lengths';
 
 /**
  * SYSTEM_ADMIN is excluded from both request DTOs below.
@@ -47,11 +52,11 @@ export class UserResponseDto {
   @ApiProperty({ example: 'Jabed Hossain' })
   name!: string;
 
-  @ApiProperty({ enum: Role, example: Role.DEVELOPER })
-  role!: Role;
+  @ApiProperty({ type: EnumDisplayDto })
+  role!: EnumDisplayDto;
 
-  @ApiProperty({ enum: UserStatus, example: UserStatus.ACTIVE })
-  status!: UserStatus;
+  @ApiProperty({ type: EnumDisplayDto })
+  status!: EnumDisplayDto;
 
   @ApiPropertyOptional({
     example: 'U08ABCDEF',
@@ -100,8 +105,8 @@ export class PaginatedUsersResponseDto {
 }
 
 export class MyPermissionsResponseDto {
-  @ApiProperty({ enum: Role, example: Role.PROJECT_MANAGER })
-  role!: Role;
+  @ApiProperty({ type: EnumDisplayDto })
+  role!: EnumDisplayDto;
 
   @ApiProperty({
     enum: Permission,
@@ -120,21 +125,28 @@ export class MessageResponseDto {
 
 // ── Query DTOs ───────────────────────────────────────────────────────────────
 
-export class QueryUsersDto {
-  @ApiPropertyOptional({ default: 1, minimum: 1 })
-  @IsOptional()
-  @Type(() => Number)
-  @IsInt()
-  @Min(1)
-  page?: number = 1;
+/** The columns a user list may be ordered by. */
+export const USER_SORT_FIELDS = ['name', 'email', 'createdAt'] as const;
+export type UserSortField = (typeof USER_SORT_FIELDS)[number];
 
-  @ApiPropertyOptional({ default: 20, minimum: 1, maximum: 100 })
+// Extends PaginationQueryDto rather than restating page and pageSize, which is
+// what it did before: two copies of the same bounds drift, and the maximum
+// page size is a rule the whole API should share.
+export class QueryUsersDto extends PaginationQueryDto {
+  @ApiPropertyOptional({
+    enum: USER_SORT_FIELDS,
+    default: 'name',
+    description:
+      'Sorted before pagination, so page one really does hold the first rows. Defaults to name, because every screen that lists people reads them alphabetically.',
+  })
   @IsOptional()
-  @Type(() => Number)
-  @IsInt()
-  @Min(1)
-  @Max(100)
-  pageSize?: number = 20;
+  @IsIn(USER_SORT_FIELDS)
+  sortBy?: UserSortField = 'name';
+
+  @ApiPropertyOptional({ enum: SORT_ORDERS, default: 'asc' })
+  @IsOptional()
+  @IsIn(SORT_ORDERS)
+  sortOrder?: SortOrder = 'asc';
 }
 
 // ── Request DTOs ─────────────────────────────────────────────────────────────
@@ -206,10 +218,12 @@ export class ChangeOwnPasswordRequestDto {
     description: 'Must match the password currently on the account.',
   })
   @IsString()
+  @MaxLength(FieldLength.PASSWORD_MAX)
   currentPassword!: string;
 
   @ApiProperty({ minLength: 8 })
   @IsString()
   @MinLength(8)
+  @MaxLength(FieldLength.PASSWORD_MAX)
   newPassword!: string;
 }

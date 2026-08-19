@@ -11,15 +11,23 @@ import {
   DailyWorkReportStatus,
   InternalReviewDecision,
   ProjectActivityType,
+  ProjectStatus,
   Role,
 } from '@prisma/client';
 import { PrismaService } from '@/prisma/prisma.service';
-import { QueryProjectReportDto } from '@/project-reports/dto/query-project-report.dto';
+import { ProjectScopeService } from '@/project-scope/project-scope.service';
 import {
   countWorkingDaysInRange,
   endOfRangeExclusive,
   toDateOnly,
 } from './working-day.util';
+import { QueryProjectReportDto } from '@/project-reports/dto/project-report.dto';
+import {
+  PROJECT_PRIORITY_DISPLAY,
+  PROJECT_ROLE_DISPLAY,
+  PROJECT_STATUS_DISPLAY,
+  toEnumDisplay,
+} from '@/common/utils/enum-display.util';
 
 const MS_PER_MINUTE = 60 * 1000;
 const MS_PER_DAY = 24 * 60 * 60 * 1000;
@@ -46,7 +54,10 @@ function countBySeverity(
 // in docs/features/ai-integration/DESIGN.MD.
 @Injectable()
 export class ProjectReportService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly projectScope: ProjectScopeService,
+  ) {}
 
   async getProjectReport(
     projectId: string,
@@ -55,7 +66,7 @@ export class ProjectReportService {
     query: QueryProjectReportDto,
   ) {
     const project = await this.getProjectOrThrow(projectId);
-    await this.assertActiveMember(projectId, actorId, actorRole);
+    await this.projectScope.assertActiveMember(projectId, actorId, actorRole);
 
     const rangeStart = toDateOnly(new Date(query.startDate));
     const rangeEndExclusive = endOfRangeExclusive(new Date(query.endDate));
@@ -113,8 +124,8 @@ export class ProjectReportService {
     );
 
     return {
-      status: project.status,
-      priority: project.priority,
+      status: toEnumDisplay(PROJECT_STATUS_DISPLAY, project.status),
+      priority: toEnumDisplay(PROJECT_PRIORITY_DISPLAY, project.priority),
       estimatedHours: project.estimatedHours,
       actualHours: project.actualHours,
       remainingHours:
@@ -126,7 +137,7 @@ export class ProjectReportService {
       roster: activeMembers.map((member) => ({
         userId: member.userId,
         name: member.user.name,
-        role: member.role,
+        role: toEnumDisplay(PROJECT_ROLE_DISPLAY, member.role),
       })),
       internalReviewFirstRoundApproved:
         firstRoundApprovals.internalReviewFirstRoundApproved,
@@ -221,8 +232,20 @@ export class ProjectReportService {
       } | null;
       return {
         changedAt: activity.createdAt,
-        from: metadata?.from ?? null,
-        to: metadata?.to ?? null,
+        // The activity metadata holds raw enum strings written at the time, so
+        // a value this build does not know about is possible. toEnumDisplay
+        // degrades to the raw value rather than throwing on an old row.
+        // Cast because the metadata is untyped JSON written at the time of the
+        // change: it is a string, and nothing guarantees this build still knows
+        // that member. That is precisely the case toEnumDisplay degrades on.
+        from: toEnumDisplay(
+          PROJECT_STATUS_DISPLAY,
+          (metadata?.from ?? null) as ProjectStatus | null,
+        ),
+        to: toEnumDisplay(
+          PROJECT_STATUS_DISPLAY,
+          (metadata?.to ?? null) as ProjectStatus | null,
+        ),
       };
     });
   }
@@ -478,23 +501,5 @@ export class ProjectReportService {
       throw new NotFoundException('Project not found');
     }
     return project;
-  }
-
-  private async assertActiveMember(
-    projectId: string,
-    actorId: string,
-    actorRole: Role,
-  ) {
-    if (actorRole !== Role.DEVELOPER && actorRole !== Role.DESIGNER) {
-      return;
-    }
-    const membership = await this.prisma.projectMember.findFirst({
-      where: { projectId, userId: actorId, leftAt: null },
-    });
-    if (!membership) {
-      throw new ForbiddenException(
-        'You are not an active member of this project',
-      );
-    }
   }
 }

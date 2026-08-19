@@ -20,10 +20,6 @@ import {
   MAX_BATCH_UPLOAD_FILES,
   ProjectDocumentsService,
 } from './project-documents.service';
-import { CreateProjectDocumentDto } from '@/project-documents/dto/create-project-document.dto';
-import { CreateProjectDocumentsBatchDto } from '@/project-documents/dto/create-project-documents-batch.dto';
-import { UpdateProjectDocumentDto } from '@/project-documents/dto/update-project-document.dto';
-import { QueryProjectDocumentsDto } from '@/project-documents/dto/query-project-documents.dto';
 import { RequirePermissions } from '@/auth/decorators/require-permissions.decorator';
 import {
   ApiCreateProjectDocumentDocs,
@@ -33,6 +29,12 @@ import {
   ApiListProjectDocumentsDocs,
   ApiUpdateProjectDocumentDocs,
 } from '@/project-documents/project-documents.swagger';
+import {
+  CreateProjectDocumentDto,
+  CreateProjectDocumentsBatchDto,
+  QueryProjectDocumentsDto,
+  UpdateProjectDocumentDto,
+} from '@/project-documents/dto/project-document.dto';
 
 // Only Admin/System Admin/Project Manager ever upload, type, edit, or delete
 // a project document. Developer/Designer/Client are read only here. A

@@ -12,15 +12,6 @@ import { Permission, Role } from '@prisma/client';
 import { CurrentUser } from '@/common/decorators/current-user.decorator';
 import { PaginationQueryDto } from '@/common/dto/pagination-query.dto';
 import { ProjectsService } from './projects.service';
-import { CreateProjectDto } from '@/projects/dto/create-project.dto';
-import { UpdateProjectDto } from '@/projects/dto/update-project.dto';
-import { UpdateProjectPriorityDto } from '@/projects/dto/update-project-priority.dto';
-import { UpdateProjectStatusDto } from '@/projects/dto/update-project-status.dto';
-import { UpdateProjectTypesDto } from '@/projects/dto/update-project-types.dto';
-import { UpdateEstimatedHoursDto } from '@/projects/dto/update-estimated-hours.dto';
-import { ConnectSlackChannelDto } from '@/projects/dto/connect-slack-channel.dto';
-import { QueryProjectsDto } from '@/projects/dto/query-projects.dto';
-import { QueryMyProjectsDto } from '@/projects/dto/query-my-projects.dto';
 import { RequirePermissions } from '@/auth/decorators/require-permissions.decorator';
 import { RequireAnyPermission } from '@/auth/decorators/require-any-permission.decorator';
 import {
@@ -39,6 +30,17 @@ import {
   ApiUpdateProjectStatusDocs,
   ApiUpdateProjectTypesDocs,
 } from '@/projects/projects.swagger';
+import {
+  ConnectSlackChannelDto,
+  CreateProjectDto,
+  QueryMyProjectsDto,
+  QueryProjectsDto,
+  UpdateEstimatedHoursDto,
+  UpdateProjectDto,
+  UpdateProjectPriorityDto,
+  UpdateProjectStatusDto,
+  UpdateProjectTypesDto,
+} from '@/projects/dto/project.dto';
 
 // Create, list all, and manage routes stay limited to staff (any
 // PROJECT_MANAGER, plus ADMIN/SYSTEM_ADMIN automatically). Single project
@@ -64,8 +66,11 @@ export class ProjectsController {
   @ApiListProjectsDocs()
   @RequirePermissions(Permission.VIEW_ALL_PROJECTS)
   @Get()
-  findAll(@Query() query: QueryProjectsDto) {
-    return this.projectsService.findAll(query);
+  findAll(
+    @Query() query: QueryProjectsDto,
+    @CurrentUser() user: { id: string; role: Role },
+  ) {
+    return this.projectsService.findAll(query, user.id, user.role);
   }
 
   @ApiListOwnProjectsDocs()

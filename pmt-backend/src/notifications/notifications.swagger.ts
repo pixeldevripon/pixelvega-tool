@@ -3,6 +3,7 @@ import { ApiOperation, ApiParam, ApiResponse } from '@nestjs/swagger';
 import { commonErrors, notFound } from '@/common/swagger/error-sets';
 import {
   MarkAllReadResponseDto,
+  NotificationResponseDto,
   PaginatedNotificationsResponseDto,
   UnreadCountResponseDto,
 } from '@/notifications/dto/notification.dto';
@@ -44,7 +45,11 @@ export const ApiMarkNotificationReadDocs = () =>
         'read one is a harmless no-op.',
     }),
     ApiParam({ name: 'id', description: 'The notification id' }),
-    ApiResponse({ status: 200, description: 'Marked read' }),
+    ApiResponse({
+      status: 200,
+      description: 'Marked read',
+      type: NotificationResponseDto,
+    }),
     ...selfScopedErrors,
     notFound('Not found, or it belongs to someone else'),
   );

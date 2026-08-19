@@ -20,7 +20,7 @@ src/<module>/
 ├── <module>.controller.ts     routing only
 ├── <module>.controller.spec.ts
 ├── <module>.module.ts
-└── <helper>.ts + <helper>.spec.ts   pure units, flat in the folder, never nested
+└── <helper>.ts + <helper>.spec.ts   pure units, with a co-located spec
 ```
 
 **Controller.** Routing only: decorate, delegate, return. No Prisma, no business rules, no try/catch.

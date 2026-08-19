@@ -7,8 +7,10 @@ import {
 import { Prisma } from '@prisma/client';
 import { PrismaService } from '@/prisma/prisma.service';
 import { AuditLogService } from '@/audit-log/audit-log.service';
-import { CreateBlockerReasonDto } from '@/blockers/dto/create-blocker-reason.dto';
-import { UpdateBlockerReasonDto } from '@/blockers/dto/update-blocker-reason.dto';
+import {
+  CreateBlockerReasonDto,
+  UpdateBlockerReasonDto,
+} from '@/blockers/dto/blocker.dto';
 
 // Seeded once as the fallback reason BlockerService.addBlocker() assigns
 // when a blocker is reported without an explicit reasonId. Identified by

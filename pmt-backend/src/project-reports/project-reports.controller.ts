@@ -3,9 +3,9 @@ import { ApiCookieAuth, ApiTags } from '@nestjs/swagger';
 import { Permission, Role } from '@prisma/client';
 import { CurrentUser } from '@/common/decorators/current-user.decorator';
 import { ProjectReportService } from './project-report.service';
-import { QueryProjectReportDto } from '@/project-reports/dto/query-project-report.dto';
 import { RequirePermissions } from '@/auth/decorators/require-permissions.decorator';
 import { ApiGetProjectReportDocs } from './project-reports.swagger';
+import { QueryProjectReportDto } from '@/project-reports/dto/project-report.dto';
 
 @ApiTags('Project Reports')
 @ApiCookieAuth('better-auth.session_token')

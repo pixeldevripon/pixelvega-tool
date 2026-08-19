@@ -15,6 +15,7 @@ import { InternalReviewDecision, ProjectStatus, Role } from '@prisma/client';
 import { NotificationsService } from '@/notifications/notifications.service';
 import { PrismaService } from '@/prisma/prisma.service';
 import { ProjectActivityService } from '@/project-activity/project-activity.service';
+import { ProjectScopeService } from '@/project-scope/project-scope.service';
 import { InternalReviewsService } from './internal-reviews.service';
 
 const PROJECT_ID = 'project-1';
@@ -60,6 +61,7 @@ describe('InternalReviewsService', () => {
 
     const module: TestingModule = await Test.createTestingModule({
       providers: [
+        ProjectScopeService,
         InternalReviewsService,
         { provide: PrismaService, useValue: prisma },
         { provide: ProjectActivityService, useValue: projectActivity },

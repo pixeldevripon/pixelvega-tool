@@ -16,8 +16,10 @@ import { PrismaService } from '@/prisma/prisma.service';
 import { paginate } from '@/common/utils/pagination.util';
 import { ProjectActivityService } from '@/project-activity/project-activity.service';
 import { NotificationsService } from '@/notifications/notifications.service';
-import { CreateInternalReviewDto } from '@/internal-reviews/dto/create-internal-review.dto';
 import { PaginationQueryDto } from '@/common/dto/pagination-query.dto';
+import { ProjectScopeService } from '@/project-scope/project-scope.service';
+import { CreateInternalReviewDto } from '@/internal-reviews/dto/internal-review.dto';
+import { toInternalReviewResponse } from '@/internal-reviews/internal-review.mapper';
 
 const REVIEW_INCLUDE = {
   reviewedBy: { select: { id: true, name: true, email: true } },
@@ -31,6 +33,7 @@ const NEXT_STATUS_BY_DECISION: Record<InternalReviewDecision, ProjectStatus> = {
 @Injectable()
 export class InternalReviewsService {
   constructor(
+    private readonly projectScope: ProjectScopeService,
     private readonly prisma: PrismaService,
     private readonly projectActivity: ProjectActivityService,
     private readonly notificationsService: NotificationsService,
@@ -48,7 +51,7 @@ export class InternalReviewsService {
     const { page = 1, pageSize = 20 } = query;
     const where = { projectId };
 
-    return paginate(
+    const result = await paginate(
       (args) =>
         this.prisma.projectInternalReview.findMany({
           where,
@@ -60,6 +63,11 @@ export class InternalReviewsService {
       page,
       pageSize,
     );
+
+    return {
+      ...result,
+      items: result.items.map(toInternalReviewResponse),
+    };
   }
 
   // A PM reviewing work submitted for INTERNAL_REVIEW. APPROVED moves the
@@ -74,7 +82,7 @@ export class InternalReviewsService {
     actorRole: Role,
   ) {
     const project = await this.getProjectOrThrow(projectId);
-    await this.assertManagesProject(projectId, actorId, actorRole);
+    await this.projectScope.assertManagesProject(projectId, actorId, actorRole);
 
     if (project.status !== ProjectStatus.INTERNAL_REVIEW) {
       throw new ConflictException(
@@ -167,7 +175,7 @@ export class InternalReviewsService {
       );
     }
 
-    return review;
+    return toInternalReviewResponse(review);
   }
 
   private async getProjectOrThrow(projectId: string) {
@@ -196,27 +204,6 @@ export class InternalReviewsService {
       throw new ForbiddenException(
         'You are not an active member of this project',
       );
-    }
-  }
-
-  private async assertManagesProject(
-    projectId: string,
-    actorId: string,
-    actorRole: Role,
-  ) {
-    if (actorRole === Role.ADMIN || actorRole === Role.SYSTEM_ADMIN) {
-      return;
-    }
-    const membership = await this.prisma.projectMember.findFirst({
-      where: {
-        projectId,
-        userId: actorId,
-        role: ProjectRole.PROJECT_MANAGER,
-        leftAt: null,
-      },
-    });
-    if (!membership) {
-      throw new ForbiddenException('You do not manage this project');
     }
   }
 }

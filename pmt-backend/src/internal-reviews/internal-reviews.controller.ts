@@ -4,12 +4,12 @@ import { Permission, Role } from '@prisma/client';
 import { CurrentUser } from '@/common/decorators/current-user.decorator';
 import { PaginationQueryDto } from '@/common/dto/pagination-query.dto';
 import { InternalReviewsService } from './internal-reviews.service';
-import { CreateInternalReviewDto } from '@/internal-reviews/dto/create-internal-review.dto';
 import { RequirePermissions } from '@/auth/decorators/require-permissions.decorator';
 import {
   ApiListInternalReviewsDocs,
   ApiSubmitInternalReviewDocs,
 } from '@/internal-reviews/reviews.swagger';
+import { CreateInternalReviewDto } from '@/internal-reviews/dto/internal-review.dto';
 
 // Not visible to CLIENT at all, matching Additional Requirements. This is
 // an internal QA gate, not client facing.

@@ -69,7 +69,17 @@ describe('MeetingTimeEntriesService', () => {
       const entry = await service.start({}, USER_ID);
       expect(entry).toMatchObject({
         userId: USER_ID,
-        status: TimeEntryStatus.RUNNING,
+        // A display object now, not a bare enum (ADR 0001).
+        status: {
+          value: TimeEntryStatus.RUNNING,
+          label: 'Running',
+          tone: 'success',
+        },
+      });
+      expect(entry.capabilities).toEqual({
+        canPause: true,
+        canResume: false,
+        canStop: true,
       });
     });
 

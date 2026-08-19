@@ -21,18 +21,28 @@ import { SlackService } from '@/slack/slack.service';
 import { SlackUserResolverService } from '@/slack/slack-user-resolver.service';
 import { buildChannelName } from '@/slack/slack-channel-naming.util';
 import { NotificationsService } from '@/notifications/notifications.service';
-import { CreateProjectDto } from '@/projects/dto/create-project.dto';
-import { UpdateProjectDto } from '@/projects/dto/update-project.dto';
-import { UpdateProjectPriorityDto } from '@/projects/dto/update-project-priority.dto';
-import { UpdateProjectStatusDto } from '@/projects/dto/update-project-status.dto';
-import { UpdateProjectTypesDto } from '@/projects/dto/update-project-types.dto';
-import { UpdateEstimatedHoursDto } from '@/projects/dto/update-estimated-hours.dto';
-import { ConnectSlackChannelDto } from '@/projects/dto/connect-slack-channel.dto';
-import { QueryProjectsDto } from '@/projects/dto/query-projects.dto';
-import { QueryMyProjectsDto } from '@/projects/dto/query-my-projects.dto';
 import { PaginationQueryDto } from '@/common/dto/pagination-query.dto';
 import { ProjectActivityService } from '@/project-activity/project-activity.service';
+import { ProjectScopeService } from '@/project-scope/project-scope.service';
+import { PermissionsService } from '@/auth/permissions.service';
+import {
+  ProjectContext,
+  toClientProjectResponse,
+  toProjectActivityResponse,
+  toProjectResponse,
+} from '@/projects/project.mapper';
 import { RECOMMENDED_MAX_ACTIVE_PROJECTS } from './workload.constants';
+import {
+  ConnectSlackChannelDto,
+  CreateProjectDto,
+  QueryMyProjectsDto,
+  QueryProjectsDto,
+  UpdateEstimatedHoursDto,
+  UpdateProjectDto,
+  UpdateProjectPriorityDto,
+  UpdateProjectStatusDto,
+  UpdateProjectTypesDto,
+} from '@/projects/dto/project.dto';
 
 // Sequence validation only. Who is allowed to trigger a given transition is
 // checked separately, in assertCanChangeStatus() below.
@@ -103,20 +113,6 @@ export const PRIORITY_RANK: Record<ProjectPriority, number> = {
   LOW: 4,
 };
 
-// remainingHours is computed here, never stored, so it can't drift out of
-// sync with estimatedHours/actualHours the way a persisted column could.
-export function withRemainingHours<
-  T extends { estimatedHours: number | null; actualHours: number },
->(project: T): T & { remainingHours: number | null } {
-  return {
-    ...project,
-    remainingHours:
-      project.estimatedHours === null
-        ? null
-        : project.estimatedHours - project.actualHours,
-  };
-}
-
 export function compareNullableDates(a: Date | null, b: Date | null): number {
   if (a === null && b === null) return 0;
   if (a === null) return 1; // nulls sort last
@@ -148,16 +144,19 @@ export class ProjectsService {
   private readonly logger = new Logger(ProjectsService.name);
 
   constructor(
+    private readonly projectScope: ProjectScopeService,
     private readonly prisma: PrismaService,
     private readonly projectActivity: ProjectActivityService,
     private readonly slackService: SlackService,
     private readonly slackUserResolver: SlackUserResolverService,
     private readonly notificationsService: NotificationsService,
+    private readonly permissions: PermissionsService,
   ) {}
 
   async create(dto: CreateProjectDto, actorId: string, actorRole: Role) {
     const client = await this.prisma.user.findFirst({
       where: { id: dto.clientId, deletedAt: null },
+      select: { id: true, role: true },
     });
     if (!client) {
       throw new NotFoundException('Client not found');
@@ -277,6 +276,7 @@ export class ProjectsService {
     if (creatorRole === Role.PROJECT_MANAGER) {
       const creator = await this.prisma.user.findUnique({
         where: { id: creatorId },
+        select: { id: true, email: true, slackUserId: true },
       });
       if (creator) {
         const creatorSlackId =
@@ -292,6 +292,7 @@ export class ProjectsService {
 
     const admins = await this.prisma.user.findMany({
       where: { role: { in: [Role.ADMIN, Role.SYSTEM_ADMIN] }, deletedAt: null },
+      select: { id: true, email: true, slackUserId: true },
     });
     for (const admin of admins) {
       const adminSlackId =
@@ -302,7 +303,7 @@ export class ProjectsService {
     }
   }
 
-  async findAll(query: QueryProjectsDto) {
+  async findAll(query: QueryProjectsDto, actorId: string, actorRole: Role) {
     const {
       page = 1,
       pageSize = 20,
@@ -310,6 +311,8 @@ export class ProjectsService {
       priority,
       clientId,
       projectTypes,
+      sortBy = 'createdAt',
+      sortOrder = 'desc',
       archived = false,
       search,
     } = query;
@@ -331,7 +334,7 @@ export class ProjectsService {
       (args) =>
         this.prisma.project.findMany({
           where,
-          orderBy: { createdAt: 'desc' },
+          orderBy: { [sortBy]: sortOrder },
           include: PROJECT_INCLUDE,
           ...args,
         }),
@@ -339,7 +342,17 @@ export class ProjectsService {
       page,
       pageSize,
     );
-    return { ...result, items: result.items.map(withRemainingHours) };
+    const contexts = await this.buildProjectContexts(
+      result.items.map((item) => item.id),
+      actorId,
+      actorRole,
+    );
+    return {
+      ...result,
+      items: result.items.map((item) =>
+        toProjectResponse(item, contexts.get(item.id) as ProjectContext),
+      ),
+    };
   }
 
   // CLIENT sees only their own project, with a reduced field set. Staff
@@ -354,7 +367,7 @@ export class ProjectsService {
       if (!project) {
         throw new NotFoundException('Project not found');
       }
-      return project;
+      return toClientProjectResponse(project);
     }
 
     const project = await this.prisma.project.findUnique({
@@ -364,8 +377,11 @@ export class ProjectsService {
     if (!project) {
       throw new NotFoundException('Project not found');
     }
-    await this.assertActiveMember(id, actorId, actorRole);
-    return withRemainingHours(project);
+    await this.projectScope.assertActiveMember(id, actorId, actorRole);
+    return toProjectResponse(
+      project,
+      await this.buildProjectContext(id, actorId, actorRole),
+    );
   }
 
   // Staff only, no CLIENT. The activity timeline includes internal events
@@ -378,12 +394,12 @@ export class ProjectsService {
     actorRole: Role,
   ) {
     await this.getProjectOrThrow(id);
-    await this.assertActiveMember(id, actorId, actorRole);
+    await this.projectScope.assertActiveMember(id, actorId, actorRole);
 
     const { page = 1, pageSize = 20 } = query;
     const where = { projectId: id };
 
-    return paginate(
+    const result = await paginate(
       (args) =>
         this.prisma.projectActivity.findMany({
           where,
@@ -395,6 +411,11 @@ export class ProjectsService {
       page,
       pageSize,
     );
+
+    return {
+      ...result,
+      items: result.items.map(toProjectActivityResponse),
+    };
   }
 
   // The Developer/Designer Dashboard (staff) and "my projects" (CLIENT) in
@@ -403,7 +424,7 @@ export class ProjectsService {
     if (actorRole === Role.CLIENT) {
       const { page = 1, pageSize = 20 } = query;
       const where = { clientId: actorId };
-      return paginate(
+      const clientResult = await paginate(
         (args) =>
           this.prisma.project.findMany({
             where,
@@ -415,6 +436,10 @@ export class ProjectsService {
         page,
         pageSize,
       );
+      return {
+        ...clientResult,
+        items: clientResult.items.map(toClientProjectResponse),
+      };
     }
 
     // PROJECT_MANAGER/DEVELOPER/DESIGNER (and ADMIN/SYSTEM_ADMIN, who will
@@ -429,6 +454,7 @@ export class ProjectsService {
   async findForUser(userId: string, query: QueryMyProjectsDto) {
     const user = await this.prisma.user.findFirst({
       where: { id: userId, deletedAt: null },
+      select: { id: true, role: true },
     });
     if (!user) {
       throw new NotFoundException('User not found');
@@ -459,10 +485,17 @@ export class ProjectsService {
     const isIndividualContributor =
       role === Role.DEVELOPER || role === Role.DESIGNER;
 
+    const pageItems = sorted.slice((page - 1) * pageSize, page * pageSize);
+    const contexts = await this.buildProjectContexts(
+      pageItems.map((item) => item.id),
+      userId,
+      role,
+    );
+
     return {
-      items: sorted
-        .slice((page - 1) * pageSize, page * pageSize)
-        .map(withRemainingHours),
+      items: pageItems.map((item) =>
+        toProjectResponse(item, contexts.get(item.id) as ProjectContext),
+      ),
       total,
       page,
       pageSize,
@@ -479,7 +512,7 @@ export class ProjectsService {
     actorRole: Role,
   ) {
     const existing = await this.getProjectOrThrow(id);
-    await this.assertManagesProject(id, actorId, actorRole);
+    await this.projectScope.assertManagesProject(id, actorId, actorRole);
 
     const data: Prisma.ProjectUpdateInput = {};
     if (dto.name !== undefined) data.name = dto.name;
@@ -555,7 +588,7 @@ export class ProjectsService {
     actorRole: Role,
   ) {
     const existing = await this.getProjectOrThrow(id);
-    await this.assertManagesProject(id, actorId, actorRole);
+    await this.projectScope.assertManagesProject(id, actorId, actorRole);
 
     const requiresRushReason =
       dto.priority === ProjectPriority.URGENT ||
@@ -611,10 +644,13 @@ export class ProjectsService {
     actorRole: Role,
   ) {
     const existing = await this.getProjectOrThrow(id);
-    await this.assertManagesProject(id, actorId, actorRole);
+    await this.projectScope.assertManagesProject(id, actorId, actorRole);
 
     if (dto.estimatedHours === existing.estimatedHours) {
-      return withRemainingHours(await this.getProjectWithInclude(id));
+      return toProjectResponse(
+        await this.getProjectWithInclude(id),
+        await this.buildProjectContext(id, actorId, actorRole),
+      );
     }
 
     const updated = await this.prisma.project.update({
@@ -627,7 +663,10 @@ export class ProjectsService {
       metadata: { from: existing.estimatedHours, to: dto.estimatedHours },
     });
 
-    return withRemainingHours(updated);
+    return toProjectResponse(
+      updated,
+      await this.buildProjectContext(id, actorId, actorRole),
+    );
   }
 
   // The caller sends the full desired set of types, not a delta, and this
@@ -641,7 +680,7 @@ export class ProjectsService {
     actorRole: Role,
   ) {
     await this.getProjectOrThrow(id);
-    await this.assertManagesProject(id, actorId, actorRole);
+    await this.projectScope.assertManagesProject(id, actorId, actorRole);
 
     const existingTags = await this.prisma.projectTypeTag.findMany({
       where: { projectId: id },
@@ -960,7 +999,7 @@ export class ProjectsService {
     actorRole: Role,
   ) {
     const existing = await this.getProjectWithInclude(id);
-    await this.assertManagesProject(id, actorId, actorRole);
+    await this.projectScope.assertManagesProject(id, actorId, actorRole);
 
     if (existing.slackChannelId) {
       throw new ConflictException(
@@ -975,7 +1014,7 @@ export class ProjectsService {
       );
       if (!accessible) {
         throw new BadRequestException(
-          'Could not access a Slack channel with that id — make sure the bot has been added to it and it is not archived',
+          'Could not access a Slack channel with that id. Make sure the bot has been added to it and it is not archived',
         );
       }
       slackChannelId = dto.slackChannelId;
@@ -999,7 +1038,10 @@ export class ProjectsService {
 
     await this.inviteCurrentRosterToSlackChannel(id, slackChannelId);
 
-    return withRemainingHours(updated);
+    return toProjectResponse(
+      updated,
+      await this.buildProjectContext(id, actorId, actorRole),
+    );
   }
 
   private async inviteCurrentRosterToSlackChannel(
@@ -1038,6 +1080,48 @@ export class ProjectsService {
   // which are already gated to PROJECT_MANAGER/ADMIN/SYSTEM_ADMIN at the
   // controller level. Unlike findOne(), no CLIENT/DEVELOPER/DESIGNER
   // scoping applies here.
+  // Resolved once per request. `permissions` depends only on the caller, so it
+  // is asked once; `managesProject` depends on the project, so it is asked per
+  // distinct project id and cached for the rest of the page.
+  private async buildProjectContext(
+    projectId: string,
+    actorId: string,
+    actorRole: Role,
+  ): Promise<ProjectContext> {
+    return {
+      permissions: this.permissions.getEffectivePermissions({
+        role: actorRole,
+      }),
+      managesProject: await this.projectScope.managesProject(
+        projectId,
+        actorId,
+        actorRole,
+      ),
+    };
+  }
+
+  private async buildProjectContexts(
+    projectIds: string[],
+    actorId: string,
+    actorRole: Role,
+  ): Promise<Map<string, ProjectContext>> {
+    const permissions = this.permissions.getEffectivePermissions({
+      role: actorRole,
+    });
+    const contexts = new Map<string, ProjectContext>();
+    for (const projectId of new Set(projectIds)) {
+      contexts.set(projectId, {
+        permissions,
+        managesProject: await this.projectScope.managesProject(
+          projectId,
+          actorId,
+          actorRole,
+        ),
+      });
+    }
+    return contexts;
+  }
+
   private async getProjectWithInclude(id: string) {
     const project = await this.prisma.project.findUnique({
       where: { id },
@@ -1047,49 +1131,6 @@ export class ProjectsService {
       throw new NotFoundException('Project not found');
     }
     return project;
-  }
-
-  // Only DEVELOPER/DESIGNER need to be an active member. PROJECT_MANAGER/
-  // ADMIN/SYSTEM_ADMIN can always access any project.
-  private async assertActiveMember(
-    projectId: string,
-    actorId: string,
-    actorRole: Role,
-  ) {
-    if (actorRole !== Role.DEVELOPER && actorRole !== Role.DESIGNER) {
-      return;
-    }
-    const membership = await this.prisma.projectMember.findFirst({
-      where: { projectId, userId: actorId, leftAt: null },
-    });
-    if (!membership) {
-      throw new ForbiddenException(
-        'You are not an active member of this project',
-      );
-    }
-  }
-
-  // Having the PROJECT_MANAGER role is not enough by itself. Only
-  // ADMIN/SYSTEM_ADMIN can skip the staffing check below.
-  private async assertManagesProject(
-    projectId: string,
-    actorId: string,
-    actorRole: Role,
-  ) {
-    if (actorRole === Role.ADMIN || actorRole === Role.SYSTEM_ADMIN) {
-      return;
-    }
-    const membership = await this.prisma.projectMember.findFirst({
-      where: {
-        projectId,
-        userId: actorId,
-        role: ProjectRole.PROJECT_MANAGER,
-        leftAt: null,
-      },
-    });
-    if (!membership) {
-      throw new ForbiddenException('You do not manage this project');
-    }
   }
 
   // PATCH /projects/:id/status is the one mutation open to PROJECT_MANAGER,
@@ -1104,9 +1145,13 @@ export class ProjectsService {
     actorRole: Role,
   ) {
     if (actorRole === Role.PROJECT_MANAGER) {
-      await this.assertManagesProject(projectId, actorId, actorRole);
+      await this.projectScope.assertManagesProject(
+        projectId,
+        actorId,
+        actorRole,
+      );
       return;
     }
-    await this.assertActiveMember(projectId, actorId, actorRole);
+    await this.projectScope.assertActiveMember(projectId, actorId, actorRole);
   }
 }

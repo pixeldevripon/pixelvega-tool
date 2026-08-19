@@ -11,14 +11,25 @@ import { PrismaService } from '@/prisma/prisma.service';
 import { paginate } from '@/common/utils/pagination.util';
 import { minutesBetween } from '@/common/utils/date.util';
 import { ProjectActivityService } from '@/project-activity/project-activity.service';
-import { TimeEntryNoteDto } from '@/time-tracking/dto/time-entry-note.dto';
-import { QueryTimeEntriesDto } from '@/time-tracking/dto/query-time-entries.dto';
+import { ProjectScopeService } from '@/project-scope/project-scope.service';
+import {
+  toDailyTimeTotal,
+  toMeetingTimeEntryResponse,
+  toProjectTimeTotal,
+  toTimeEntryResponse,
+  toTotals,
+  TimeEntryWithRelations,
+} from '@/time-tracking/time-entry.mapper';
 import { MAX_CONTINUOUS_SESSION_MINUTES } from './time-tracking.constants';
 import {
   buildStartedAtFilter,
   getAutoStopCutoff,
   isPreviousUtcDay,
 } from './time-entry-date.util';
+import {
+  QueryTimeEntriesDto,
+  TimeEntryNoteDto,
+} from '@/time-tracking/dto/time-entry.dto';
 
 const TIME_ENTRY_INCLUDE = {
   user: { select: { id: true, name: true, email: true } },
@@ -35,6 +46,7 @@ const MEETING_ENTRY_INCLUDE = {
 @Injectable()
 export class ProjectTimeEntriesService {
   constructor(
+    private readonly projectScope: ProjectScopeService,
     private readonly prisma: PrismaService,
     private readonly projectActivity: ProjectActivityService,
   ) {}
@@ -63,17 +75,33 @@ export class ProjectTimeEntriesService {
         project: { select: { id: true, name: true } },
       },
     });
+    // The capabilities are answered for the CALLER, not for the user whose
+    // timer this is. A manager checking a developer's timer must be told they
+    // cannot stop it, because they cannot.
+    const context = { callerId: actorId };
+
     if (running) {
-      const { entry, wasAutoStopped } = await this.autoStopIfExpired(running);
+      // When nothing was auto stopped the returned entry is the one passed in,
+      // so `running` is used here: it is the same row and it still carries the
+      // project and user relations the narrower helper signature drops.
+      const { wasAutoStopped } = await this.autoStopIfExpired(running);
       if (!wasAutoStopped) {
-        return { active: true, kind: 'PROJECT' as const, entry };
+        return {
+          active: true,
+          kind: 'PROJECT' as const,
+          entry: toTimeEntryResponse(running, context),
+        };
       }
     }
 
     const runningMeeting =
       await this.findAndFinalizeRunningMeetingEntry(userId);
     if (runningMeeting) {
-      return { active: true, kind: 'MEETING' as const, entry: runningMeeting };
+      return {
+        active: true,
+        kind: 'MEETING' as const,
+        entry: toMeetingTimeEntryResponse(runningMeeting, context),
+      };
     }
 
     return { active: false, kind: null, entry: null };
@@ -103,6 +131,7 @@ export class ProjectTimeEntriesService {
 
     const user = await this.prisma.user.findFirst({
       where: { id: userId, deletedAt: null },
+      select: { id: true },
     });
     if (!user) {
       throw new NotFoundException('User not found');
@@ -149,9 +178,8 @@ export class ProjectTimeEntriesService {
 
     return {
       userId,
-      projects: projectSummaries,
-      totalMinutes,
-      totalHours: Math.round((totalMinutes / 60) * 100) / 100,
+      projects: projectSummaries.map(toProjectTimeTotal),
+      ...toTotals(totalMinutes),
     };
   }
 
@@ -162,7 +190,7 @@ export class ProjectTimeEntriesService {
     actorRole: Role,
   ) {
     await this.getProjectOrThrow(projectId);
-    await this.assertActiveMember(projectId, actorId, actorRole);
+    await this.projectScope.assertActiveMember(projectId, actorId, actorRole);
 
     const {
       page = 1,
@@ -201,10 +229,11 @@ export class ProjectTimeEntriesService {
     ]);
 
     const totalMinutes = totals._sum.durationMinutes ?? 0;
+    const context = { callerId: actorId };
     return {
       ...result,
-      totalMinutes,
-      totalHours: Math.round((totalMinutes / 60) * 100) / 100,
+      items: result.items.map((entry) => toTimeEntryResponse(entry, context)),
+      ...toTotals(totalMinutes),
     };
   }
 
@@ -221,7 +250,7 @@ export class ProjectTimeEntriesService {
     actorRole: Role,
   ) {
     await this.getProjectOrThrow(projectId);
-    await this.assertActiveMember(projectId, actorId, actorRole);
+    await this.projectScope.assertActiveMember(projectId, actorId, actorRole);
 
     const { status, startDate, endDate, userId } = query;
     const startedAtFilter = buildStartedAtFilter(startDate, endDate);
@@ -259,9 +288,8 @@ export class ProjectTimeEntriesService {
     return {
       projectId,
       userId: userId ?? null,
-      days,
-      totalMinutes,
-      totalHours: Math.round((totalMinutes / 60) * 100) / 100,
+      days: days.map(toDailyTimeTotal),
+      ...toTotals(totalMinutes),
     };
   }
 
@@ -302,7 +330,7 @@ export class ProjectTimeEntriesService {
     actorRole: Role,
   ) {
     await this.getProjectOrThrow(projectId);
-    await this.assertActiveMember(projectId, actorId, actorRole);
+    await this.projectScope.assertActiveMember(projectId, actorId, actorRole);
     await this.assertNoRunningTimer(actorId);
 
     // Generated up front (rather than left to the DB default) so the first
@@ -325,7 +353,7 @@ export class ProjectTimeEntriesService {
       metadata: { timeEntryId: entry.id },
     });
 
-    return entry;
+    return toTimeEntryResponse(entry, { callerId: actorId });
   }
 
   async pause(
@@ -367,7 +395,7 @@ export class ProjectTimeEntriesService {
       },
     });
 
-    return updated;
+    return toTimeEntryResponse(updated, { callerId: actorId });
   }
 
   async resume(
@@ -412,7 +440,7 @@ export class ProjectTimeEntriesService {
       metadata: { timeEntryId: resumed.id, sessionId: resumed.sessionId },
     });
 
-    return resumed;
+    return toTimeEntryResponse(resumed, { callerId: actorId });
   }
 
   async stop(
@@ -425,11 +453,11 @@ export class ProjectTimeEntriesService {
     this.assertNotLockedByPreviousDay(entry);
     // Already over the cap. The caller wanted it stopped anyway, so just
     // hand back the capped result rather than erroring.
-    const { entry: current, wasAutoStopped } =
-      await this.autoStopIfExpired(entry);
-    if (wasAutoStopped) {
-      return current;
+    const autoStop = await this.autoStopIfExpired(entry);
+    if (autoStop.wasAutoStopped) {
+      return toTimeEntryResponse(autoStop.entry, { callerId: actorId });
     }
+    const current = autoStop.entry;
     if (current.status === TimeEntryStatus.STOPPED) {
       throw new BadRequestException('This timer has already been stopped');
     }
@@ -466,7 +494,7 @@ export class ProjectTimeEntriesService {
       },
     });
 
-    return updated;
+    return toTimeEntryResponse(updated, { callerId: actorId });
   }
 
   private async getProjectOrThrow(projectId: string) {
@@ -591,19 +619,34 @@ export class ProjectTimeEntriesService {
   // own pause/stop, or the owner's next start/resume attempt) rather than
   // via a background job. Discards any time worked beyond the cutoff,
   // whichever of the two came first, not the real elapsed time.
-  private async autoStopIfExpired(entry: {
-    id: string;
-    projectId: string;
-    userId: string;
-    status: TimeEntryStatus;
-    startedAt: Date;
-  }) {
+  //
+  // The return is a discriminated union rather than one shape, because the two
+  // branches genuinely differ: when nothing was stopped the caller gets back
+  // exactly the row it passed in, relations and all, and when something WAS
+  // stopped the row is a fresh read that only carries TIME_ENTRY_INCLUDE. A
+  // single shape would have to narrow both to the smaller one, which is what
+  // previously stripped the project relation off an entry on its way to a
+  // response.
+  private async autoStopIfExpired<
+    T extends {
+      id: string;
+      projectId: string;
+      userId: string;
+      status: TimeEntryStatus;
+      startedAt: Date;
+    },
+  >(
+    entry: T,
+  ): Promise<
+    | { entry: T; wasAutoStopped: false }
+    | { entry: TimeEntryWithRelations; wasAutoStopped: true }
+  > {
     if (entry.status !== TimeEntryStatus.RUNNING) {
-      return { entry, wasAutoStopped: false };
+      return { entry, wasAutoStopped: false as const };
     }
     const cutoff = getAutoStopCutoff(entry.startedAt);
     if (new Date() < cutoff) {
-      return { entry, wasAutoStopped: false };
+      return { entry, wasAutoStopped: false as const };
     }
 
     const stopped = await this.prisma.timeEntry.update({
@@ -629,7 +672,7 @@ export class ProjectTimeEntriesService {
       },
     );
 
-    return { entry: stopped, wasAutoStopped: true };
+    return { entry: stopped, wasAutoStopped: true as const };
   }
 
   private async recalculateActualHours(projectId: string) {
@@ -641,23 +684,5 @@ export class ProjectTimeEntriesService {
       where: { id: projectId },
       data: { actualHours: (_sum.durationMinutes ?? 0) / 60 },
     });
-  }
-
-  private async assertActiveMember(
-    projectId: string,
-    actorId: string,
-    actorRole: Role,
-  ) {
-    if (actorRole !== Role.DEVELOPER && actorRole !== Role.DESIGNER) {
-      return;
-    }
-    const membership = await this.prisma.projectMember.findFirst({
-      where: { projectId, userId: actorId, leftAt: null },
-    });
-    if (!membership) {
-      throw new ForbiddenException(
-        'You are not an active member of this project',
-      );
-    }
   }
 }

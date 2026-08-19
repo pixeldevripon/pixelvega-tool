@@ -3,9 +3,9 @@ import { ApiCookieAuth, ApiTags } from '@nestjs/swagger';
 import { Permission, Role } from '@prisma/client';
 import { CurrentUser } from '@/common/decorators/current-user.decorator';
 import { DailyWorkReportService } from './daily-work-report.service';
-import { QueryProjectDailyEntriesDto } from '@/work-reports/dto/query-project-daily-entries.dto';
 import { RequirePermissions } from '@/auth/decorators/require-permissions.decorator';
 import { ApiListProjectWorkReportsDocs } from '@/work-reports/work-reports.swagger';
+import { QueryProjectDailyEntriesDto } from '@/work-reports/dto/daily-work-report.dto';
 
 // Deliberately a separate controller from DailyWorkReportController. This
 // route is nested under a project (projects/:projectId/daily-work-reports),

@@ -1,6 +1,10 @@
 import { applyDecorators } from '@nestjs/common';
 import { ApiOperation, ApiParam, ApiResponse } from '@nestjs/swagger';
 import { gatedErrors, projectScopedErrors } from '@/common/swagger/error-sets';
+import {
+  DeveloperReportResponseDto,
+  ProjectReportResponseDto,
+} from '@/project-reports/dto/project-report.dto';
 
 export const ApiGetProjectReportDocs = () =>
   applyDecorators(
@@ -17,6 +21,7 @@ export const ApiGetProjectReportDocs = () =>
     ApiResponse({
       status: 200,
       description: 'The calculated report for the range',
+      type: ProjectReportResponseDto,
     }),
     ...projectScopedErrors,
   );
@@ -34,6 +39,7 @@ export const ApiGetDeveloperReportDocs = () =>
     ApiResponse({
       status: 200,
       description: 'The calculated report for the range',
+      type: DeveloperReportResponseDto,
     }),
     ...gatedErrors,
   );

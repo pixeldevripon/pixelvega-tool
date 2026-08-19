@@ -11,17 +11,22 @@ import { PrismaService } from '@/prisma/prisma.service';
 import { paginate } from '@/common/utils/pagination.util';
 import { SlackService } from '@/slack/slack.service';
 import { ProjectActivityService } from '@/project-activity/project-activity.service';
-import { SubmitPlanDto } from '@/work-reports/dto/submit-plan.dto';
-import { UpdatePlanDto } from '@/work-reports/dto/update-plan.dto';
-import { SubmitWrapUpDto } from '@/work-reports/dto/submit-wrap-up.dto';
-import { UpdateWrapUpDto } from '@/work-reports/dto/update-wrap-up.dto';
+import { ProjectScopeService } from '@/project-scope/project-scope.service';
+import {
+  canEditPlan,
+  canEditWrapUp,
+  toDailyWorkReportResponse,
+  toProjectDailyEntryResponse,
+} from '@/work-reports/daily-work-report.mapper';
 import {
   DailyEntryTypeFilter,
+  QueryDailyWorkReportsDto,
   QueryProjectDailyEntriesDto,
-} from '@/work-reports/dto/query-project-daily-entries.dto';
-import { QueryDailyWorkReportsDto } from '@/work-reports/dto/query-daily-work-reports.dto';
-
-const WRAP_UP_EDIT_WINDOW_MS = 2 * 60 * 60 * 1000;
+  SubmitPlanDto,
+  SubmitWrapUpDto,
+  UpdatePlanDto,
+  UpdateWrapUpDto,
+} from '@/work-reports/dto/daily-work-report.dto';
 
 const REPORT_INCLUDE = {
   entries: {
@@ -132,6 +137,7 @@ export class DailyWorkReportService {
   private readonly logger = new Logger(DailyWorkReportService.name);
 
   constructor(
+    private readonly projectScope: ProjectScopeService,
     private readonly prisma: PrismaService,
     private readonly projectActivity: ProjectActivityService,
     private readonly slackService: SlackService,
@@ -141,7 +147,7 @@ export class DailyWorkReportService {
     this.assertNoDuplicateProjects(dto.entries.map((entry) => entry.projectId));
 
     for (const entry of dto.entries) {
-      await this.assertActiveMember(entry.projectId, userId);
+      await this.projectScope.assertStaffedOnProject(entry.projectId, userId);
     }
 
     const date = toDateOnly(new Date());
@@ -187,7 +193,7 @@ export class DailyWorkReportService {
       );
     });
 
-    return report;
+    return toDailyWorkReportResponse(report, { callerId: userId });
   }
 
   findByUserAndDate(userId: string, date: Date) {
@@ -225,7 +231,7 @@ export class DailyWorkReportService {
       },
     };
 
-    return paginate(
+    const result = await paginate(
       (args) =>
         this.prisma.dailyProjectEntry.findMany({
           where,
@@ -237,6 +243,13 @@ export class DailyWorkReportService {
       page,
       pageSize,
     );
+
+    return {
+      ...result,
+      items: result.items.map((entry) =>
+        toProjectDailyEntryResponse(entry, { callerId: actorId }),
+      ),
+    };
   }
 
   // One user's daily reports across every project, over a date range or all
@@ -282,7 +295,7 @@ export class DailyWorkReportService {
       ...(entryWhere && { entries: { some: entryWhere } }),
     };
 
-    return paginate(
+    const result = await paginate(
       (args) =>
         this.prisma.dailyWorkReport.findMany({
           where,
@@ -302,13 +315,20 @@ export class DailyWorkReportService {
       page,
       pageSize,
     );
+
+    return {
+      ...result,
+      items: result.items.map((report) =>
+        toDailyWorkReportResponse(report, { callerId: actorId }),
+      ),
+    };
   }
 
   async updatePlan(reportId: string, userId: string, dto: UpdatePlanDto) {
     const report = await this.getOwnReportOrThrow(reportId, userId);
     this.assertNoDuplicateProjects(dto.entries.map((entry) => entry.projectId));
 
-    if (!this.canEditPlan(report)) {
+    if (!canEditPlan(report)) {
       throw new ConflictException('Plan locked after wrap-up submitted');
     }
 
@@ -318,7 +338,7 @@ export class DailyWorkReportService {
     });
 
     for (const entry of dto.entries) {
-      await this.assertActiveMember(entry.projectId, userId);
+      await this.projectScope.assertStaffedOnProject(entry.projectId, userId);
 
       const updatedEntry = await this.prisma.dailyProjectEntry.upsert({
         where: {
@@ -366,7 +386,10 @@ export class DailyWorkReportService {
       );
     }
 
-    return this.getOwnReportOrThrow(reportId, userId);
+    return toDailyWorkReportResponse(
+      await this.getOwnReportOrThrow(reportId, userId),
+      { callerId: userId },
+    );
   }
 
   async submitWrapUp(reportId: string, userId: string, dto: SubmitWrapUpDto) {
@@ -387,7 +410,7 @@ export class DailyWorkReportService {
     }> = [];
 
     for (const entry of dto.entries) {
-      await this.assertActiveMember(entry.projectId, userId);
+      await this.projectScope.assertStaffedOnProject(entry.projectId, userId);
 
       // A wrap up may include a project that wasn't part of the morning plan
       // (unplanned or urgent work). The upsert creates a fresh entry for those.
@@ -440,13 +463,16 @@ export class DailyWorkReportService {
       );
     });
 
-    return this.getOwnReportOrThrow(reportId, userId);
+    return toDailyWorkReportResponse(
+      await this.getOwnReportOrThrow(reportId, userId),
+      { callerId: userId },
+    );
   }
 
   async updateWrapUp(reportId: string, userId: string, dto: UpdateWrapUpDto) {
     const report = await this.getOwnReportOrThrow(reportId, userId);
 
-    if (!this.canEditWrapUp(report)) {
+    if (!canEditWrapUp(report)) {
       throw new ConflictException(
         'Wrap-up locked after 2 hours. Contact admin if correction needed.',
       );
@@ -514,25 +540,9 @@ export class DailyWorkReportService {
       );
     }
 
-    return this.getOwnReportOrThrow(reportId, userId);
-  }
-
-  private canEditPlan(report: { status: DailyWorkReportStatus }): boolean {
-    return report.status === DailyWorkReportStatus.PLAN_SUBMITTED;
-  }
-
-  private canEditWrapUp(report: {
-    status: DailyWorkReportStatus;
-    wrapUpSubmittedAt: Date | null;
-  }): boolean {
-    if (
-      report.status !== DailyWorkReportStatus.COMPLETED ||
-      !report.wrapUpSubmittedAt
-    ) {
-      return false;
-    }
-    return (
-      Date.now() - report.wrapUpSubmittedAt.getTime() < WRAP_UP_EDIT_WINDOW_MS
+    return toDailyWorkReportResponse(
+      await this.getOwnReportOrThrow(reportId, userId),
+      { callerId: userId },
     );
   }
 
@@ -558,23 +568,6 @@ export class DailyWorkReportService {
       );
     }
     return report;
-  }
-
-  private async assertActiveMember(projectId: string, userId: string) {
-    const project = await this.prisma.project.findUnique({
-      where: { id: projectId },
-    });
-    if (!project) {
-      throw new NotFoundException('Project not found');
-    }
-    const membership = await this.prisma.projectMember.findFirst({
-      where: { projectId, userId, leftAt: null },
-    });
-    if (!membership) {
-      throw new ForbiddenException(
-        'You are not an active member of this project',
-      );
-    }
   }
 
   private async getProjectOrThrow(projectId: string) {

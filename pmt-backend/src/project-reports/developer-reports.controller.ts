@@ -3,9 +3,9 @@ import { ApiCookieAuth, ApiTags } from '@nestjs/swagger';
 import { Permission, Role } from '@prisma/client';
 import { CurrentUser } from '@/common/decorators/current-user.decorator';
 import { DeveloperReportService } from './developer-report.service';
-import { QueryDeveloperReportDto } from '@/project-reports/dto/query-developer-report.dto';
 import { RequirePermissions } from '@/auth/decorators/require-permissions.decorator';
 import { ApiGetDeveloperReportDocs } from './project-reports.swagger';
+import { QueryDeveloperReportDto } from '@/project-reports/dto/project-report.dto';
 
 // Not project-nested: one person's activity across every project they
 // touched in the range, the same reason TimeEntriesController's

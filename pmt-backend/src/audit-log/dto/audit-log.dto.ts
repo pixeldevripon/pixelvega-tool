@@ -1,6 +1,7 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
-import { IsOptional, IsString } from 'class-validator';
+import { IsOptional, IsString, MaxLength } from 'class-validator';
 import { PaginationQueryDto } from '@/common/dto/pagination-query.dto';
+import * as FieldLength from '@/common/constants/field-lengths';
 
 // ── Response DTOs ────────────────────────────────────────────────────────────
 
@@ -91,5 +92,6 @@ export class QueryAuditLogDto extends PaginationQueryDto {
   })
   @IsOptional()
   @IsString()
+  @MaxLength(FieldLength.SINGLE_LINE)
   userId?: string;
 }

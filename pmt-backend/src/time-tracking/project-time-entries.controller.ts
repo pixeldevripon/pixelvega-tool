@@ -11,8 +11,6 @@ import { ApiCookieAuth, ApiTags } from '@nestjs/swagger';
 import { Permission, Role } from '@prisma/client';
 import { CurrentUser } from '@/common/decorators/current-user.decorator';
 import { ProjectTimeEntriesService } from './project-time-entries.service';
-import { TimeEntryNoteDto } from '@/time-tracking/dto/time-entry-note.dto';
-import { QueryTimeEntriesDto } from '@/time-tracking/dto/query-time-entries.dto';
 import { RequirePermissions } from '@/auth/decorators/require-permissions.decorator';
 import {
   ApiListProjectTimeEntriesDocs,
@@ -22,6 +20,10 @@ import {
   ApiStartProjectTimerDocs,
   ApiStopProjectTimerDocs,
 } from '@/time-tracking/time-tracking.swagger';
+import {
+  QueryTimeEntriesDto,
+  TimeEntryNoteDto,
+} from '@/time-tracking/dto/time-entry.dto';
 
 // Only Developer/Designer track their own time. PROJECT_MANAGER is
 // deliberately excluded from start/pause/resume/stop (ADMIN/SYSTEM_ADMIN are

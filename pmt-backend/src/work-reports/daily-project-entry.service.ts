@@ -13,7 +13,8 @@ import {
 import { PrismaService } from '@/prisma/prisma.service';
 import { ProjectActivityService } from '@/project-activity/project-activity.service';
 import { NotificationsService } from '@/notifications/notifications.service';
-import { ReviewEntryDto } from '@/work-reports/dto/review-entry.dto';
+import { ReviewEntryDto } from '@/work-reports/dto/daily-work-report.dto';
+import { toDailyProjectEntryResponse } from '@/work-reports/daily-work-report.mapper';
 
 const ENTRY_INCLUDE = {
   project: { select: { id: true, name: true } },
@@ -83,7 +84,9 @@ export class DailyProjectEntryService {
       });
     }
 
-    return updated;
+    return toDailyProjectEntryResponse(updated, entry.dailyWorkReport.userId, {
+      callerId: actorId,
+    });
   }
 
   private async assertCanReview(

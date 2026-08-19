@@ -12,11 +12,7 @@ import type { Response } from 'express';
 import { ApiCookieAuth, ApiTags } from '@nestjs/swagger';
 import { Permission, Role } from '@prisma/client';
 import { LeaveRequestsService } from './leave-requests.service';
-import { CreateLeaveRequestDto } from '@/leave/dto/create-leave-request.dto';
-import { RejectLeaveRequestDto } from '@/leave/dto/reject-leave-request.dto';
 import { CurrentUser } from '@/common/decorators/current-user.decorator';
-import { QueryLeaveRequestsDto } from '@/leave/dto/query-leave-requests.dto';
-import { QueryLeaveSummaryDto } from '@/leave/dto/query-leave-summary.dto';
 import { RequirePermissions } from '@/auth/decorators/require-permissions.decorator';
 import {
   ApiApproveLeaveDocs,
@@ -30,6 +26,12 @@ import {
   ApiRejectLeaveDocs,
   ApiRequestLeaveDocs,
 } from '@/leave/leave.swagger';
+import {
+  CreateLeaveRequestDto,
+  QueryLeaveRequestsDto,
+  QueryLeaveSummaryDto,
+  RejectLeaveRequestDto,
+} from '@/leave/dto/leave.dto';
 
 @ApiTags('Leave Requests')
 @ApiCookieAuth('better-auth.session_token')
@@ -79,10 +81,10 @@ export class LeaveRequestsController {
   @RequirePermissions(Permission.VIEW_LEAVE_REQUESTS)
   @Get()
   findAll(
-    @CurrentUser() user: { role: Role },
+    @CurrentUser() user: { id: string; role: Role },
     @Query() query: QueryLeaveRequestsDto,
   ) {
-    return this.leaveRequestsService.findAll(user.role, query);
+    return this.leaveRequestsService.findAll(user.role, query, user.id);
   }
 
   @ApiLeaveSummaryDocs()

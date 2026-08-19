@@ -11,8 +11,10 @@ import { ApiCookieAuth, ApiTags } from '@nestjs/swagger';
 import { Permission, Role } from '@prisma/client';
 import { CurrentUser } from '@/common/decorators/current-user.decorator';
 import { ProjectMembersService } from './project-members.service';
-import { AddProjectMemberDto } from '@/project-members/dto/add-project-member.dto';
-import { QueryProjectMembersDto } from '@/project-members/dto/query-project-members.dto';
+import {
+  AddProjectMemberDto,
+  QueryProjectMembersDto,
+} from '@/project-members/dto/project-member.dto';
 import { RequirePermissions } from '@/auth/decorators/require-permissions.decorator';
 import {
   ApiAddProjectMemberDocs,

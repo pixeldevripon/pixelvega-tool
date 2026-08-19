@@ -12,11 +12,6 @@ import { Permission, Role } from '@prisma/client';
 import { CurrentUser } from '@/common/decorators/current-user.decorator';
 import { ProjectTimeEntriesService } from './project-time-entries.service';
 import { MeetingTimeEntriesService } from './meeting-time-entries.service';
-import { QueryActiveTimeEntryDto } from '@/time-tracking/dto/query-active-time-entry.dto';
-import { QueryProjectSummaryDto } from '@/time-tracking/dto/query-project-summary.dto';
-import { QueryMeetingTimeEntriesDto } from '@/time-tracking/dto/query-meeting-time-entries.dto';
-import { QueryDailySummaryDto } from '@/time-tracking/dto/query-daily-summary.dto';
-import { TimeEntryNoteDto } from '@/time-tracking/dto/time-entry-note.dto';
 import { RequirePermissions } from '@/auth/decorators/require-permissions.decorator';
 import {
   ApiCombinedDailySummaryDocs,
@@ -28,6 +23,13 @@ import {
   ApiStartMeetingTimerDocs,
   ApiStopMeetingTimerDocs,
 } from '@/time-tracking/time-tracking.swagger';
+import {
+  QueryActiveTimeEntryDto,
+  QueryDailySummaryDto,
+  QueryMeetingTimeEntriesDto,
+  QueryProjectSummaryDto,
+  TimeEntryNoteDto,
+} from '@/time-tracking/dto/time-entry.dto';
 
 // PROJECT_MANAGER is excluded from project time tracking (see
 // ProjectTimeEntriesController) but is included here, sitting in standups

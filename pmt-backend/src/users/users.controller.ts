@@ -15,6 +15,7 @@ import { Permission, Role } from '@prisma/client';
 import { RequirePermissions } from '@/auth/decorators/require-permissions.decorator';
 import { PermissionsService } from '@/auth/permissions.service';
 import { CurrentUser } from '@/common/decorators/current-user.decorator';
+import { ROLE_DISPLAY, toEnumDisplay } from '@/common/utils/enum-display.util';
 import {
   ChangeOwnPasswordRequestDto,
   InviteUserRequestDto,
@@ -83,7 +84,7 @@ export class UsersController {
   @Get('me/permissions')
   myPermissions(@CurrentUser() user: { id: string; role: Role }) {
     return {
-      role: user.role,
+      role: toEnumDisplay(ROLE_DISPLAY, user.role),
       permissions: this.permissionsService.getEffectivePermissions(user),
     };
   }

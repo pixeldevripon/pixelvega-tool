@@ -10,8 +10,6 @@ import {
 import { ApiCookieAuth, ApiTags } from '@nestjs/swagger';
 import { Permission, Role } from '@prisma/client';
 import { HolidaysService } from './holidays.service';
-import { CreateHolidayDto } from '@/leave/dto/create-holiday.dto';
-import { UpdateHolidayDto } from '@/leave/dto/update-holiday.dto';
 import { CurrentUser } from '@/common/decorators/current-user.decorator';
 import { RequirePermissions } from '@/auth/decorators/require-permissions.decorator';
 import {
@@ -20,6 +18,7 @@ import {
   ApiListHolidaysDocs,
   ApiUpdateHolidayDocs,
 } from '@/leave/leave.swagger';
+import { CreateHolidayDto, UpdateHolidayDto } from '@/leave/dto/leave.dto';
 
 @ApiTags('Holidays')
 @ApiCookieAuth('better-auth.session_token')

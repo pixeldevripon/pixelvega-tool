@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, Logger } from '@nestjs/common';
 import { Job } from 'bullmq';
 import { NotificationType, ProjectDocumentType } from '@prisma/client';
 import { PrismaService } from '@/prisma/prisma.service';
@@ -56,6 +56,8 @@ const MODEL = 'claude-haiku-4-5';
 // docs/features/notifications/DESIGN.md.
 @Injectable()
 export class ScopeCheckService {
+  private readonly logger = new Logger(ScopeCheckService.name);
+
   constructor(
     private readonly prisma: PrismaService,
     private readonly claude: ClaudeService,
@@ -66,6 +68,7 @@ export class ScopeCheckService {
     const aiJob = await this.prisma.aiJob.findUniqueOrThrow({
       where: { id: job.data.aiJobId },
     });
+    this.logger.log(`Running a scope check for AI job ${aiJob.id}`);
     const { requirementId } = aiJob.input as { requirementId: string };
     const projectId = aiJob.projectId!;
 

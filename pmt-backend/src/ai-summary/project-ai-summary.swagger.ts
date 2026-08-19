@@ -1,6 +1,7 @@
 import { applyDecorators } from '@nestjs/common';
 import { ApiOperation, ApiParam, ApiResponse } from '@nestjs/swagger';
 import { projectScopedErrors } from '@/common/swagger/error-sets';
+import { ProjectAiSummaryResponseDto } from '@/ai-summary/dto/project-ai-summary.dto';
 
 export const ApiGetProjectAiSummaryDocs = () =>
   applyDecorators(
@@ -15,6 +16,10 @@ export const ApiGetProjectAiSummaryDocs = () =>
         'range still returns 200 with a thin summary rather than an error.',
     }),
     ApiParam({ name: 'projectId', description: 'The project id' }),
-    ApiResponse({ status: 200, description: 'The generated summary' }),
+    ApiResponse({
+      status: 200,
+      description: 'The generated summary',
+      type: ProjectAiSummaryResponseDto,
+    }),
     ...projectScopedErrors,
   );

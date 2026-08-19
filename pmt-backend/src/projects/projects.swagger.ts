@@ -17,7 +17,7 @@ import {
   PaginatedProjectsResponseDto,
   ProjectActivityResponseDto,
   ProjectResponseDto,
-} from '@/projects/dto/project-response.dto';
+} from '@/projects/dto/project.dto';
 
 /** Documentation for the core Project entity. */
 

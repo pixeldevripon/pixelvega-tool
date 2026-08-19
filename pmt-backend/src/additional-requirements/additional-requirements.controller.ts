@@ -12,9 +12,6 @@ import { ApiCookieAuth, ApiTags } from '@nestjs/swagger';
 import { Permission, Role } from '@prisma/client';
 import { CurrentUser } from '@/common/decorators/current-user.decorator';
 import { AdditionalRequirementsService } from './additional-requirements.service';
-import { CreateAdditionalRequirementDto } from '@/additional-requirements/dto/create-additional-requirement.dto';
-import { ReviewAdditionalRequirementDto } from '@/additional-requirements/dto/review-additional-requirement.dto';
-import { QueryAdditionalRequirementsDto } from '@/additional-requirements/dto/query-additional-requirements.dto';
 import { RequirePermissions } from '@/auth/decorators/require-permissions.decorator';
 import {
   ApiCheckRequirementScopeDocs,
@@ -23,6 +20,11 @@ import {
   ApiListAdditionalRequirementsDocs,
   ApiReviewAdditionalRequirementDocs,
 } from '@/internal-reviews/reviews.swagger';
+import {
+  CreateAdditionalRequirementDto,
+  QueryAdditionalRequirementsDto,
+  ReviewAdditionalRequirementDto,
+} from '@/additional-requirements/dto/additional-requirement.dto';
 
 // Requirements received outside the normal project scope. Not visible to a
 // client at all, unlike documents. Read access is any PM/ADMIN, or an

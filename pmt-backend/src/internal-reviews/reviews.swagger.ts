@@ -5,6 +5,13 @@ import {
   notFound,
   projectScopedErrors,
 } from '@/common/swagger/error-sets';
+import { InternalReviewResponseDto } from '@/internal-reviews/dto/internal-review.dto';
+import { ClientFeedbackResponseDto } from '@/client-feedback/dto/client-feedback.dto';
+import {
+  AdditionalRequirementResponseDto,
+  PaginatedAdditionalRequirementsResponseDto,
+} from '@/additional-requirements/dto/additional-requirement.dto';
+import { QueuedJobResponseDto } from '@/ai/dto/ai.dto';
 
 /**
  * Documentation for the three review gates ReviewsModule owns: the internal
@@ -28,7 +35,11 @@ export const ApiListInternalReviewsDocs = () =>
         'back and forth survives. A CLIENT is excluded entirely, this is internal.',
     }),
     projectIdParam,
-    ApiResponse({ status: 200, description: 'Review rounds, oldest first' }),
+    ApiResponse({
+      status: 200,
+      description: 'Review rounds, oldest first',
+      type: [InternalReviewResponseDto],
+    }),
     ...projectScopedErrors,
   );
 
@@ -44,7 +55,11 @@ export const ApiSubmitInternalReviewDocs = () =>
         'the developer has something actionable.',
     }),
     projectIdParam,
-    ApiResponse({ status: 201, description: 'The recorded review' }),
+    ApiResponse({
+      status: 201,
+      description: 'The recorded review',
+      type: InternalReviewResponseDto,
+    }),
     ...projectScopedErrors,
     conflict('The project is not currently in internal review'),
   );
@@ -60,7 +75,11 @@ export const ApiListClientFeedbackDocs = () =>
         'own project only.',
     }),
     projectIdParam,
-    ApiResponse({ status: 200, description: 'Feedback rounds, oldest first' }),
+    ApiResponse({
+      status: 200,
+      description: 'Feedback rounds, oldest first',
+      type: [ClientFeedbackResponseDto],
+    }),
     ...projectScopedErrors,
   );
 
@@ -77,7 +96,11 @@ export const ApiSubmitClientFeedbackDocs = () =>
         'recordedById then names the PM, and is null for a direct client submission.',
     }),
     projectIdParam,
-    ApiResponse({ status: 201, description: 'The recorded feedback' }),
+    ApiResponse({
+      status: 201,
+      description: 'The recorded feedback',
+      type: ClientFeedbackResponseDto,
+    }),
     ...projectScopedErrors,
     conflict('Not waiting for feedback, or the project is already closed'),
   );
@@ -93,7 +116,11 @@ export const ApiListAdditionalRequirementsDocs = () =>
         'email, a marketplace message, a phone call. Not client visible at all.',
     }),
     projectIdParam,
-    ApiResponse({ status: 200, description: 'Paginated requirements' }),
+    ApiResponse({
+      status: 200,
+      description: 'Paginated requirements',
+      type: PaginatedAdditionalRequirementsResponseDto,
+    }),
     ...projectScopedErrors,
   );
 
@@ -102,7 +129,11 @@ export const ApiGetAdditionalRequirementDocs = () =>
     ApiOperation({ summary: 'Get one additional requirement' }),
     projectIdParam,
     ApiParam({ name: 'id', description: 'The requirement id' }),
-    ApiResponse({ status: 200, description: 'The requirement' }),
+    ApiResponse({
+      status: 200,
+      description: 'The requirement',
+      type: AdditionalRequirementResponseDto,
+    }),
     ...projectScopedErrors,
     notFound('Additional requirement not found'),
   );
@@ -115,7 +146,11 @@ export const ApiCreateAdditionalRequirementDocs = () =>
         'Created PENDING_REVIEW. Every requirement needs an explicit PM decision.',
     }),
     projectIdParam,
-    ApiResponse({ status: 201, description: 'The logged requirement' }),
+    ApiResponse({
+      status: 201,
+      description: 'The logged requirement',
+      type: AdditionalRequirementResponseDto,
+    }),
     ...projectScopedErrors,
   );
 
@@ -132,7 +167,11 @@ export const ApiReviewAdditionalRequirementDocs = () =>
     }),
     projectIdParam,
     ApiParam({ name: 'id', description: 'The requirement id' }),
-    ApiResponse({ status: 200, description: 'The reviewed requirement' }),
+    ApiResponse({
+      status: 200,
+      description: 'The reviewed requirement',
+      type: AdditionalRequirementResponseDto,
+    }),
     ...projectScopedErrors,
     notFound('Additional requirement not found'),
     conflict('Already reviewed'),
@@ -151,7 +190,11 @@ export const ApiCheckRequirementScopeDocs = () =>
     }),
     projectIdParam,
     ApiParam({ name: 'id', description: 'The requirement id' }),
-    ApiResponse({ status: 202, description: 'The queued job id' }),
+    ApiResponse({
+      status: 202,
+      description: 'The queued job id',
+      type: QueuedJobResponseDto,
+    }),
     ...projectScopedErrors,
     notFound('Additional requirement not found'),
   );

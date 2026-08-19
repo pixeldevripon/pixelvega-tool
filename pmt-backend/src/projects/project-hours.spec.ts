@@ -7,7 +7,7 @@
  * is most likely to mishandle.
  */
 
-import { withRemainingHours } from './projects.service';
+import { withRemainingHours } from './project.mapper';
 
 describe('withRemainingHours', () => {
   it('subtracts actual from estimated', () => {

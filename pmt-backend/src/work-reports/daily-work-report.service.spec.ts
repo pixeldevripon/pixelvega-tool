@@ -19,6 +19,7 @@ import { DailyWorkReportStatus } from '@prisma/client';
 import { PrismaService } from '@/prisma/prisma.service';
 import { ProjectActivityService } from '@/project-activity/project-activity.service';
 import { SlackService } from '@/slack/slack.service';
+import { ProjectScopeService } from '@/project-scope/project-scope.service';
 import { DailyWorkReportService } from './daily-work-report.service';
 
 const REPORT_ID = 'report-1';
@@ -84,6 +85,7 @@ describe('DailyWorkReportService: the two edit windows', () => {
 
     const module: TestingModule = await Test.createTestingModule({
       providers: [
+        ProjectScopeService,
         DailyWorkReportService,
         { provide: PrismaService, useValue: prisma },
         { provide: ProjectActivityService, useValue: { log: jest.fn() } },

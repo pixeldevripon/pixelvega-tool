@@ -1,9 +1,10 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { Injectable, Logger, NotFoundException } from '@nestjs/common';
 import { Role } from '@prisma/client';
 import { PrismaService } from '@/prisma/prisma.service';
 import { CloudinaryService } from '@/uploads/cloudinary.service';
 import { AuditLogService } from '@/audit-log/audit-log.service';
 import { UpdateProfileRequestDto } from '@/profiles/dto/profile.dto';
+import { toProfileResponse } from '@/profiles/profile.mapper';
 
 const USER_WITH_PROFILE_SELECT = {
   id: true,
@@ -21,6 +22,8 @@ function isClientRole(role: Role) {
 
 @Injectable()
 export class ProfilesService {
+  private readonly logger = new Logger(ProfilesService.name);
+
   constructor(
     private readonly prisma: PrismaService,
     private readonly cloudinary: CloudinaryService,
@@ -35,7 +38,7 @@ export class ProfilesService {
     if (!user) {
       throw new NotFoundException('User not found');
     }
-    return user;
+    return toProfileResponse(user);
   }
 
   async update(userId: string, role: Role, dto: UpdateProfileRequestDto) {
@@ -44,6 +47,7 @@ export class ProfilesService {
     if (name !== undefined) {
       const existingUser = await this.prisma.user.findUniqueOrThrow({
         where: { id: userId },
+        select: { name: true },
       });
       if (name !== existingUser.name) {
         await this.prisma.user.update({
@@ -109,6 +113,7 @@ export class ProfilesService {
   async updateAvatar(userId: string, file: Express.Multer.File) {
     const user = await this.prisma.user.findFirst({
       where: { id: userId, deletedAt: null },
+      select: { id: true, avatarPublicId: true },
     });
     if (!user) {
       throw new NotFoundException('User not found');
@@ -121,9 +126,15 @@ export class ProfilesService {
     );
 
     if (user.avatarPublicId) {
+      // Swallowed on purpose: a failed delete leaves an orphaned asset, which
+      // is not worth failing the upload over. Logged so it is not invisible.
       await this.cloudinary
         .delete(user.avatarPublicId, 'image')
-        .catch(() => undefined);
+        .catch((error) =>
+          this.logger.warn(
+            `Failed to delete the replaced avatar ${user.avatarPublicId}: ${error}`,
+          ),
+        );
     }
 
     await this.prisma.user.update({

@@ -7,6 +7,16 @@ import {
   notFound,
   projectScopedErrors,
 } from '@/common/swagger/error-sets';
+import {
+  ActiveTimeEntryResponseDto,
+  CombinedDailySummaryResponseDto,
+  DailySummaryResponseDto,
+  MeetingTimeEntryResponseDto,
+  PaginatedMeetingTimeEntriesResponseDto,
+  PaginatedTimeEntriesResponseDto,
+  TimeEntryResponseDto,
+  UserProjectSummaryResponseDto,
+} from '@/time-tracking/dto/time-entry.dto';
 
 /**
  * Documentation for both controllers TimeTrackingModule owns.
@@ -69,7 +79,11 @@ export const ApiListProjectTimeEntriesDocs = () =>
     projectIdParam,
     ApiQuery({ name: 'userId', required: false }),
     ...dateRangeQuery,
-    ApiResponse({ status: 200, description: 'Paginated entries plus totals' }),
+    ApiResponse({
+      status: 200,
+      description: 'Paginated entries plus totals',
+      type: PaginatedTimeEntriesResponseDto,
+    }),
     ...projectScopedErrors,
   );
 
@@ -84,7 +98,11 @@ export const ApiProjectDailySummaryDocs = () =>
     }),
     projectIdParam,
     ...dateRangeQuery,
-    ApiResponse({ status: 200, description: 'Minutes per day' }),
+    ApiResponse({
+      status: 200,
+      description: 'Minutes per day',
+      type: DailySummaryResponseDto,
+    }),
     ...projectScopedErrors,
   );
 
@@ -99,7 +117,11 @@ export const ApiStartProjectTimerDocs = () =>
         'stopped here rather than blocking the new start.',
     }),
     projectIdParam,
-    ApiResponse({ status: 201, description: 'The running segment' }),
+    ApiResponse({
+      status: 201,
+      description: 'The running segment',
+      type: TimeEntryResponseDto,
+    }),
     ...timerErrors,
   );
 
@@ -115,7 +137,11 @@ export const ApiPauseProjectTimerDocs = () =>
     }),
     projectIdParam,
     entryIdParam,
-    ApiResponse({ status: 200, description: 'The paused segment' }),
+    ApiResponse({
+      status: 200,
+      description: 'The paused segment',
+      type: TimeEntryResponseDto,
+    }),
     ...timerErrors,
   );
 
@@ -130,7 +156,11 @@ export const ApiResumeProjectTimerDocs = () =>
     }),
     projectIdParam,
     entryIdParam,
-    ApiResponse({ status: 200, description: 'The new running segment' }),
+    ApiResponse({
+      status: 200,
+      description: 'The new running segment',
+      type: TimeEntryResponseDto,
+    }),
     ...timerErrors,
   );
 
@@ -143,7 +173,11 @@ export const ApiStopProjectTimerDocs = () =>
     }),
     projectIdParam,
     entryIdParam,
-    ApiResponse({ status: 200, description: 'The stopped segment' }),
+    ApiResponse({
+      status: 200,
+      description: 'The stopped segment',
+      type: TimeEntryResponseDto,
+    }),
     ...timerErrors,
   );
 
@@ -164,7 +198,11 @@ export const ApiGetActiveTimerDocs = () =>
       required: false,
       description: 'Staff only: check someone else.',
     }),
-    ApiResponse({ status: 200, description: 'The active timer, or none' }),
+    ApiResponse({
+      status: 200,
+      description: 'The active timer, or none',
+      type: ActiveTimeEntryResponseDto,
+    }),
     ...gatedErrors,
   );
 
@@ -178,7 +216,11 @@ export const ApiProjectHoursSummaryDocs = () =>
     }),
     ApiQuery({ name: 'userId', required: false }),
     ...dateRangeQuery,
-    ApiResponse({ status: 200, description: 'Hours per project' }),
+    ApiResponse({
+      status: 200,
+      description: 'Hours per project',
+      type: UserProjectSummaryResponseDto,
+    }),
     ...gatedErrors,
   );
 
@@ -195,6 +237,7 @@ export const ApiCombinedDailySummaryDocs = () =>
     ApiResponse({
       status: 200,
       description: 'Project and meeting minutes per day, plus totals',
+      type: CombinedDailySummaryResponseDto,
     }),
     ...gatedErrors,
   );
@@ -206,7 +249,11 @@ export const ApiListMeetingEntriesDocs = () =>
     }),
     ApiQuery({ name: 'userId', required: false }),
     ...dateRangeQuery,
-    ApiResponse({ status: 200, description: 'Paginated meeting entries' }),
+    ApiResponse({
+      status: 200,
+      description: 'Paginated meeting entries',
+      type: PaginatedMeetingTimeEntriesResponseDto,
+    }),
     ...gatedErrors,
   );
 
@@ -219,7 +266,11 @@ export const ApiStartMeetingTimerDocs = () =>
         'running, including a project one. A PROJECT_MANAGER may track meeting time even ' +
         'though they may not track project time: sitting in planning is the job.',
     }),
-    ApiResponse({ status: 201, description: 'The running meeting segment' }),
+    ApiResponse({
+      status: 201,
+      description: 'The running meeting segment',
+      type: MeetingTimeEntryResponseDto,
+    }),
     ...timerErrors,
   );
 
@@ -227,7 +278,11 @@ export const ApiPauseMeetingTimerDocs = () =>
   applyDecorators(
     ApiOperation({ summary: 'Pause a running meeting timer' }),
     entryIdParam,
-    ApiResponse({ status: 200, description: 'The paused segment' }),
+    ApiResponse({
+      status: 200,
+      description: 'The paused segment',
+      type: MeetingTimeEntryResponseDto,
+    }),
     ...timerErrors,
   );
 
@@ -235,7 +290,11 @@ export const ApiResumeMeetingTimerDocs = () =>
   applyDecorators(
     ApiOperation({ summary: 'Resume a paused meeting timer' }),
     entryIdParam,
-    ApiResponse({ status: 200, description: 'The new running segment' }),
+    ApiResponse({
+      status: 200,
+      description: 'The new running segment',
+      type: MeetingTimeEntryResponseDto,
+    }),
     ...timerErrors,
   );
 
@@ -243,6 +302,10 @@ export const ApiStopMeetingTimerDocs = () =>
   applyDecorators(
     ApiOperation({ summary: 'Stop a meeting timer for good' }),
     entryIdParam,
-    ApiResponse({ status: 200, description: 'The stopped segment' }),
+    ApiResponse({
+      status: 200,
+      description: 'The stopped segment',
+      type: MeetingTimeEntryResponseDto,
+    }),
     ...timerErrors,
   );

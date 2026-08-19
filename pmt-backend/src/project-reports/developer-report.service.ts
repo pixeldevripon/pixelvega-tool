@@ -7,13 +7,13 @@ import { DailyWorkReportStatus, LeaveStatus, Role } from '@prisma/client';
 import { PrismaService } from '@/prisma/prisma.service';
 import { ProjectTimeEntriesService } from '@/time-tracking/project-time-entries.service';
 import { MeetingTimeEntriesService } from '@/time-tracking/meeting-time-entries.service';
-import { QueryDeveloperReportDto } from '@/project-reports/dto/query-developer-report.dto';
 import { TARGET_HOURS_PER_DAY } from './working-day.constants';
 import {
   countWorkingDaysInRange,
   endOfRangeExclusive,
   toDateOnly,
 } from './working-day.util';
+import { QueryDeveloperReportDto } from '@/project-reports/dto/project-report.dto';
 
 const MS_PER_MINUTE = 60 * 1000;
 
@@ -51,6 +51,7 @@ export class DeveloperReportService {
 
     const user = await this.prisma.user.findFirst({
       where: { id: userId, deletedAt: null },
+      select: { id: true, role: true },
     });
     if (!user) {
       throw new NotFoundException('User not found');

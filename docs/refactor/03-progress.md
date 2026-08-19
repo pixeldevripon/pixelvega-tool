@@ -17,15 +17,52 @@ Status: `pending` · `in progress` · `done` · `blocked` · `dropped`
 
 ## Current position
 
-|                |                                                                                  |
-| -------------- | -------------------------------------------------------------------------------- |
-| **Phase**      | 1, make it verifiable                                                            |
-| **Branch**     | `refactor/phase-1-make-it-verifiable`                                            |
-| **Started**    | 2026-08-19                                                                       |
-| **Blocked on** | nothing                                                                          |
-| **Next task**  | 1.23, then phase 2. Frontend tasks 1.11 and 1.12 deferred at the owner's request |
+|                    |                                                                                          |
+| ------------------ | ---------------------------------------------------------------------------------------- |
+| **Phases 1 to 5**  | Complete and **merged to `main`** (PRs #1 to #6), 2026-08-20                             |
+| **Phase 6**        | **Backend half complete.** The three open items are frontend, and wait for phases 7 to 8 |
+| **Phases 7 to 9**  | Not started (frontend)                                                                   |
+| **Branch**         | `refactor/phase-6-backend-serves-all`                                                    |
+| **Gate on `main`** | `lint · typecheck · 970 unit · 16 E2E · build`, all green                                |
 
----
+### Read this first if you are picking the work up
+
+1. [`../architecture/02-directives.md`](../architecture/02-directives.md) is binding. D4 and D5 are what phase 6 implements.
+2. [`01-plan.md`](./01-plan.md) phase 6 is the spec for the next work.
+3. [`02-checklist.md`](./02-checklist.md) has the tickable items.
+4. The backend now mirrors `../../island-tour-development/backend`. When a convention is unclear, read that repo rather than guessing.
+
+### Local environment, not recorded anywhere in the repo
+
+`.env` and `.env.test` are gitignored, so this is the only written record of how the
+databases are wired:
+
+- Postgres 17 via Homebrew, already running. Databases `pixelvega_dev` and
+  `pixelvega_test`, owner `devripon`, no password.
+- `pmt-backend/.env` points `DATABASE_URL` at `pixelvega_dev`. **The Neon URLs
+  are commented out in that file rather than deleted**, so switching back is one edit.
+- `pmt-backend/.env.test` points at `pixelvega_test`. `test/global-setup.js`
+  refuses to run if the two match, including when only the credentials differ.
+- `pnpm seed` fills the dev database. Every seeded account signs in with
+  `Password123!`, one per role.
+- `pnpm test:e2e` needs `--experimental-vm-modules` (booting the real `AppModule`
+  pulls in ESM-only packages) and `--forceExit` (the scheduler and the lazily
+  connected Redis client outlive `app.close()`). Both are already in the script.
+- Redis is NOT running locally. The two queued AI features fail their job without
+  it; nothing else is affected.
+
+### Known shortcuts, deliberately taken
+
+- `pmt-frontend`'s `test` script echoes and exits 0. Vitest is deferred to phase 7.
+  Without it the root `pnpm test` fails and blocks every push. Replace with
+  `vitest run` in phase 7.
+- Response DTOs exist for `users`, `audit-log`, `notifications`, `profiles` and
+  `projects` only. For the other 22 modules `/api/docs` documents what goes in but
+  not what comes back.
+- The AI and Slack calls still running in the request path have not moved to BullMQ.
+- Controller specs were deliberately not written per controller. `route-permissions.spec.ts`
+  pins all 112 routes from real metadata instead, which is what protects the phase 4
+  work; per-controller delegation specs would add bulk without adding much.
 
 ## Phase 1: make it verifiable
 
@@ -67,6 +104,44 @@ Nothing here changes application behaviour.
 | Date       | Finding                                                                                                                                                                                                                                                          | Impact                                                                                                                                                                           |
 | ---------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | 2026-08-19 | **This repo has never had CI.** `pmt-backend/.github/workflows/ci.yml` is committed but GitHub Actions only reads `.github/workflows/` at the repository root, which is `pixelvega-tool/`. The file is a leftover from when `pmt-backend` was its own repository | The assessment reported "backend CI runs build only". That was wrong: nothing has verified either package before a merge. Corrected in `01-assessment.md`, orphaned file deleted |
+
+### The per module recipe
+
+Established on `project-members` and repeated for every remaining module. Each step is
+verifiable on its own, which is what makes a half migrated module obvious rather than subtle.
+
+1. **Consolidate `dto/` into one `dto/<singular>.dto.ts`**, grouped Response, then Query, then
+   Request. The reference has exactly one DTO file per module (`categories/dto/category.dto.ts`),
+   and PMT had ten in `projects/dto/` alone.
+2. **Write the response DTOs**, with an `example` on every field. Enums become `EnumDisplayDto`.
+3. **Add a `capabilities` object** covering only the actions a screen actually gates (ADR 0002).
+4. **Write a flat `<module>.mapper.ts` plus its spec.** Pure: it takes a row and a context object,
+   never a database, so the capability rules are testable without a Nest module.
+5. **Wire the mapper into every service method that returns a row**, computing the context once
+   per request rather than once per row.
+6. **Type the `ApiResponse`s** in `<module>.swagger.ts` with the new classes.
+7. **Run the full unit suite.** It should pass untouched. If a service spec breaks, the mapper
+   changed behaviour rather than shape, which is the bug this ordering is designed to surface.
+
+### Open decision: should the AI summary be queued?
+
+`GET /projects/:id/ai/summary` calls Claude inside the request. The other two AI features
+(scope check, status report) are queued and answer 202 with a job id, so the pattern exists.
+
+**Why it was not simply converted.** Queueing it changes the product, not just the plumbing:
+the user clicks "summarize" and gets a job id to poll instead of a summary. It also needs
+somewhere to put the result, and unlike a status report a summary has no table: it is generated
+on demand from a date range and never stored. So the change is a new table plus a new screen
+state, which is a call for whoever owns the product rather than a refactor.
+
+**What was done instead.** The Anthropic client had no timeout, so it used the SDK default of
+ten minutes. No reverse proxy holds a connection that long, so a slow prompt gave the user a 502
+while the server carried on producing a result nobody would receive. It is now two minutes with
+one retry, which fails before the proxy does.
+
+**If the answer is yes**, the work is: add `GENERATE_PROJECT_SUMMARY` to `AiJobType` (hand written
+migration), add a `ProjectSummary` table or reuse `AiJob.resultRefId`, add a branch to
+`AiJobsProcessor`, and change the endpoint to 202.
 
 ### Decisions taken
 
@@ -206,13 +281,26 @@ only barrier between an ADMIN and granting someone the root role. Restored, plus
 a defence in depth check in both `update()` and `invite()` and five specs. **The
 gap exists in `main` today**: the DTO holds it shut and nothing else does.
 
-**Still owed for this phase:**
+**Completed after the first write up:** the swagger extraction finished at 27 of
+27 controllers, all 421 inline decorators moved. Project response DTOs landed
+along with `test/openapi.e2e-spec.ts`, which reads the GENERATED document rather
+than the source and asserts that no internal field appears on
+`ClientProjectResponseDto`.
 
-- Consolidated DTO files and response DTOs for the remaining 23 modules. The
-  swagger files reference response shapes by description rather than by typed
-  class for those, so `/api/docs` documents what goes in but not yet what comes
-  back
-- Moving the AI and Slack calls still in the request path onto BullMQ
+**Still owed:** response DTOs for the other 22 modules, and moving the AI and
+Slack calls out of the request path onto BullMQ. Both are additive and low risk,
+and neither blocks phase 6.
+
+### Merged to `main`, 2026-08-20
+
+PRs #1 to #6. A process note worth keeping: the first five were opened as a
+stack, each targeting the one below. **GitHub did not retarget them when #1
+merged**, so #2 to #5 merged into their own base branches rather than into
+`main`, and only #1 landed. Caught while verifying `main`'s contents.
+`refactor/phase-5-module-mirror` had accumulated everything (trees verified
+identical to the stack tip), so PR #6 brought it to `main` in one step. No work
+was lost. **If stacking PRs again, verify each target after every merge rather
+than assuming retargeting.**
 
 ## Completed phases
 
@@ -231,3 +319,64 @@ suites, up from zero. A real commit triggers lint-staged, and the E2E database g
 | CI                 | none, and the one workflow present had never run       | lint, typecheck, test, build on both packages            |
 | Git hooks          | none                                                   | pre-commit and pre-push, both exercised                  |
 | E2E harness        | a starter spec expecting a route that no longer exists | real bootstrap, database guard, six pipeline smoke tests |
+
+---
+
+## Phase 6: the backend serves everything (D4, D5)
+
+Plan: [`01-plan.md`](./01-plan.md) phase 6. Checklist: [`02-checklist.md`](./02-checklist.md) phase 6.
+Inventory of what has to move: [`04-phase-6-inventory.md`](./04-phase-6-inventory.md).
+The three questions this phase had to answer first are settled in
+[`0001`](../decisions/0001-enum-value-label-and-tone.md),
+[`0002`](../decisions/0002-capability-flags-on-resources.md) and
+[`0003`](../decisions/0003-exact-values-in-the-api-rounding-is-display.md).
+
+**Backend first, frontend later.** Every task below is a `pmt-backend` task. The frontend
+cannot delete a single client side computation until the field it needs exists on a response,
+so the client half waits.
+
+### Ordering, and why
+
+The display primitives come before the response DTOs, not after. Twenty two modules need
+response DTOs, and every one of them will carry status objects and capability flags. Building
+the DTOs first would mean writing them twice.
+
+### Tasks
+
+| #    | Task                                                                             | Status    | Outcome                                                                                                                                                                                                                                                                                                                                            |
+| ---- | -------------------------------------------------------------------------------- | --------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 6.1  | `EnumDisplayDto` and the closed tone vocabulary in `common/dto/display.dto.ts`   | done      | `EnumDisplayDto` plus `DISPLAY_TONES`, the five tones read off `components/ui/badge.tsx` rather than chosen                                                                                                                                                                                                                                        |
+| 6.2  | Label and tone maps for every display facing Prisma enum                         | done      | `common/utils/enum-display.util.ts`: 21 maps, each typed `Record<TheEnum, EnumDisplayEntry>` so a new Prisma member fails the build. Tones lifted from the frontend's own tone functions where they existed                                                                                                                                        |
+| 6.3  | Spec: the maps, including that the tone vocabulary stays closed                  | done      | 94 cases. Completeness driven from `Object.values(TheEnum)`, so the spec cannot pass by being stale itself. Also pins sentence case, the closed tone set, and that nullable stays null                                                                                                                                                             |
+| 6.4  | Capability flag helpers, computed from permissions plus project scope            | done      | `ProjectScopeService`, `@Global` like `ProjectActivityModule`. 12 private copies across 11 services collapsed into one definition. 29 specs, and the 724 unit tests pass with only a provider added to 8 specs                                                                                                                                     |
+| 6.5  | Response DTOs: `projects` completed, plus `project-members`, `project-documents` | done      | `project-members` (2 dto files to 1) and `project-documents` (4 to 1). Both carry display objects, capabilities and a mapper with specs. `formatFileSize` moved to the server, gaining the gigabyte tier the frontend copy lacked `projects` finished too: 10 dto files to 1, plus capabilities, `isOverdue`, `isTerminal` and `daysUntilDeadline` |
+| 6.6  | Response DTOs: `time-tracking`, `work-reports`                                   | done      | `time-tracking` (6 dto files to 1) and `work-reports` (7 to 1). The two edit window predicates moved out of the service into the mapper, so a capability flag and the rule it promises are now the same function                                                                                                                                   |
+| 6.7  | Response DTOs: `blockers`, `internal-reviews`, `client-feedback`                 | done      | `blockers` (6 dto files to 1), `internal-reviews` and `client-feedback`. `BlockerService.withMetrics` was absorbed into the mapper: it reported `resolutionTime` and `daysOpen` as `undefined`, so the fields vanished from the JSON entirely                                                                                                      |
+| 6.8  | Response DTOs: `additional-requirements`, `project-reports`                      | done      | `additional-requirements` (3 dto files to 1) and `project-reports` (2 to 1). The reports were the largest undocumented shapes in the API: 20 response classes now state every aggregate, including the rate-is-null-not-zero rule and one known formula limitation left visible rather than silently corrected                                     |
+| 6.9  | Response DTOs: `leave` (holidays, types, requests)                               | done      | `leave`: 8 dto files to 1, covering holidays, types, requests, balances and the summary report. 15 swagger responses typed                                                                                                                                                                                                                         |
+| 6.10 | Response DTOs: `ai`, `ai-summary`, `ai-status-reports`, `auth`                   | done      | `ai` (3 dto files to 1), `ai-summary`, `ai-status-reports` and `auth` (3 to 1). AI jobs gained `isFinished`, so a polling client cannot loop forever on a FAILED job Also `users`, `profiles`, `notifications` and the CLIENT projection, which finishes every enum in every response                                                              |
+| 6.11 | Sorting, filtering and grouping become query params                              | done      | `sortBy`/`sortOrder` on users and projects, applied before pagination. The dashboard keeps its fixed comparator, see the decision below                                                                                                                                                                                                            |
+| 6.12 | Aggregates and derived numbers become response fields                            | done      | Covered by the per module work: every list carries filter-wide totals, and every derived number is a response field                                                                                                                                                                                                                                |
+| 6.13 | D5 validation sweep: `@Type`, `@Transform`, `@IsEnum`, length bounds             | done      | 43 length bounds from named constants, 15 `@IsIn` to `@IsEnum`, every boolean query param fixed, and `@Trim()` where emptiness carries meaning                                                                                                                                                                                                     |
+| 6.14 | Custom validators in `common/validators/`, each with a co-located spec           | done      | `IsNotBefore` with 6 specs, plus a `validators/README.md` recording why `RequiredWhen` was written and deleted                                                                                                                                                                                                                                     |
+| 6.15 | Contract check: frontend types verified against `/api/docs-json` in CI           | done      | Asserted against the GENERATED document, not the source. Found 7 untyped responses, since fixed                                                                                                                                                                                                                                                    |
+| 6.16 | Move the request path AI and Slack calls onto BullMQ                             | part done | Slack was already non blocking. The AI summary needs a product decision, recorded below. Its unbounded timeout is fixed regardless                                                                                                                                                                                                                 |
+| 6.17 | Whole gate green, checklist ticked, PR opened                                    | done      | Whole gate green, checklist ticked from evidence, PR opened                                                                                                                                                                                                                                                                                        |
+
+### Decisions taken
+
+| Date       | Decision                                                                                                    | Reason                                                                                                                                                                                                                    |
+| ---------- | ----------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 2026-08-20 | The label and tone maps are typed `Record<TheEnum, EnumDisplayEntry>` rather than checked by a runtime test | TypeScript then fails the build when a Prisma enum gains a member and nobody gave it a label. A runtime spec can only catch that if someone remembers to extend the spec too, which is the same failure one level removed |
+| 2026-08-20 | Tone vocabulary is fixed at `default`, `primary`, `success`, `warning`, `danger`                            | It is exactly what `components/ui/badge.tsx` already implements, so the client's job stays a lookup. Confirmed against the file rather than chosen                                                                        |
+| 2026-08-20 | Labels are sentence case (`Ready for work`), not the title case the frontend produced (`Ready For Work`)    | Sentence case is the house style of every UI vocabulary worth copying, and the server supplying the label is precisely the chance to fix the `AI_SUMMARY` to `Ai Summary` class of bug rather than reproduce it           |
+
+### Findings
+
+| Date       | Finding                                                                                                                                                                                                                                                                                                  | Impact                                                                                                                                                                                                                                                                                                                                                                                                                               |
+| ---------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| 2026-08-20 | Project scoping was implemented **twelve times**: seven byte-identical copies of `assertManagesProject` across `projects`, `project-members`, `internal-reviews`, `additional-requirements`, `ai-status-reports`, `project-documents` and `blockers`, four of `assertActiveMember`, and one variant      | They had **not** drifted, checked by hashing each extracted body. But nothing prevented it: a fix to an authorization rule had eleven places to land and no way to know it had missed one. Now one definition, in `ProjectScopeService`                                                                                                                                                                                              |
+| 2026-08-20 | `daily-work-report.service.ts` had a method called `assertActiveMember` that was a **different rule**: it required membership of every role including admins, and 404s on a missing project                                                                                                              | The shared name hid the difference. Logging work against a project requires being staffed on it, and being an admin is not a reason to appear on a project's timesheet. Extracted as `assertStaffedOnProject`, which says what it enforces                                                                                                                                                                                           |
+| 2026-08-20 | Mapping `UsersService.findOne` broke two authorization rules. `update()` and `remove()` called it to fetch the record they then compare against, so once `findOne` returned `role` as a display object, every `existing.role === Role.SYSTEM_ADMIN` check became object-versus-string and silently false | The SYSTEM_ADMIN protections and the one-admin-cannot-edit-another rule both stopped firing. Caught by the phase 1 specs, which is exactly what they were written for. Fixed by splitting a private `getUserOrThrow` returning the raw row from the public mapped `findOne`, with the reason written above it. Every other module's internal lookup was audited and returns raw rows                                                 |
+| 2026-08-20 | **Every boolean query parameter was broken.** All six used `@Type(() => Boolean)`, which calls `Boolean(value)`, and `Boolean('false')` is `true`                                                                                                                                                        | `?archived=false` returned archived projects, `?includeLeft=false` included departed members, `?unreadOnly=false` returned only unread. The bug only bit a client that sent the value explicitly, since an absent param fell through to the field default, which is why it survived. Replaced with a `@ToBoolean()` decorator that parses `true`/`false`/`1`/`0`/bare-flag and refuses anything else with a 400 rather than guessing |
+| 2026-08-20 | Every `user.find*` lookup without a `select` was loading `User.password`, which holds a real hash written by `auth.service.ts` on reset                                                                                                                                                                  | Not a leak to clients, since responses are built by mappers, but a hash in memory that a stray log or error serializer could surface. Two of the fourteen were on the **unauthenticated** forgot-password route. All now select only the columns they use                                                                                                                                                                            |

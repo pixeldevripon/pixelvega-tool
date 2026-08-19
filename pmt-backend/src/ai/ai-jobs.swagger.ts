@@ -1,6 +1,7 @@
 import { applyDecorators } from '@nestjs/common';
 import { ApiOperation, ApiParam, ApiResponse } from '@nestjs/swagger';
 import { gatedErrors, notFound } from '@/common/swagger/error-sets';
+import { AiJobResponseDto } from '@/ai/dto/ai.dto';
 
 export const ApiGetAiJobDocs = () =>
   applyDecorators(
@@ -14,7 +15,11 @@ export const ApiGetAiJobDocs = () =>
         'anything the caller could not have requested themselves.',
     }),
     ApiParam({ name: 'id', description: 'The AI job id' }),
-    ApiResponse({ status: 200, description: 'The job and its current status' }),
+    ApiResponse({
+      status: 200,
+      description: 'The job and its current status',
+      type: AiJobResponseDto,
+    }),
     ...gatedErrors,
     notFound('Job not found'),
   );

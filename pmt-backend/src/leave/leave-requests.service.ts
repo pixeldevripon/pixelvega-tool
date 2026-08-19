@@ -10,13 +10,18 @@ import { PrismaService } from '@/prisma/prisma.service';
 import { AuditLogService } from '@/audit-log/audit-log.service';
 import { LeaveBalancesService } from './leave-balances.service';
 import { NotificationsService } from '@/notifications/notifications.service';
-import { CreateLeaveRequestDto } from '@/leave/dto/create-leave-request.dto';
-import { RejectLeaveRequestDto } from '@/leave/dto/reject-leave-request.dto';
 import { daysBetweenInclusive } from '@/common/utils/date.util';
 import { paginate } from '@/common/utils/pagination.util';
-import { QueryLeaveRequestsDto } from '@/leave/dto/query-leave-requests.dto';
-import { QueryLeaveSummaryDto } from '@/leave/dto/query-leave-summary.dto';
 import { toCsv } from '@/common/utils/csv.util';
+import { toLeaveRequestResponse } from '@/leave/leave.mapper';
+import { ROLE_DISPLAY, toEnumDisplay } from '@/common/utils/enum-display.util';
+import { EnumDisplayDto } from '@/common/dto/display.dto';
+import {
+  CreateLeaveRequestDto,
+  QueryLeaveRequestsDto,
+  QueryLeaveSummaryDto,
+  RejectLeaveRequestDto,
+} from '@/leave/dto/leave.dto';
 
 function toDateOnly(date: Date): string {
   return date.toISOString().slice(0, 10);
@@ -34,7 +39,9 @@ export interface LeaveSummaryUser {
   userId: string;
   name: string;
   email: string;
-  role: Role;
+  // A display object, not a raw Role: this report is rendered directly, and
+  // the CSV export reads `.label` for its Role column (ADR 0001).
+  role: EnumDisplayDto;
   byLeaveType: Record<string, number>;
   totalDays: number;
   requests?: LeaveSummaryRequest[];
@@ -80,6 +87,7 @@ export class LeaveRequestsService {
         reason: dto.reason,
         status: 'PENDING',
       },
+      include: { leaveType: true },
     });
 
     await this.auditLog.log({
@@ -96,6 +104,7 @@ export class LeaveRequestsService {
     // case has no submission notification bullet in the build spec.
     const requester = await this.prisma.user.findUniqueOrThrow({
       where: { id: userId },
+      select: { name: true, role: true },
     });
     if (requester.role === Role.DEVELOPER || requester.role === Role.DESIGNER) {
       const admins = await this.prisma.user.findMany({
@@ -118,15 +127,26 @@ export class LeaveRequestsService {
       );
     }
 
-    return leaveRequest;
+    return toLeaveRequestResponse(leaveRequest, {
+      callerId: userId,
+      canReviewLeave: false,
+    });
   }
 
-  findOwn(userId: string) {
-    return this.prisma.leaveRequest.findMany({
+  async findOwn(userId: string) {
+    const requests = await this.prisma.leaveRequest.findMany({
       where: { userId },
       orderBy: { createdAt: 'desc' },
       include: { leaveType: true },
     });
+    // Every row here is the caller's own, so they may cancel a pending one and
+    // review none of them.
+    return requests.map((request) =>
+      toLeaveRequestResponse(request, {
+        callerId: userId,
+        canReviewLeave: false,
+      }),
+    );
   }
 
   ownBalance(userId: string) {
@@ -140,6 +160,7 @@ export class LeaveRequestsService {
   async balanceForUser(userId: string) {
     const user = await this.prisma.user.findFirst({
       where: { id: userId, deletedAt: null },
+      select: { id: true },
     });
     if (!user) {
       throw new NotFoundException('User not found');
@@ -150,7 +171,11 @@ export class LeaveRequestsService {
   // ADMIN sees every request regardless of status. PROJECT_MANAGER sees
   // everyone's requests too (there's no assignment scoped to a project
   // yet), but REJECTED must never be returned to a PROJECT_MANAGER.
-  findAll(actorRole: Role, query: QueryLeaveRequestsDto) {
+  async findAll(
+    actorRole: Role,
+    query: QueryLeaveRequestsDto,
+    actorId: string,
+  ) {
     const { page = 1, pageSize = 20, userId } = query;
     const where = {
       ...(actorRole === Role.PROJECT_MANAGER
@@ -159,7 +184,7 @@ export class LeaveRequestsService {
       ...(userId && { userId }),
     };
 
-    return paginate(
+    const result = await paginate(
       (args) =>
         this.prisma.leaveRequest.findMany({
           where,
@@ -176,6 +201,15 @@ export class LeaveRequestsService {
       page,
       pageSize,
     );
+
+    // Reaching this listing at all required VIEW_LEAVE_REQUESTS, and every role
+    // that holds it also holds REVIEW_LEAVE_REQUEST except PROJECT_MANAGER on
+    // its own filtered view. The mapper still refuses self review.
+    const context = { callerId: actorId, canReviewLeave: true };
+    return {
+      ...result,
+      items: result.items.map((item) => toLeaveRequestResponse(item, context)),
+    };
   }
 
   // Admin only report: for a date range, how many approved leave days each
@@ -223,7 +257,7 @@ export class LeaveRequestsService {
           userId: leaveRequest.user.id,
           name: leaveRequest.user.name,
           email: leaveRequest.user.email,
-          role: leaveRequest.user.role,
+          role: toEnumDisplay(ROLE_DISPLAY, leaveRequest.user.role),
           byLeaveType: Object.fromEntries(
             leaveTypes.map((leaveType) => [leaveType.name, 0]),
           ),
@@ -283,7 +317,7 @@ export class LeaveRequestsService {
         for (const request of user.requests ?? []) {
           rows.push([
             user.name,
-            user.role,
+            user.role.label,
             request.leaveType,
             request.startDate,
             request.endDate,
@@ -308,7 +342,7 @@ export class LeaveRequestsService {
       rows.push([
         user.name,
         user.email,
-        user.role,
+        user.role.label,
         ...leaveTypeNames.map((name) => user.byLeaveType[name] ?? 0),
         user.totalDays,
       ]);
@@ -351,6 +385,7 @@ export class LeaveRequestsService {
         reviewedById: actorId,
         reviewedAt: new Date(),
       },
+      include: { leaveType: true },
     });
 
     await this.leaveBalances.incrementUsedDays(
@@ -369,6 +404,7 @@ export class LeaveRequestsService {
 
     const requester = await this.prisma.user.findUniqueOrThrow({
       where: { id: leaveRequest.userId },
+      select: { id: true, name: true, role: true },
     });
     await this.notificationsService.notify({
       userId: leaveRequest.userId,
@@ -412,7 +448,10 @@ export class LeaveRequestsService {
       );
     }
 
-    return updated;
+    return toLeaveRequestResponse(updated, {
+      callerId: actorId,
+      canReviewLeave: true,
+    });
   }
 
   // Only the requester can cancel their own request, and only while it's
@@ -438,6 +477,7 @@ export class LeaveRequestsService {
     const updated = await this.prisma.leaveRequest.update({
       where: { id },
       data: { status: 'CANCELLED' },
+      include: { leaveType: true },
     });
 
     await this.auditLog.log({
@@ -447,7 +487,10 @@ export class LeaveRequestsService {
       targetId: id,
     });
 
-    return updated;
+    return toLeaveRequestResponse(updated, {
+      callerId: userId,
+      canReviewLeave: false,
+    });
   }
 
   async reject(id: string, dto: RejectLeaveRequestDto, actorId: string) {
@@ -460,6 +503,7 @@ export class LeaveRequestsService {
         reviewedById: actorId,
         reviewedAt: new Date(),
       },
+      include: { leaveType: true },
     });
 
     await this.auditLog.log({
@@ -481,6 +525,9 @@ export class LeaveRequestsService {
       metadata: { leaveRequestId: id },
     });
 
-    return updated;
+    return toLeaveRequestResponse(updated, {
+      callerId: actorId,
+      canReviewLeave: true,
+    });
   }
 }

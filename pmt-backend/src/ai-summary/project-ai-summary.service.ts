@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, Logger } from '@nestjs/common';
 import { AiTemplateKind, ProjectDocumentType, Role } from '@prisma/client';
 import { PrismaService } from '@/prisma/prisma.service';
 import { ClaudeService } from '@/ai/claude.service';
@@ -9,7 +9,7 @@ import {
   endOfRangeExclusive,
   toDateOnly,
 } from '@/project-reports/working-day.util';
-import { QueryProjectAiSummaryDto } from '@/ai-summary/dto/query-project-ai-summary.dto';
+import { QueryProjectAiSummaryDto } from '@/ai-summary/dto/project-ai-summary.dto';
 
 const MODEL = 'claude-haiku-4-5';
 
@@ -27,6 +27,8 @@ const DEFAULT_SYSTEM_PROMPT =
 // prose call, not something worth a background job.
 @Injectable()
 export class ProjectAiSummaryService {
+  private readonly logger = new Logger(ProjectAiSummaryService.name);
+
   constructor(
     private readonly prisma: PrismaService,
     private readonly projectReport: ProjectReportService,
@@ -125,6 +127,11 @@ export class ProjectAiSummaryService {
       maxTokens: 1024,
     });
 
+    // The AI calls are the only ones that cost money per request, so an
+    // operator needs to see that one happened and for which project.
+    this.logger.log(
+      `Generated an AI summary for project ${projectId} from ${entries.length} wrap up entries`,
+    );
     return {
       summary: text,
       generatedAt: new Date().toISOString(),
