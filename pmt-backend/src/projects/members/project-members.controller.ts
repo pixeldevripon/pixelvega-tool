@@ -21,7 +21,7 @@ import {
   ApiListProjectMembersDocs,
   ApiRemoveProjectMemberDocs,
   ApiResyncMemberSlackDocs,
-} from '@/projects/members/project-staffing.swagger';
+} from '@/projects/members/project-members.swagger';
 
 // Staffing (add/remove) stays limited to PM at the route level, but the
 // service additionally requires the PROJECT_MANAGER caller to already be

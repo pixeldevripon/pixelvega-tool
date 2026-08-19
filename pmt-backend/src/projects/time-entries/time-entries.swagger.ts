@@ -19,7 +19,7 @@ import {
 } from '@/projects/time-entries/dto/time-entry.dto';
 
 /**
- * Documentation for both controllers TimeTrackingModule owns.
+ * Documentation for both controllers TimeEntriesModule owns.
  *
  * The rule underneath all of it: a TimeEntry row is one running, paused or
  * stopped SEGMENT, not a whole session. Pausing closes a segment and resuming

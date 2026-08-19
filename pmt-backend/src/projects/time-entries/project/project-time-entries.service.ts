@@ -20,7 +20,7 @@ import {
   toTotals,
   TimeEntryWithRelations,
 } from '@/projects/time-entries/time-entry.mapper';
-import { MAX_CONTINUOUS_SESSION_MINUTES } from '@/projects/time-entries/time-tracking.constants';
+import { MAX_CONTINUOUS_SESSION_MINUTES } from '@/projects/time-entries/time-entries.constants';
 import {
   buildStartedAtFilter,
   getAutoStopCutoff,

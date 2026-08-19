@@ -29,4 +29,4 @@ import { InternalReviewsService } from './internal-reviews.service';
     AdditionalRequirementsService,
   ],
 })
-export class ReviewsModule {}
+export class InternalReviewsModule {}

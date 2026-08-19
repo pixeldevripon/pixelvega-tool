@@ -19,7 +19,7 @@ import {
   ApiResumeProjectTimerDocs,
   ApiStartProjectTimerDocs,
   ApiStopProjectTimerDocs,
-} from '@/projects/time-entries/time-tracking.swagger';
+} from '@/projects/time-entries/time-entries.swagger';
 import {
   QueryTimeEntriesDto,
   TimeEntryNoteDto,

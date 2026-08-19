@@ -396,16 +396,16 @@ Four asks, on `refactor/phase-7-auth-routing-uploads`.
 
 ### Tasks
 
-| #   | Task                                                                  | Status      | Outcome |
-| --- | --------------------------------------------------------------------- | ----------- | ------- |
-| A.1 | Review `auth.instance.ts` against the reference, and report findings  | in progress |         |
-| A.2 | Rewrite `auth.instance.ts`: `sendResetPassword`, rate limits, hooks   | pending     |         |
-| A.3 | Delete the custom flow: controller, service, DTOs, swagger, code util | pending     |         |
-| A.4 | Drop `PasswordResetCode` (hand written migration)                     | pending     |         |
-| A.5 | `MailService.sendPasswordResetEmail(email, url)`                      | pending     |         |
-| A.6 | Update `route-permissions.spec.ts` and the OpenAPI contract check     | pending     |         |
-| B.1 | Group the AI modules, and any other related set, under one parent     | pending     |         |
-| B.2 | Rename routes and modules to the standard the reference uses          | pending     |         |
-| C.1 | One reusable uploader: every file type, single and multiple           | pending     |         |
-| C.2 | Specs for the uploader                                                | pending     |         |
-| D.1 | Whole gate green, checklist ticked, PR opened                         | pending     |         |
+| #   | Task                                                                  | Status | Outcome                                                                                                                                                          |
+| --- | --------------------------------------------------------------------- | ------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| A.1 | Review `auth.instance.ts` against the reference, and report findings  | done   | Findings in the PR body. Five issues, two of them serious: anonymous sign-up with a caller chosen role, and better-auth's routes never being rate limited        |
+| A.2 | Rewrite `auth.instance.ts`: `sendResetPassword`, rate limits, hooks   | done   | `disableSignUp`, `input: false` on all three additional fields, `sendResetPassword`, per path rate limits, database hooks, trusted origins from `CORS_ORIGINS`   |
+| A.3 | Delete the custom flow: controller, service, DTOs, swagger, code util | done   | Controller, service, DTOs, swagger and `code.util` all deleted                                                                                                   |
+| A.4 | Drop `PasswordResetCode` (hand written migration)                     | done   | Hand written migration, and the seed block that filled it                                                                                                        |
+| A.5 | `MailService.sendPasswordResetEmail(email, url)`                      | done   | Plus `mail.singleton.ts`, since `auth.instance.ts` runs before DI                                                                                                |
+| A.6 | Update `route-permissions.spec.ts` and the OpenAPI contract check     | done   | 109 routes, and the anonymous surface is now empty                                                                                                               |
+| B.1 | Group the AI modules, and any other related set, under one parent     | done   | `ai` went from 13 loose files to 3; the whole project domain nested from 11 top level modules into one                                                           |
+| B.2 | Rename routes and modules to the standard the reference uses          | done   | Folder path mirrors route path. `time-tracking` to `time-entries`, `work-reports` to `daily-work-reports`, and five module classes renamed to match their folder |
+| C.1 | One reusable uploader: every file type, single and multiple           | done   | `resource_type: auto`, single and batch, all or nothing with rollback                                                                                            |
+| C.2 | Specs for the uploader                                                | done   | 19 cases, covering the batch rollback and the mimetype allowlist                                                                                                 |
+| D.1 | Whole gate green, checklist ticked, PR opened                         | done   | 1004 unit, 25 E2E, build. PR opened                                                                                                                              |

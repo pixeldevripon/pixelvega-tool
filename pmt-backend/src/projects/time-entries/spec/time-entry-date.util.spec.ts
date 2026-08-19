@@ -13,7 +13,7 @@ import {
   getAutoStopCutoff,
   isPreviousUtcDay,
 } from '@/projects/time-entries/time-entry-date.util';
-import { MAX_CONTINUOUS_SESSION_MINUTES } from '@/projects/time-entries/time-tracking.constants';
+import { MAX_CONTINUOUS_SESSION_MINUTES } from '@/projects/time-entries/time-entries.constants';
 
 const d = (iso: string) => new Date(iso);
 

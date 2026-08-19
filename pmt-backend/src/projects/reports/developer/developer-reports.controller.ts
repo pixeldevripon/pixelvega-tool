@@ -13,7 +13,7 @@ import { QueryDeveloperReportDto } from '@/projects/reports/dto/project-report.d
 
 @ApiTags('Developer Reports')
 @ApiCookieAuth('better-auth.session_token')
-@Controller('reports/developer')
+@Controller('reports/developers')
 export class DeveloperReportsController {
   constructor(
     private readonly developerReportService: DeveloperReportService,

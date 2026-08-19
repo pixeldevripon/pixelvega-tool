@@ -27,7 +27,7 @@ import {
 
 @ApiTags('AI Templates')
 @ApiCookieAuth('better-auth.session_token')
-@Controller('ai-templates')
+@Controller('ai/templates')
 export class AiTemplatesController {
   constructor(private readonly aiTemplatesService: AiTemplatesService) {}
 

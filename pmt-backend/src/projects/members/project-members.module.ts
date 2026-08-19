@@ -10,4 +10,4 @@ import { ProjectMembersService } from './project-members.service';
   providers: [ProjectMembersService],
   exports: [ProjectMembersService],
 })
-export class ProjectStaffingModule {}
+export class ProjectMembersModule {}

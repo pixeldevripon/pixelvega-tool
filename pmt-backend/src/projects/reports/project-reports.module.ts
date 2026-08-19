@@ -1,6 +1,6 @@
 import { Module } from '@nestjs/common';
 import { AiModule } from '@/ai/ai.module';
-import { TimeTrackingModule } from '@/projects/time-entries/time-tracking.module';
+import { TimeEntriesModule } from '@/projects/time-entries/time-entries.module';
 import { ProjectAiSummaryController } from '@/ai/summary/project-ai-summary.controller';
 import { ProjectAiSummaryService } from '@/ai/summary/project-ai-summary.service';
 import { ProjectStatusReportsController } from '@/ai/status-report/project-status-reports.controller';
@@ -20,10 +20,10 @@ import { DeveloperReportService } from '@/projects/reports/developer/developer-r
  * ProjectReportService also means the status report reuses those numbers rather
  * than recalculating them, so the two can never disagree.
  *
- * TimeTrackingModule is imported for the developer report's hour aggregation.
+ * TimeEntriesModule is imported for the developer report's hour aggregation.
  */
 @Module({
-  imports: [AiModule, TimeTrackingModule],
+  imports: [AiModule, TimeEntriesModule],
   controllers: [
     ProjectReportsController,
     DeveloperReportsController,
@@ -38,4 +38,4 @@ import { DeveloperReportService } from '@/projects/reports/developer/developer-r
   ],
   exports: [ProjectReportService],
 })
-export class ReportingModule {}
+export class ProjectReportsModule {}

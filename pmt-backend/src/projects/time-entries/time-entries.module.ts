@@ -19,4 +19,4 @@ import { MeetingTimeEntriesService } from '@/projects/time-entries/meeting/meeti
   providers: [ProjectTimeEntriesService, MeetingTimeEntriesService],
   exports: [ProjectTimeEntriesService, MeetingTimeEntriesService],
 })
-export class TimeTrackingModule {}
+export class TimeEntriesModule {}

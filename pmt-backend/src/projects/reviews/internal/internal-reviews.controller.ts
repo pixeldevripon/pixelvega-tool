@@ -8,7 +8,7 @@ import { RequirePermissions } from '@/auth/permissions/require-permissions.decor
 import {
   ApiListInternalReviewsDocs,
   ApiSubmitInternalReviewDocs,
-} from '@/projects/reviews/internal/reviews.swagger';
+} from '@/projects/reviews/internal/internal-reviews.swagger';
 import { CreateInternalReviewDto } from '@/projects/reviews/internal/dto/internal-review.dto';
 
 // Not visible to CLIENT at all, matching Additional Requirements. This is

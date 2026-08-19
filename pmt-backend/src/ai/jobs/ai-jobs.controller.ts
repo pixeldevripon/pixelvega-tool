@@ -13,7 +13,7 @@ import { ApiGetAiJobDocs } from '@/ai/jobs/ai-jobs.swagger';
 // still auto unioned in by Roles() below for every other role.
 @ApiTags('AI Jobs')
 @ApiCookieAuth('better-auth.session_token')
-@Controller('ai-jobs')
+@Controller('ai/jobs')
 export class AiJobsController {
   constructor(private readonly aiJobsService: AiJobsService) {}
 

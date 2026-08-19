@@ -14,7 +14,7 @@ import {
 import { QueuedJobResponseDto } from '@/ai/dto/ai.dto';
 
 /**
- * Documentation for the three review gates ReviewsModule owns: the internal
+ * Documentation for the three review gates InternalReviewsModule owns: the internal
  * review before a project goes to the client, the client's own feedback, and
  * the additional requirements that arrive outside the original scope.
  */

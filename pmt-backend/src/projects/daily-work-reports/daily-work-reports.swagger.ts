@@ -15,7 +15,7 @@ import {
 } from '@/projects/daily-work-reports/dto/daily-work-report.dto';
 
 /**
- * Documentation for both controllers WorkReportsModule owns.
+ * Documentation for both controllers DailyWorkReportsModule owns.
  *
  * Two controllers on purpose: a report spans several projects at once so it
  * cannot be nested under a project, while the PM view of one project's entries

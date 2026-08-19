@@ -1,4 +1,4 @@
-import { MAX_CONTINUOUS_SESSION_MINUTES } from '@/projects/time-entries/time-tracking.constants';
+import { MAX_CONTINUOUS_SESSION_MINUTES } from '@/projects/time-entries/time-entries.constants';
 
 // Shared date math for both TimeEntry and MeetingTimeEntry. Moved out of
 // ProjectTimeEntriesService (where buildStartedAtFilter used to live as a

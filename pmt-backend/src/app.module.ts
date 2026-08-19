@@ -12,13 +12,13 @@ import { LeaveModule } from '@/leave/leave.module';
 import { ProjectActivityModule } from '@/projects/activity/project-activity.module';
 import { ProjectScopeModule } from '@/projects/scope/project-scope.module';
 import { ProjectsModule } from '@/projects/projects.module';
-import { ProjectStaffingModule } from '@/projects/members/project-staffing.module';
+import { ProjectMembersModule } from '@/projects/members/project-members.module';
 import { ProjectDocumentsModule } from '@/projects/documents/project-documents.module';
-import { TimeTrackingModule } from '@/projects/time-entries/time-tracking.module';
-import { WorkReportsModule } from '@/projects/daily-work-reports/work-reports.module';
+import { TimeEntriesModule } from '@/projects/time-entries/time-entries.module';
+import { DailyWorkReportsModule } from '@/projects/daily-work-reports/daily-work-reports.module';
 import { BlockersModule } from '@/projects/blockers/blockers.module';
-import { ReviewsModule } from '@/projects/reviews/internal/reviews.module';
-import { ReportingModule } from '@/projects/reports/reporting.module';
+import { InternalReviewsModule } from '@/projects/reviews/internal/internal-reviews.module';
+import { ProjectReportsModule } from '@/projects/reports/project-reports.module';
 import { SlackModule } from '@/slack/slack.module';
 import { NotificationsModule } from '@/notifications/notifications.module';
 import { auth } from '@/auth/instance/auth.instance';
@@ -49,13 +49,13 @@ import { PermissionsGuard } from '@/auth/permissions/permissions.guard';
     ProjectActivityModule,
     ProjectScopeModule,
     ProjectsModule,
-    ProjectStaffingModule,
+    ProjectMembersModule,
     ProjectDocumentsModule,
-    TimeTrackingModule,
-    WorkReportsModule,
+    TimeEntriesModule,
+    DailyWorkReportsModule,
     BlockersModule,
-    ReviewsModule,
-    ReportingModule,
+    InternalReviewsModule,
+    ProjectReportsModule,
     SlackModule,
   ],
   providers: [

@@ -19,7 +19,7 @@ import {
   ApiGetAdditionalRequirementDocs,
   ApiListAdditionalRequirementsDocs,
   ApiReviewAdditionalRequirementDocs,
-} from '@/projects/reviews/internal/reviews.swagger';
+} from '@/projects/reviews/internal/internal-reviews.swagger';
 import {
   CreateAdditionalRequirementDto,
   QueryAdditionalRequirementsDto,

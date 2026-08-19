@@ -22,7 +22,7 @@ import {
   ApiResumeMeetingTimerDocs,
   ApiStartMeetingTimerDocs,
   ApiStopMeetingTimerDocs,
-} from '@/projects/time-entries/time-tracking.swagger';
+} from '@/projects/time-entries/time-entries.swagger';
 import {
   QueryActiveTimeEntryDto,
   QueryDailySummaryDto,

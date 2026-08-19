@@ -4,7 +4,7 @@ import { Permission, Role } from '@prisma/client';
 import { CurrentUser } from '@/common/decorators/current-user.decorator';
 import { DailyWorkReportService } from '@/projects/daily-work-reports/daily-work-report.service';
 import { RequirePermissions } from '@/auth/permissions/require-permissions.decorator';
-import { ApiListProjectWorkReportsDocs } from '@/projects/daily-work-reports/work-reports.swagger';
+import { ApiListProjectWorkReportsDocs } from '@/projects/daily-work-reports/daily-work-reports.swagger';
 import { QueryProjectDailyEntriesDto } from '@/projects/daily-work-reports/dto/daily-work-report.dto';
 
 // Deliberately a separate controller from DailyWorkReportController. This

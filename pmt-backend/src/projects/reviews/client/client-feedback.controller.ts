@@ -8,7 +8,7 @@ import { RequirePermissions } from '@/auth/permissions/require-permissions.decor
 import {
   ApiListClientFeedbackDocs,
   ApiSubmitClientFeedbackDocs,
-} from '@/projects/reviews/internal/reviews.swagger';
+} from '@/projects/reviews/internal/internal-reviews.swagger';
 import { CreateClientFeedbackDto } from '@/projects/reviews/client/dto/client-feedback.dto';
 
 // CLIENT can both read and submit here, unlike Internal Reviews (which

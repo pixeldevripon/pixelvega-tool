@@ -17,4 +17,4 @@ import { ProjectDailyWorkReportsController } from '@/projects/daily-work-reports
   providers: [DailyWorkReportService, DailyProjectEntryService],
   exports: [DailyWorkReportService],
 })
-export class WorkReportsModule {}
+export class DailyWorkReportsModule {}

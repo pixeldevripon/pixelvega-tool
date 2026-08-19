@@ -21,7 +21,7 @@ import {
   ApiSubmitWrapUpDocs,
   ApiUpdatePlanDocs,
   ApiUpdateWrapUpDocs,
-} from '@/projects/daily-work-reports/work-reports.swagger';
+} from '@/projects/daily-work-reports/daily-work-reports.swagger';
 import {
   QueryDailyWorkReportsDto,
   ReviewEntryDto,
