@@ -105,6 +105,24 @@ Nothing here changes application behaviour.
 | ---------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | 2026-08-19 | **This repo has never had CI.** `pmt-backend/.github/workflows/ci.yml` is committed but GitHub Actions only reads `.github/workflows/` at the repository root, which is `pixelvega-tool/`. The file is a leftover from when `pmt-backend` was its own repository | The assessment reported "backend CI runs build only". That was wrong: nothing has verified either package before a merge. Corrected in `01-assessment.md`, orphaned file deleted |
 
+### The per module recipe
+
+Established on `project-members` and repeated for every remaining module. Each step is
+verifiable on its own, which is what makes a half migrated module obvious rather than subtle.
+
+1. **Consolidate `dto/` into one `dto/<singular>.dto.ts`**, grouped Response, then Query, then
+   Request. The reference has exactly one DTO file per module (`categories/dto/category.dto.ts`),
+   and PMT had ten in `projects/dto/` alone.
+2. **Write the response DTOs**, with an `example` on every field. Enums become `EnumDisplayDto`.
+3. **Add a `capabilities` object** covering only the actions a screen actually gates (ADR 0002).
+4. **Write a flat `<module>.mapper.ts` plus its spec.** Pure: it takes a row and a context object,
+   never a database, so the capability rules are testable without a Nest module.
+5. **Wire the mapper into every service method that returns a row**, computing the context once
+   per request rather than once per row.
+6. **Type the `ApiResponse`s** in `<module>.swagger.ts` with the new classes.
+7. **Run the full unit suite.** It should pass untouched. If a service spec breaks, the mapper
+   changed behaviour rather than shape, which is the bug this ordering is designed to surface.
+
 ### Decisions taken
 
 | Date       | Decision                                                                                                                                                                                               | Reason                                                                                                                                                                                                                                                                           |
@@ -311,7 +329,7 @@ the DTOs first would mean writing them twice.
 | 6.2  | Label and tone maps for every display facing Prisma enum                         | done        | `common/utils/enum-display.util.ts`: 21 maps, each typed `Record<TheEnum, EnumDisplayEntry>` so a new Prisma member fails the build. Tones lifted from the frontend's own tone functions where they existed    |
 | 6.3  | Spec: the maps, including that the tone vocabulary stays closed                  | done        | 94 cases. Completeness driven from `Object.values(TheEnum)`, so the spec cannot pass by being stale itself. Also pins sentence case, the closed tone set, and that nullable stays null                         |
 | 6.4  | Capability flag helpers, computed from permissions plus project scope            | done        | `ProjectScopeService`, `@Global` like `ProjectActivityModule`. 12 private copies across 11 services collapsed into one definition. 29 specs, and the 724 unit tests pass with only a provider added to 8 specs |
-| 6.5  | Response DTOs: `projects` completed, plus `project-members`, `project-documents` | in progress |                                                                                                                                                                                                                |
+| 6.5  | Response DTOs: `projects` completed, plus `project-members`, `project-documents` | in progress | `project-members` done: 2 dto files merged into one, 5 response DTOs, capabilities, mapper with 13 specs. 732 unit tests pass untouched                                                                        |
 | 6.6  | Response DTOs: `time-tracking`, `work-reports`                                   | pending     |                                                                                                                                                                                                                |
 | 6.7  | Response DTOs: `blockers`, `internal-reviews`, `client-feedback`                 | pending     |                                                                                                                                                                                                                |
 | 6.8  | Response DTOs: `additional-requirements`, `project-reports`                      | pending     |                                                                                                                                                                                                                |

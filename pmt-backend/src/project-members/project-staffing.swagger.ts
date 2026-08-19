@@ -5,6 +5,12 @@ import {
   notFound,
   projectScopedErrors,
 } from '@/common/swagger/error-sets';
+import {
+  AddProjectMemberResponseDto,
+  PaginatedProjectMembersResponseDto,
+  ProjectMemberResponseDto,
+  ResyncMemberSlackResponseDto,
+} from '@/project-members/dto/project-member.dto';
 
 const projectIdParam = ApiParam({
   name: 'projectId',
@@ -28,7 +34,11 @@ export const ApiListProjectMembersDocs = () =>
       type: Boolean,
       description: 'Include members who have left, for the full history.',
     }),
-    ApiResponse({ status: 200, description: 'Project members' }),
+    ApiResponse({
+      status: 200,
+      description: 'Project members',
+      type: PaginatedProjectMembersResponseDto,
+    }),
     ...projectScopedErrors,
   );
 
@@ -52,6 +62,7 @@ export const ApiAddProjectMemberDocs = () =>
     ApiResponse({
       status: 201,
       description: 'The staffed member, possibly with a workloadWarning',
+      type: AddProjectMemberResponseDto,
     }),
     ...projectScopedErrors,
     notFound('User not found'),
@@ -74,6 +85,7 @@ export const ApiRemoveProjectMemberDocs = () =>
     ApiResponse({
       status: 200,
       description: 'The member row, now with leftAt set',
+      type: ProjectMemberResponseDto,
     }),
     ...projectScopedErrors,
     notFound('Project member not found'),
@@ -92,7 +104,11 @@ export const ApiResyncMemberSlackDocs = () =>
     }),
     projectIdParam,
     ApiParam({ name: 'memberId', description: 'The ProjectMember row id' }),
-    ApiResponse({ status: 201, description: 'Whether an invite was sent' }),
+    ApiResponse({
+      status: 201,
+      description: 'Whether an invite was sent',
+      type: ResyncMemberSlackResponseDto,
+    }),
     ...projectScopedErrors,
     notFound('Active project member not found'),
   );
