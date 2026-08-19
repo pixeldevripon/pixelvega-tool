@@ -138,8 +138,43 @@ routes as they stand. Shipping the draft would have silently granted PMs time
 tracking. They are siblings, not a ladder, and the spec now asserts that in both
 directions. Only ADMIN and SYSTEM_ADMIN are strict supersets.
 
-**Still owed for this phase:** the E2E role visibility matrix (checklist item),
-which needs a live test database.
+### Follow up, 2026-08-20
+
+- **Permission coverage is now total.** Directive D2 was tightened to "every
+  operation in the codebase", so the 11 previously ungated self service and
+  reference routes gained permissions too, taking the enum to 60 values.
+  `route-permission-coverage.spec.ts` reads the controller sources and fails if
+  any route has neither a permission nor an explicit anonymous opt out, so this
+  cannot silently regress. The anonymous surface is pinned to exactly three
+  routes (the password reset flow).
+- **`postman/` deleted** at the owner's decision, and its ignore rule removed.
+- **Local Postgres 17** is now the development and test database
+  (`pixelvega_dev`, `pixelvega_test`). The Neon URLs are commented out in `.env`
+  rather than deleted. All 35 migrations applied, 31 tables, and the
+  `Permission` type confirmed present with 60 values.
+- **The E2E suite runs for the first time**, 6 tests green against a live
+  database. It needed the reference's ESM setup (`tsconfig.e2e.json`,
+  `extensionsToTreatAsEsm`, `--experimental-vm-modules`) because booting the
+  real `AppModule` pulls in ESM only packages, plus `--forceExit` because the
+  scheduler and the lazily connected Redis client outlive `app.close()`.
+
+**Two bugs the E2E boot caught that no unit test could:**
+
+| Bug                                                                                                                                                       | Why unit tests missed it                                                           |
+| --------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------- |
+| `PermissionsService` was provided in `AppModule`, so `UsersController` could not inject it. Nest resolves a controller's dependencies from its own module | Every spec constructs its subject directly, so DI wiring is never exercised        |
+| `PermissionsGuard` ran before better-auth's session guard, turning every unauthenticated request into a 403                                               | The guard spec passes a request object in directly, so guard ordering is invisible |
+
+Fixes: a `@Global() PermissionsModule` matching the existing `PrismaModule` and
+`AuditLogModule` convention, and the guard now answers 401 for a missing
+session, which is the correct status whichever order the guards run in. This is
+a deliberate deviation from the reference, which throws Forbidden there because
+it registers every guard in one module and can guarantee the ordering.
+
+**Process note on myself:** two of my edits silently failed to apply because the
+target text had already been reformatted, and I did not re-run typecheck after
+them. One shipped an undefined identifier into the guard, which only the E2E run
+surfaced. Every scripted edit now asserts its pattern matched.
 
 ## Completed phases
 

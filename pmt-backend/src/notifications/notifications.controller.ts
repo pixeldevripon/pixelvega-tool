@@ -5,10 +5,11 @@ import {
   ApiResponse,
   ApiTags,
 } from '@nestjs/swagger';
-import { Role } from '@prisma/client';
+import { Permission, Role } from '@prisma/client';
 import { CurrentUser } from '@/common/decorators/current-user.decorator';
 import { NotificationsService } from './notifications.service';
 import { QueryNotificationsDto } from '@/notifications/dto/query-notifications.dto';
+import { RequirePermissions } from '@/auth/decorators/require-permissions.decorator';
 
 // Always self scoped. Unlike most of ProjectsModule, no staff role ever
 // sees anyone else's notifications, there is no company wide or
@@ -26,6 +27,7 @@ export class NotificationsController {
       "Paginated. Optional ?unreadOnly=true filter. Always scoped to the caller, there is no way to view another user's notifications through this endpoint regardless of role.",
   })
   @ApiResponse({ status: 200, description: 'Paginated notifications' })
+  @RequirePermissions(Permission.VIEW_OWN_NOTIFICATIONS)
   @Get()
   findAll(
     @Query() query: QueryNotificationsDto,
@@ -38,6 +40,7 @@ export class NotificationsController {
     summary: "The current user's unread notification count",
   })
   @ApiResponse({ status: 200, description: 'Unread count' })
+  @RequirePermissions(Permission.VIEW_OWN_NOTIFICATIONS)
   @Get('unread-count')
   async getUnreadCount(@CurrentUser() user: { id: string; role: Role }) {
     const count = await this.notificationsService.getUnreadCount(user.id);
@@ -54,6 +57,7 @@ export class NotificationsController {
     status: 404,
     description: 'Notification not found, or belongs to someone else',
   })
+  @RequirePermissions(Permission.MANAGE_OWN_NOTIFICATIONS)
   @Patch(':id/read')
   markRead(
     @Param('id') id: string,
@@ -66,6 +70,7 @@ export class NotificationsController {
     summary: "Mark all of the current user's unread notifications read",
   })
   @ApiResponse({ status: 200, description: 'Count of notifications updated' })
+  @RequirePermissions(Permission.MANAGE_OWN_NOTIFICATIONS)
   @Patch('read-all')
   markAllRead(@CurrentUser() user: { id: string; role: Role }) {
     return this.notificationsService.markAllRead(user.id);

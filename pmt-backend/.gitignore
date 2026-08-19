@@ -57,11 +57,6 @@ report.[0-9]*.[0-9]*.[0-9]*.[0-9]*.json
 
 /generated/prisma
 
-# Postman collections. Still ignored pending a decision on the real team email
-# addresses used as example values in them (no credentials, checked 2026-08-19).
-# See docs/refactor/02-checklist.md, phase 1.
-/postman
-
 # Agent and design docs are TRACKED, deliberately. They are shared team context:
 # a fresh clone, CI, and every agent that reads the repo all need them, and
 # per-machine copies drift the moment they are not in version control.

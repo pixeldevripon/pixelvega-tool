@@ -360,6 +360,19 @@ enum Permission {
   MANAGE_LEAVE_TYPES
   MANAGE_HOLIDAYS
 
+  // Self service. Held by every role: these routes only ever touch the
+  // caller's own record, so there is nobody to scope them against.
+  VIEW_OWN_PROFILE
+  EDIT_OWN_PROFILE
+  VIEW_OWN_PERMISSIONS
+  CHANGE_OWN_PASSWORD
+  VIEW_OWN_NOTIFICATIONS
+  MANAGE_OWN_NOTIFICATIONS
+
+  // Reference data every employee reads
+  VIEW_HOLIDAYS
+  VIEW_LEAVE_TYPES
+
   // Users and profiles
   VIEW_USERS
   INVITE_USER

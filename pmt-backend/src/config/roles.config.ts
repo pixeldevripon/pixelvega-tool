@@ -23,8 +23,26 @@ import { Permission, Role } from '@prisma/client';
  * PMs time tracking, which the current routes deliberately withhold.
  */
 
-/** Anything any signed in person may do, whatever their role. */
-const EVERYONE: Permission[] = [Permission.VIEW_OWN_PROJECTS];
+/**
+ * Anything any signed in person may do, whatever their role.
+ *
+ * The self service entries are here rather than absent because directive D2
+ * says every operation in the codebase is gated. These routes only ever touch
+ * the caller's own record, so there is nobody to scope them against, but they
+ * still declare a permission so that "no permission on a route" always means a
+ * mistake rather than a deliberate omission.
+ */
+const EVERYONE: Permission[] = [
+  Permission.VIEW_OWN_PROJECTS,
+  Permission.VIEW_OWN_PROFILE,
+  Permission.EDIT_OWN_PROFILE,
+  Permission.VIEW_OWN_PERMISSIONS,
+  Permission.CHANGE_OWN_PASSWORD,
+  Permission.VIEW_OWN_NOTIFICATIONS,
+  Permission.MANAGE_OWN_NOTIFICATIONS,
+  Permission.VIEW_HOLIDAYS,
+  Permission.VIEW_LEAVE_TYPES,
+];
 
 /**
  * The project surfaces a PROJECT_MANAGER, DEVELOPER and DESIGNER all read.

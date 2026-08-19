@@ -16,7 +16,7 @@ import { NotificationsModule } from '@/notifications/notifications.module';
 import { auth } from '@/auth/auth.instance';
 import { LoginStatusHook } from '@/auth/login-status.hook';
 import { PermissionsGuard } from '@/auth/guards/permissions.guard';
-import { PermissionsService } from '@/auth/permissions.service';
+import { PermissionsModule } from '@/auth/permissions.module';
 
 @Module({
   imports: [
@@ -24,6 +24,9 @@ import { PermissionsService } from '@/auth/permissions.service';
     ScheduleModule.forRoot(),
     ThrottlerModule.forRoot([{ ttl: 60_000, limit: 20 }]),
     PrismaModule,
+    // @Global(), so every controller can inject PermissionsService without
+    // importing this module. See the comment in permissions.module.ts.
+    PermissionsModule,
     BetterAuthModule.forRoot({ auth }),
     UsersModule,
     AuthModule,
@@ -36,8 +39,6 @@ import { PermissionsService } from '@/auth/permissions.service';
   ],
   providers: [
     LoginStatusHook,
-    // Exported so any module can inject it without importing AuthModule.
-    PermissionsService,
     // APP_GUARD providers run in registration order (directive D2):
     //   1. ThrottlerGuard    rate limit before any session lookup
     //   2. AuthGuard         from @thallesp/nestjs-better-auth, registered by
@@ -47,6 +48,5 @@ import { PermissionsService } from '@/auth/permissions.service';
     { provide: APP_GUARD, useClass: ThrottlerGuard },
     { provide: APP_GUARD, useClass: PermissionsGuard },
   ],
-  exports: [PermissionsService],
 })
 export class AppModule {}

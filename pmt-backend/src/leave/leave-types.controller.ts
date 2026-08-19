@@ -28,6 +28,7 @@ export class LeaveTypesController {
 
   @ApiOperation({ summary: 'List all leave types' })
   @ApiResponse({ status: 200, description: 'Leave types' })
+  @RequirePermissions(Permission.VIEW_LEAVE_TYPES)
   @Get()
   findAll() {
     return this.leaveTypesService.findAll();

@@ -33,6 +33,7 @@ export class ProfilesController {
 
   @ApiOperation({ summary: "Get the caller's own profile" })
   @ApiResponse({ status: 200, description: 'Current user profile' })
+  @RequirePermissions(Permission.VIEW_OWN_PROFILE)
   @Get('me')
   me(@CurrentUser() user: { id: string }) {
     return this.profilesService.findByUserId(user.id);
@@ -40,6 +41,7 @@ export class ProfilesController {
 
   @ApiOperation({ summary: "Update the caller's own profile" })
   @ApiResponse({ status: 200, description: 'Updated profile' })
+  @RequirePermissions(Permission.EDIT_OWN_PROFILE)
   @Patch('me')
   updateMe(
     @Body() dto: UpdateProfileDto,
@@ -62,6 +64,7 @@ export class ProfilesController {
   })
   @ApiResponse({ status: 201, description: 'Updated profile' })
   @ApiResponse({ status: 400, description: 'Missing file or not an image' })
+  @RequirePermissions(Permission.EDIT_OWN_PROFILE)
   @Post('me/avatar')
   @UseInterceptors(FileInterceptor('file', imageUploadOptions))
   uploadAvatar(

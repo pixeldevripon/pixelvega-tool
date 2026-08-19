@@ -6,7 +6,11 @@
  * pass through, and a route with one must never see an unauthenticated caller.
  */
 
-import { ExecutionContext, ForbiddenException } from '@nestjs/common';
+import {
+  ExecutionContext,
+  ForbiddenException,
+  UnauthorizedException,
+} from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
 import { Permission, Role } from '@prisma/client';
 import { PermissionsService } from '@/auth/permissions.service';
@@ -133,12 +137,21 @@ describe('PermissionsGuard', () => {
   });
 
   describe('an unauthenticated caller', () => {
-    it('is rejected rather than crashing on a missing user', () => {
-      // Guards against a route carrying both an anonymous opt out and a
-      // permission requirement, which would otherwise read undefined.role.
+    it('gets 401, not 403, and does not crash on a missing user', () => {
+      // Not identified is a different answer from not allowed. This has to hold
+      // regardless of whether the session guard ran first: cross module
+      // APP_GUARD ordering is not something this app can rely on, because the
+      // session guard is registered by an imported module.
       route({ all: [Permission.CREATE_PROJECT] });
       expect(() => guard.canActivate(contextFor(undefined))).toThrow(
-        ForbiddenException,
+        UnauthorizedException,
+      );
+    });
+
+    it('gets 401 on an OR route too', () => {
+      route({ any: [Permission.VIEW_OWN_PROJECTS] });
+      expect(() => guard.canActivate(contextFor(undefined))).toThrow(
+        UnauthorizedException,
       );
     });
   });

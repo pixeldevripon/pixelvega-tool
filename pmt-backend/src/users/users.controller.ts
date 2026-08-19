@@ -55,6 +55,7 @@ export class UsersController {
   @ApiOperation({ summary: "Change the caller's own password" })
   @ApiResponse({ status: 200, description: 'Password changed' })
   @ApiResponse({ status: 400, description: 'Current password is incorrect' })
+  @RequirePermissions(Permission.CHANGE_OWN_PASSWORD)
   @Patch('me/password')
   async changePassword(
     @Body() dto: ChangePasswordDto,
@@ -66,6 +67,7 @@ export class UsersController {
 
   @ApiOperation({ summary: "Get the caller's own profile" })
   @ApiResponse({ status: 200, description: 'Current user profile' })
+  @RequirePermissions(Permission.VIEW_OWN_PROFILE)
   @Get('me')
   me(@CurrentUser() user: { id: string }) {
     return this.usersService.findOne(user.id);
@@ -83,6 +85,7 @@ export class UsersController {
     status: 200,
     description: 'The effective permission set, plus the role it came from',
   })
+  @RequirePermissions(Permission.VIEW_OWN_PERMISSIONS)
   @Get('me/permissions')
   myPermissions(@CurrentUser() user: { id: string; role: Role }) {
     return {

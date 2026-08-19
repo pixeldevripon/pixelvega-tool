@@ -28,6 +28,7 @@ export class HolidaysController {
 
   @ApiOperation({ summary: 'List all company holidays' })
   @ApiResponse({ status: 200, description: 'Holidays' })
+  @RequirePermissions(Permission.VIEW_HOLIDAYS)
   @Get()
   findAll() {
     return this.holidaysService.findAll();

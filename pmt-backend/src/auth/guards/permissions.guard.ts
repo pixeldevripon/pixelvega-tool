@@ -3,6 +3,7 @@ import {
   ExecutionContext,
   ForbiddenException,
   Injectable,
+  UnauthorizedException,
 } from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
 import { Permission, Role } from '@prisma/client';
@@ -16,7 +17,11 @@ import { PermissionsService } from '@/auth/permissions.service';
  * Registered as an APP_GUARD, running AFTER the session guard so
  * `request.user` is populated:
  *
- *   ThrottlerGuard -> AuthGuard -> RolesGuard -> PermissionsGuard
+ *   ThrottlerGuard -> AuthGuard -> PermissionsGuard
+ *
+ * Cross module APP_GUARD ordering is not something this app can rely on (the
+ * session guard is registered by an imported module), so this guard does not
+ * assume `request.user` is populated. See the 401 branch below.
  *
  * A route that declares neither decorator passes through. That is deliberate:
  * the session guard already protects everything by default, and a route with no
@@ -47,10 +52,18 @@ export class PermissionsGuard implements CanActivate {
       .switchToHttp()
       .getRequest<{ user?: { id: string; role: Role } }>();
 
-    // Guards against a route carrying both an anonymous opt out and a
-    // permission requirement, which would otherwise read `undefined.role`.
+    // No session. 401, not 403: the caller has not identified themselves, so
+    // this is not a question of what they are allowed to do.
+    //
+    // This deviates from the reference backend, which throws Forbidden here.
+    // It can, because it registers every APP_GUARD in one module and so
+    // guarantees its AuthGuard has already answered 401. Here the session guard
+    // comes from @thallesp/nestjs-better-auth via an imported module, and
+    // Nest's cross module APP_GUARD ordering put this guard first, turning
+    // every unauthenticated request into a 403. Answering 401 is correct
+    // whichever order they end up running in.
     if (!request.user) {
-      throw new ForbiddenException('Access denied');
+      throw new UnauthorizedException();
     }
 
     if (hasAll) {
