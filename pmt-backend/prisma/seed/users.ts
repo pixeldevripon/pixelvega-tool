@@ -532,24 +532,4 @@ async function seedAuthSideTables(
     });
   }
   await prisma.verification.createMany({ data: verificationRows });
-
-  // Reset codes for the custom six digit forgot password flow. Only the hash
-  // is stored, never the code itself, so these are sha256 shaped values.
-  const resetCodeRows: any[] = [];
-  for (let i = 0; i < VOLUME.passwordResetCodes; i++) {
-    const user = rand.pick(live);
-    const createdAt = rand.dateBetween(addDays(SEED_TODAY, -120), SEED_TODAY);
-    const used = rand.chance(0.55);
-    resetCodeRows.push({
-      id: rand.uuid(),
-      userId: user.id,
-      codeHash: rand.hex(64),
-      expiresAt: new Date(createdAt.getTime() + 15 * 60 * 1000),
-      usedAt: used
-        ? new Date(createdAt.getTime() + rand.int(1, 12) * 60 * 1000)
-        : null,
-      createdAt,
-    });
-  }
-  await prisma.passwordResetCode.createMany({ data: resetCodeRows });
 }

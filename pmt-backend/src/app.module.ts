@@ -2,7 +2,6 @@ import { Module } from '@nestjs/common';
 import { APP_GUARD } from '@nestjs/core';
 import { ConfigModule } from '@nestjs/config';
 import { ScheduleModule } from '@nestjs/schedule';
-import { ThrottlerGuard, ThrottlerModule } from '@nestjs/throttler';
 import { AuthModule as BetterAuthModule } from '@thallesp/nestjs-better-auth';
 import { PrismaModule } from '@/prisma/prisma.module';
 import { UsersModule } from '@/users/users.module';
@@ -24,21 +23,22 @@ import { SlackModule } from '@/slack/slack.module';
 import { NotificationsModule } from '@/notifications/notifications.module';
 import { auth } from '@/auth/auth.instance';
 import { LoginStatusHook } from '@/auth/login-status.hook';
-import { PermissionsGuard } from '@/auth/guards/permissions.guard';
 import { PermissionsModule } from '@/auth/permissions.module';
+import { PermissionsGuard } from '@/auth/guards/permissions.guard';
 
 @Module({
   imports: [
     ConfigModule.forRoot({ isGlobal: true }),
     ScheduleModule.forRoot(),
-    ThrottlerModule.forRoot([{ ttl: 60_000, limit: 20 }]),
     PrismaModule,
     // @Global(), so every controller can inject PermissionsService without
     // importing this module. See the comment in permissions.module.ts.
     PermissionsModule,
+    // AuthModule BEFORE BetterAuthModule: it registers the throttler guard,
+    // which has to run before anything queries the database for a session.
+    AuthModule,
     BetterAuthModule.forRoot({ auth }),
     UsersModule,
-    AuthModule,
     ProfilesModule,
     AuditLogModule,
     NotificationsModule,
@@ -59,14 +59,12 @@ import { PermissionsModule } from '@/auth/permissions.module';
     SlackModule,
   ],
   providers: [
+    // The hook better-auth calls on sign-in. It needs Nest DI, so it is
+    // provided here rather than inside auth.instance.ts.
     LoginStatusHook,
-    // APP_GUARD providers run in registration order (directive D2):
-    //   1. ThrottlerGuard    rate limit before any session lookup
-    //   2. AuthGuard         from @thallesp/nestjs-better-auth, registered by
-    //                        BetterAuthModule.forRoot() above
-    //   3. PermissionsGuard  @RequirePermissions / @RequireAnyPermission
-    // Do not reorder: PermissionsGuard reads request.user, which AuthGuard sets.
-    { provide: APP_GUARD, useClass: ThrottlerGuard },
+    // Registered here, not in AuthModule, because Nest processes a module's own
+    // providers AFTER every module it imports. That is what puts this LAST in
+    // the guard chain, behind AuthGuard, whose request.user it reads.
     { provide: APP_GUARD, useClass: PermissionsGuard },
   ],
 })

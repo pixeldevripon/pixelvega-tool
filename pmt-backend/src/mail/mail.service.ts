@@ -1,7 +1,7 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { createTransport, Transporter } from 'nodemailer';
 import { inviteEmailTemplate } from '@/mail/templates/invite.template';
-import { resetCodeEmailTemplate } from '@/mail/templates/reset-code.template';
+import { passwordResetEmailTemplate } from '@/mail/templates/password-reset.template';
 
 @Injectable()
 export class MailService {
@@ -21,8 +21,21 @@ export class MailService {
     await this.send(to, subject, html);
   }
 
-  async sendResetCodeEmail(to: string, code: string) {
-    const { subject, html } = resetCodeEmailTemplate({ code });
+  /**
+   * The password reset link, sent by better-auth's `sendResetPassword` hook.
+   *
+   * `expiresInMinutes` is passed through to the copy so the email cannot
+   * promise a window the config does not give.
+   */
+  async sendPasswordResetEmail(
+    to: string,
+    resetUrl: string,
+    expiresInMinutes: number,
+  ) {
+    const { subject, html } = passwordResetEmailTemplate({
+      resetUrl,
+      expiresInMinutes,
+    });
     await this.send(to, subject, html);
   }
 

@@ -3,7 +3,7 @@
  * gates it.
  *
  * This is the safety net under directive D2. Phase 4 rewrote the gating on all
- * 112 routes, and a single wrong permission there either locks a role out of
+ * 109 routes, and a single wrong permission there either locks a role out of
  * work they need or hands them access they should not have, neither of which is
  * visible from reading a controller. Pinning the whole matrix means any change
  * to a route's gating shows up as a deliberate edit to this file in the diff.
@@ -57,7 +57,6 @@ import { AiTemplatesController } from '@/ai/ai-templates.controller';
 import { ProjectStatusReportsController } from '@/ai-status-reports/project-status-reports.controller';
 import { ProjectAiSummaryController } from '@/ai-summary/project-ai-summary.controller';
 import { AuditLogController } from '@/audit-log/audit-log.controller';
-import { AuthController } from '@/auth/auth.controller';
 import { BlockerReasonsController } from '@/blockers/blocker-reasons.controller';
 import { BlockersController } from '@/blockers/blockers.controller';
 import { ProjectBlockersController } from '@/blockers/project-blockers.controller';
@@ -94,7 +93,6 @@ const CONTROLLERS = [
   ProjectStatusReportsController,
   ProjectAiSummaryController,
   AuditLogController,
-  AuthController,
   BlockerReasonsController,
   BlockersController,
   ProjectBlockersController,
@@ -120,9 +118,10 @@ const CONTROLLERS = [
 /**
  * Route -> the permission(s) that gate it.
  *
- * `PUBLIC` is the deliberate anonymous surface: the three password reset steps,
- * which must work for someone who cannot sign in by definition. Nothing else
- * belongs there.
+ * There is no anonymous surface left in this application. The password reset
+ * flow used to sit here as three `PUBLIC` routes under `/auth-flows`; it is
+ * better-auth's now, served under `/api/auth/*`, which is mounted as middleware
+ * and never reaches a Nest guard at all. Every route Nest owns is gated.
  */
 const EXPECTED: Record<string, Expected> = {
   'DELETE /ai-templates/:id': [P.MANAGE_AI_TEMPLATES],
@@ -221,9 +220,6 @@ const EXPECTED: Record<string, Expected> = {
   'PATCH /users/:id': [P.UPDATE_USER],
   'PATCH /users/me/password': [P.CHANGE_OWN_PASSWORD],
   'POST /ai-templates': [P.MANAGE_AI_TEMPLATES],
-  'POST /auth-flows/forgot-password': PUBLIC,
-  'POST /auth-flows/reset-password': PUBLIC,
-  'POST /auth-flows/verify-reset-code': PUBLIC,
   'POST /blocker-reasons': [P.MANAGE_BLOCKER_REASONS],
   'POST /blockers': [P.REPORT_BLOCKER],
   'POST /daily-work-reports': [P.SUBMIT_WORK_REPORT],
@@ -273,12 +269,14 @@ describe('route permission matrix', () => {
   it('covers every controller in the app', () => {
     // If a controller is added and not registered above, its routes are not
     // pinned by this file and the matrix is quietly incomplete.
-    const controllerFiles = 27;
+    // Counted from disk, so this cannot drift into agreeing with an outdated
+    // number. AuthController is gone: better-auth owns that surface now.
+    const controllerFiles = 26;
     expect(CONTROLLERS).toHaveLength(controllerFiles);
   });
 
   it('finds the expected number of routes', () => {
-    expect(actual).toHaveLength(112);
+    expect(actual).toHaveLength(109);
   });
 
   it('has an expectation for every route, and a route for every expectation', () => {
@@ -292,16 +290,15 @@ describe('route permission matrix', () => {
     expect(ungated.map((route) => route.route)).toEqual([]);
   });
 
-  it('keeps the anonymous surface to the password reset flow only', () => {
+  it('has NO anonymous surface at all', () => {
+    // Every unauthenticated flow is better-auth's now. A `PUBLIC` route
+    // appearing here again means someone hand rolled an anonymous endpoint,
+    // which is the thing this whole migration removed.
     const publicRoutes = actual
       .filter((route) => route.gate === 'PUBLIC')
       .map((route) => route.route)
       .sort();
-    expect(publicRoutes).toEqual([
-      'POST /auth-flows/forgot-password',
-      'POST /auth-flows/reset-password',
-      'POST /auth-flows/verify-reset-code',
-    ]);
+    expect(publicRoutes).toEqual([]);
   });
 
   describe('each route carries the permission it should', () => {
