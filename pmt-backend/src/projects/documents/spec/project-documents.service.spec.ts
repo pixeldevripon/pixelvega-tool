@@ -30,6 +30,7 @@ const PM_ID = 'pm-1';
 describe('ProjectDocumentsService', () => {
   let service: ProjectDocumentsService;
   let prisma: any;
+  let cloudinary: { upload: jest.Mock; delete: jest.Mock };
 
   beforeEach(async () => {
     prisma = {
@@ -61,15 +62,17 @@ describe('ProjectDocumentsService', () => {
       },
     };
 
+    cloudinary = {
+      upload: jest.fn(),
+      delete: jest.fn().mockResolvedValue(undefined),
+    };
+
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         ProjectScopeService,
         ProjectDocumentsService,
         { provide: PrismaService, useValue: prisma },
-        {
-          provide: CloudinaryService,
-          useValue: { upload: jest.fn(), delete: jest.fn() },
-        },
+        { provide: CloudinaryService, useValue: cloudinary },
         { provide: ProjectActivityService, useValue: { log: jest.fn() } },
         {
           provide: NotificationsService,
@@ -192,6 +195,64 @@ describe('ProjectDocumentsService', () => {
       await expect(
         service.findAll(PROJECT_ID, {}, PM_ID, Role.PROJECT_MANAGER),
       ).resolves.toBeDefined();
+    });
+  });
+
+  describe('removing a document deletes its Cloudinary asset', () => {
+    const DOC = {
+      id: 'doc-1',
+      projectId: PROJECT_ID,
+      title: 'Acme PRD',
+      type: 'PRD',
+      format: 'FILE',
+      deletedAt: null,
+      filePublicId: 'pmt/project-documents/acme-prd',
+      fileResourceType: 'raw',
+    };
+
+    beforeEach(() => {
+      prisma.projectDocument.findFirst.mockResolvedValue(DOC);
+      prisma.projectDocument.update.mockResolvedValue({
+        ...DOC,
+        deletedAt: new Date(),
+      });
+    });
+
+    it('destroys the asset using its OWN resource type', async () => {
+      // Cloudinary partitions its namespace by resource type: destroying a raw
+      // file as an 'image' silently succeeds and deletes nothing.
+      await service.remove(PROJECT_ID, 'doc-1', 'pm-1', Role.PROJECT_MANAGER);
+      expect(cloudinary.delete).toHaveBeenCalledWith(
+        'pmt/project-documents/acme-prd',
+        'raw',
+      );
+    });
+
+    it('soft deletes the row, so history and the audit trail survive', async () => {
+      await service.remove(PROJECT_ID, 'doc-1', 'pm-1', Role.PROJECT_MANAGER);
+      const call = prisma.projectDocument.update.mock.calls[0][0];
+      expect(call.data.deletedAt).toBeInstanceOf(Date);
+    });
+
+    it('does not call Cloudinary for a TEXT document, which has no asset', async () => {
+      prisma.projectDocument.findFirst.mockResolvedValue({
+        ...DOC,
+        format: 'TEXT',
+        filePublicId: null,
+        fileResourceType: null,
+      });
+      await service.remove(PROJECT_ID, 'doc-1', 'pm-1', Role.PROJECT_MANAGER);
+      expect(cloudinary.delete).not.toHaveBeenCalled();
+    });
+
+    it('still removes the document when Cloudinary is down', async () => {
+      // Best effort on purpose: an outage must not fail a removal the user
+      // already asked for. The orphaned asset is logged instead.
+      cloudinary.delete.mockRejectedValue(new Error('cloudinary is down'));
+      await expect(
+        service.remove(PROJECT_ID, 'doc-1', 'pm-1', Role.PROJECT_MANAGER),
+      ).resolves.toEqual({ id: 'doc-1', removed: true });
+      expect(prisma.projectDocument.update).toHaveBeenCalled();
     });
   });
 });

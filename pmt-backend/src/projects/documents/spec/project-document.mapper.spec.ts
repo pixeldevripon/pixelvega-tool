@@ -22,6 +22,8 @@ function doc(
     fileMimeType: 'application/pdf',
     fileSizeBytes: 1572864,
     textContent: null,
+    filePublicId: 'pmt/project-documents/acme-prd',
+    fileResourceType: 'raw',
     uploadedById: 'u1',
     createdAt: AT,
     updatedAt: AT,

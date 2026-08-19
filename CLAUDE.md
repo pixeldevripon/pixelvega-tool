@@ -55,8 +55,8 @@ root orchestrator:
 
 | Package        | What it is                                                      | Port |
 | -------------- | --------------------------------------------------------------- | ---- |
-| `pmt-backend`  | NestJS 11 API. Owns the database, auth, and every business rule | 3000 |
-| `pmt-frontend` | Next.js 16 dashboard. Pure API client (no database, no secrets) | 3001 |
+| `pmt-backend`  | NestJS 11 API. Owns the database, auth, and every business rule | 5050 |
+| `pmt-frontend` | Next.js 16 dashboard. Pure API client (no database, no secrets) | 3000 |
 
 Six roles: `SYSTEM_ADMIN · ADMIN · PROJECT_MANAGER · DEVELOPER · DESIGNER · CLIENT`.
 Domain: projects and staffing, time tracking, daily work reports, blockers, internal reviews,
@@ -82,7 +82,7 @@ their shape.
 
 ```bash
 pnpm install:all              # install root + both packages
-pnpm dev                      # backend :3000 and frontend :3001 together
+pnpm dev                      # backend :5050 and frontend :3000 together
 pnpm lint                     # eslint --fix, both packages
 pnpm typecheck                # tsc --noEmit, both packages
 pnpm test                     # backend Jest + frontend Vitest

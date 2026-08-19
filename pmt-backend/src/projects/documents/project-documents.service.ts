@@ -267,7 +267,7 @@ export class ProjectDocumentsService {
         // `startsWith('image/') ? 'image' : 'raw'` guess stored a video as an
         // undeliverable raw blob.
         .upload(file, { folder: DOCUMENT_FOLDER })
-        .then(({ url }) =>
+        .then((asset) =>
           this.prisma.projectDocument.create({
             data: {
               projectId,
@@ -275,9 +275,14 @@ export class ProjectDocumentsService {
               description: dto.description,
               type: dto.type,
               format: 'FILE',
-              fileUrl: url,
+              fileUrl: asset.url,
               fileMimeType: file.mimetype,
-              fileSizeBytes: file.size,
+              // Cloudinary's count, not multer's: they agree today, and if they
+              // ever disagree the stored size should describe the stored asset.
+              fileSizeBytes: asset.bytes,
+              // Kept so the asset can be destroyed when the document is removed.
+              filePublicId: asset.publicId,
+              fileResourceType: asset.resourceType,
               uploadedById: actorId,
             },
             include: DOCUMENT_INCLUDE,
@@ -327,6 +332,8 @@ export class ProjectDocumentsService {
           fileUrl: asset.url,
           fileMimeType: file.mimetype,
           fileSizeBytes: asset.bytes,
+          filePublicId: asset.publicId,
+          fileResourceType: asset.resourceType,
           uploadedById: actorId,
         },
         include: DOCUMENT_INCLUDE,
@@ -435,6 +442,22 @@ export class ProjectDocumentsService {
       where: { id: documentId },
       data: { deletedAt: new Date() },
     });
+
+    // The ROW is soft deleted, so history and the audit trail survive. The
+    // BYTES are not: Cloudinary bills for storage, there is no undelete
+    // endpoint, and an asset nothing references is one nobody will ever find
+    // again. Best effort on purpose, so a Cloudinary outage cannot fail a
+    // removal the user already asked for.
+    if (existing.filePublicId) {
+      await this.cloudinary
+        .delete(existing.filePublicId, existing.fileResourceType ?? 'image')
+        .catch((error: Error) =>
+          this.logger.warn(
+            `Removed document ${documentId} but could not delete its asset ` +
+              `${existing.filePublicId}: ${error.message}`,
+          ),
+        );
+    }
 
     await this.projectActivity.log(projectId, actorId, 'DOCUMENT_REMOVED', {
       message: `Document "${existing.title}" removed`,

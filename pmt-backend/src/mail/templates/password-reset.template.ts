@@ -1,40 +1,34 @@
-interface PasswordResetEmailInput {
+import { emailShell, RenderedEmail } from '@/mail/templates/email-shell';
+
+export interface PasswordResetEmailInput {
   resetUrl: string;
-  /** How long the link stays valid, in minutes, so the copy matches the config. */
+  /** How long the link is valid, so the copy cannot promise a different window. */
   expiresInMinutes: number;
 }
 
 /**
- * The reset email.
+ * The password reset link.
  *
- * The expiry is passed in rather than written into the copy, because the copy
- * and the config drifting apart is the classic bug here: the email promises an
- * hour, the token dies in fifteen minutes, and the user has no idea why.
+ * The expiry is a parameter rather than written into the copy, because copy and
+ * config drifting apart is the classic failure here: the email promises an
+ * hour, the token dies in fifteen minutes, and nobody can explain why.
  */
 export function passwordResetEmailTemplate({
   resetUrl,
   expiresInMinutes,
-}: PasswordResetEmailInput) {
+}: PasswordResetEmailInput): RenderedEmail & { subject: string } {
   return {
     subject: 'Reset your PixelVega password',
-    html: `
-      <div style="font-family: system-ui, sans-serif; line-height: 1.6; color: #111;">
-        <h2 style="margin: 0 0 16px;">Reset your password</h2>
-        <p>Someone asked to reset the password for this PixelVega account.</p>
-        <p style="margin: 24px 0;">
-          <a href="${resetUrl}"
-             style="background: #111; color: #fff; padding: 12px 20px; border-radius: 6px; text-decoration: none; display: inline-block;">
-            Choose a new password
-          </a>
-        </p>
-        <p style="color: #555; font-size: 14px;">
-          This link works for ${expiresInMinutes} minutes. If you did not ask for
-          this, you can ignore this email: your password will not change.
-        </p>
-        <p style="color: #888; font-size: 12px; word-break: break-all;">
-          If the button does not work, paste this into your browser:<br />${resetUrl}
-        </p>
-      </div>
-    `,
+    ...emailShell({
+      title: 'Reset your password',
+      paragraphs: [
+        'Someone asked to reset the password for this PixelVega account. Choose a new one using the button below.',
+      ],
+      ctaLabel: 'Choose a new password',
+      ctaUrl: resetUrl,
+      footnote:
+        `This link works for ${expiresInMinutes} minutes and can be used once. ` +
+        'If you did not ask for this you can ignore this email: your password will not change.',
+    }),
   };
 }

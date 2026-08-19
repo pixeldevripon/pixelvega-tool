@@ -55,7 +55,7 @@ openssl rand -base64 32
 | --- | --- | --- |
 | `DATABASE_URL` | Yes | Postgres connection string. Everything reads and writes through this. |
 | `BETTER_AUTH_SECRET` | Yes | Signs sessions and reset tokens. Use the `openssl` command above. |
-| `BETTER_AUTH_URL` | Yes | Base URL used in invite emails as the login link. Defaults to `http://localhost:3000`. |
+| `BETTER_AUTH_URL` | Yes | Base URL used in invite emails as the login link. Defaults to `http://localhost:5050`. |
 | `PORT` | No | HTTP port. Defaults to `3000`. |
 | `NODE_ENV` | No | Set to `production` only in a real deployment. It tightens the auth origin check and blocks the seed. |
 | `CORS_ORIGIN` | No | Frontend origin. Falls back to `*`. Needed with credentials so the session cookie is sent. |
@@ -178,12 +178,12 @@ All 246 seeded accounts share the same password, so you can sign in as anyone to
 pnpm start:dev
 ```
 
-Swagger UI is at `http://localhost:3000/api/docs`, and the raw spec is at `/api/docs-json`.
+Swagger UI is at `http://localhost:5050/api/docs`, and the raw spec is at `/api/docs-json`.
 
 Sign in from the command line:
 
 ```bash
-curl -s -c cookies.txt -X POST http://localhost:3000/api/auth/sign-in/email \
+curl -s -c cookies.txt -X POST http://localhost:5050/api/auth/sign-in/email \
   -H 'Content-Type: application/json' \
   -d '{"email":"pm@pixelvega.com","password":"Password123!"}'
 ```
@@ -191,7 +191,7 @@ curl -s -c cookies.txt -X POST http://localhost:3000/api/auth/sign-in/email \
 Then reuse the cookie on any request:
 
 ```bash
-curl -s -b cookies.txt "http://localhost:3000/api/projects/mine?pageSize=5"
+curl -s -b cookies.txt "http://localhost:5050/api/projects/mine?pageSize=5"
 ```
 
 The session lives in a `better-auth.session_token` cookie. In Postman, sign in once and let the built in cookie jar carry it. Do not set a `Cookie` header by hand.
@@ -203,11 +203,11 @@ The session lives in a `better-auth.session_token` cookie. In Postman, sign in o
 Sign in as the project manager, then run these. All five should return `200` with real rows:
 
 ```bash
-curl -s -b cookies.txt "http://localhost:3000/api/projects/mine?pageSize=3"
-curl -s -b cookies.txt "http://localhost:3000/api/leave-requests?pageSize=3"
-curl -s -b cookies.txt "http://localhost:3000/api/blockers?pageSize=3"
-curl -s -b cookies.txt "http://localhost:3000/api/notifications/unread-count"
-curl -s -b cookies.txt "http://localhost:3000/api/daily-work-reports?pageSize=3"
+curl -s -b cookies.txt "http://localhost:5050/api/projects/mine?pageSize=3"
+curl -s -b cookies.txt "http://localhost:5050/api/leave-requests?pageSize=3"
+curl -s -b cookies.txt "http://localhost:5050/api/blockers?pageSize=3"
+curl -s -b cookies.txt "http://localhost:5050/api/notifications/unread-count"
+curl -s -b cookies.txt "http://localhost:5050/api/daily-work-reports?pageSize=3"
 ```
 
 Two results that look like failures but are correct:
