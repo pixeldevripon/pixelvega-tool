@@ -20,7 +20,11 @@ export class StatusReportResponseDto {
   @ApiProperty({ example: 'STATUS_UPDATE' })
   reportType!: string;
 
-  @ApiProperty({ description: 'Markdown.' })
+  @ApiProperty({
+    example:
+      '## Status\nOn track.\n\n## Progress\nAuth module shipped; checkout started.',
+    description: 'Markdown.',
+  })
   content!: string;
 
   @ApiProperty({ example: '2026-08-07' })

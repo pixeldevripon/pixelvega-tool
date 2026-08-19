@@ -15,6 +15,7 @@ import { auth } from '@/auth/auth.instance';
 import { generateTempPassword } from '@/common/utils/password.util';
 import { paginate } from '@/common/utils/pagination.util';
 import { PaginationQueryDto } from '@/common/dto/pagination-query.dto';
+import { toUserResponse } from '@/users/user.mapper';
 import {
   ChangeOwnPasswordRequestDto,
   InviteUserRequestDto,
@@ -43,11 +44,11 @@ export class UsersService {
     private readonly auditLog: AuditLogService,
   ) {}
 
-  findAll(query: PaginationQueryDto) {
+  async findAll(query: PaginationQueryDto) {
     const { page = 1, pageSize = 20 } = query;
     const where = { deletedAt: null };
 
-    return paginate(
+    const result = await paginate(
       (args) =>
         this.prisma.user.findMany({
           where,
@@ -59,9 +60,25 @@ export class UsersService {
       page,
       pageSize,
     );
+
+    return { ...result, items: result.items.map(toUserResponse) };
   }
 
   async findOne(id: string) {
+    return toUserResponse(await this.getUserOrThrow(id));
+  }
+
+  /**
+   * The raw row, for the protection rules to compare against.
+   *
+   * Deliberately NOT `findOne`. Every `existing.role === Role.SYSTEM_ADMIN`
+   * check below compares against a Prisma enum, and `findOne` returns `role`
+   * as a display object. Routing the internal lookups through the mapped
+   * version turned every one of those comparisons into object-versus-string,
+   * which is silently false: the SYSTEM_ADMIN protections and the peer-ADMIN
+   * rule both stopped firing. Keep the two separate.
+   */
+  private async getUserOrThrow(id: string) {
     const user = await this.prisma.user.findFirst({
       where: { id, deletedAt: null },
       select: USER_SELECT,
@@ -78,7 +95,7 @@ export class UsersService {
     actorId: string,
     actorRole: Role,
   ) {
-    const existing = await this.findOne(id);
+    const existing = await this.getUserOrThrow(id);
 
     if (
       dto.role !== undefined &&
@@ -145,11 +162,11 @@ export class UsersService {
       await this.prisma.session.deleteMany({ where: { userId: id } });
     }
 
-    return user;
+    return toUserResponse(user);
   }
 
   async remove(id: string, actorId: string, actorRole: Role) {
-    const existing = await this.findOne(id);
+    const existing = await this.getUserOrThrow(id);
 
     if (existing.role === Role.SYSTEM_ADMIN) {
       throw new ForbiddenException(
@@ -227,7 +244,7 @@ export class UsersService {
     });
     await this.mail.sendInviteEmail(dto.email, dto.name, tempPassword);
 
-    return user;
+    return toUserResponse(user);
   }
 
   async changePassword(

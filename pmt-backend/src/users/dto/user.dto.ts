@@ -14,6 +14,7 @@ import {
   Min,
   MinLength,
 } from 'class-validator';
+import { EnumDisplayDto } from '@/common/dto/display.dto';
 
 /**
  * SYSTEM_ADMIN is excluded from both request DTOs below.
@@ -47,11 +48,11 @@ export class UserResponseDto {
   @ApiProperty({ example: 'Jabed Hossain' })
   name!: string;
 
-  @ApiProperty({ enum: Role, example: Role.DEVELOPER })
-  role!: Role;
+  @ApiProperty({ type: EnumDisplayDto })
+  role!: EnumDisplayDto;
 
-  @ApiProperty({ enum: UserStatus, example: UserStatus.ACTIVE })
-  status!: UserStatus;
+  @ApiProperty({ type: EnumDisplayDto })
+  status!: EnumDisplayDto;
 
   @ApiPropertyOptional({
     example: 'U08ABCDEF',
@@ -100,8 +101,8 @@ export class PaginatedUsersResponseDto {
 }
 
 export class MyPermissionsResponseDto {
-  @ApiProperty({ enum: Role, example: Role.PROJECT_MANAGER })
-  role!: Role;
+  @ApiProperty({ type: EnumDisplayDto })
+  role!: EnumDisplayDto;
 
   @ApiProperty({
     enum: Permission,

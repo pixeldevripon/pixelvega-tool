@@ -1,11 +1,13 @@
 import {
   Permission,
+  ProjectActivityType,
   ProjectPriority,
   ProjectStatus,
   ProjectType,
 } from '@prisma/client';
 
 import {
+  PROJECT_ACTIVITY_TYPE_DISPLAY,
   PROJECT_PRIORITY_DISPLAY,
   PROJECT_STATUS_DISPLAY,
   PROJECT_TYPE_DISPLAY,
@@ -160,5 +162,40 @@ export function toProjectResponse<T extends ProjectShape>(
     // be late, which is the distinction a raw date comparison in a client loses.
     isOverdue: daysLeft !== null && daysLeft < 0 && !isTerminal,
     capabilities: buildProjectCapabilities(project, context),
+  };
+}
+
+/**
+ * The CLIENT projection.
+ *
+ * Only the status and the type tags need mapping: everything a client is not
+ * shown was already excluded by `CLIENT_PROJECT_SELECT`, which is the security
+ * boundary. This function must never add a field back.
+ */
+export function toClientProjectResponse<
+  T extends {
+    status: ProjectStatus;
+    projectTypeTags?: Array<{ type: ProjectType }>;
+  },
+>(project: T) {
+  return {
+    ...project,
+    status: toEnumDisplay(PROJECT_STATUS_DISPLAY, project.status),
+    ...(project.projectTypeTags && {
+      projectTypeTags: project.projectTypeTags.map((tag) => ({
+        ...tag,
+        type: toEnumDisplay(PROJECT_TYPE_DISPLAY, tag.type),
+      })),
+    }),
+  };
+}
+
+/** One entry on the project timeline. */
+export function toProjectActivityResponse<
+  T extends { type: ProjectActivityType },
+>(activity: T) {
+  return {
+    ...activity,
+    type: toEnumDisplay(PROJECT_ACTIVITY_TYPE_DISPLAY, activity.type),
   };
 }

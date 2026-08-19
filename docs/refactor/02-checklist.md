@@ -265,8 +265,8 @@ One PR per module. Order: `users` and `profiles` first (smallest, proves the pat
 
 ### Per module, every time
 
-- [ ] `dto/<module>.dto.ts` with Response, then Query, then Request groups in that order
-- [ ] `@ApiProperty` with an `example` on every response field, `@ApiPropertyOptional` on optionals, required response fields marked `!`
+- [x] `dto/<module>.dto.ts` with Response, then Query, then Request groups in that order All 27 modules. 62 dto files became 27, matching the reference's one file per module.
+- [x] `@ApiProperty` with an `example` on every response field, `@ApiPropertyOptional` on optionals, required response fields marked `!` Verified by script: no response field lacks both an `example` and a `type`.
 - [x] `<module>.swagger.ts` with one `applyDecorators()` function per endpoint, and shared error sets composed once
 - [x] Move all 305 inline `@ApiResponse` decorators out of the 27 controllers
 - [x] Error responses typed from `@/common/dto/error-responses.dto` using `type:`, never `schema:`
@@ -281,7 +281,7 @@ One PR per module. Order: `users` and `profiles` first (smallest, proves the pat
 
 - [x] `ProjectResponseDto`
 - [x] `ClientProjectResponseDto`, so the client projection is a typed contract rather than a hand written `select`
-- [ ] Response DTOs for every remaining module
+- [x] Response DTOs for every remaining module Every module. Each also carries a mapper with a co-located spec.
 
 ### Module splits
 
@@ -318,15 +318,15 @@ endpoint. The suite green throughout.
 
 ### Display metadata
 
-- [ ] A status arrives as `{ value, label, tone }`, not a bare enum the client interprets
-- [ ] Priority likewise
+- [x] A status arrives as `{ value, label, tone }`, not a bare enum the client interprets Verified by script: zero raw enum fields remain in any response DTO.
+- [x] Priority likewise
 - [x] Fix the tone vocabulary as a small closed set, so the client's only job is mapping a tone name onto a class `DISPLAY_TONES` in `common/dto/display.dto.ts`, five tones, verified against `components/ui/badge.tsx`
 - [ ] Delete `formatEnumLabel()`, `getStatusTone()`, and `getPriorityTone()` from the frontend once the API supplies all three
 
 ### Capability flags
 
-- [ ] Every resource carries `canEdit`, `canArchive`, `canApprove`, `canDelete` as applicable
-- [ ] Computed server side from the caller's permissions and the project scope rules
+- [x] Every resource carries `canEdit`, `canArchive`, `canApprove`, `canDelete` as applicable Ten flags on a project, and per-resource sets on members, documents, time entries, work reports, blockers, requirements and leave.
+- [x] Computed server side from the caller's permissions and the project scope rules From `PermissionsService` (the same source the guard consults) plus `ProjectScopeService`, so a flag and the guard cannot disagree.
 - [ ] The frontend hides what the server says is not permitted, and never re-derives it from a role
 
 ### Validation surface (D5)

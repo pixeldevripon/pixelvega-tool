@@ -11,6 +11,8 @@ import {
   EmployeeWorkStatus,
   InternalReviewDecision,
   LeaveStatus,
+  NotificationType,
+  ProjectActivityType,
   ProjectDocumentFormat,
   ProjectDocumentType,
   ProjectPriority,
@@ -327,6 +329,278 @@ export const AI_TEMPLATE_KIND_DISPLAY: Record<
     tone: 'default',
   },
   [AiTemplateKind.STATUS_REPORT]: { label: 'Status report', tone: 'default' },
+};
+
+/**
+ * The project timeline vocabulary.
+ *
+ * Almost every entry is `default`, because a timeline is a log rather than a
+ * status board: toning every row would make none of them stand out. The
+ * exceptions are the events that changed the project's direction, which is
+ * what someone scanning a timeline is looking for.
+ */
+export const PROJECT_ACTIVITY_TYPE_DISPLAY: Record<
+  ProjectActivityType,
+  EnumDisplayEntry
+> = {
+  [ProjectActivityType.PROJECT_CREATED]: {
+    label: 'Project created',
+    tone: 'default',
+  },
+  [ProjectActivityType.PROJECT_DETAILS_UPDATED]: {
+    label: 'Project details updated',
+    tone: 'default',
+  },
+  [ProjectActivityType.STATUS_CHANGED]: {
+    label: 'Status changed',
+    tone: 'default',
+  },
+  [ProjectActivityType.PRIORITY_CHANGED]: {
+    label: 'Priority changed',
+    tone: 'default',
+  },
+  [ProjectActivityType.DEADLINE_CHANGED]: {
+    label: 'Deadline changed',
+    tone: 'default',
+  },
+  [ProjectActivityType.PROJECT_TYPES_CHANGED]: {
+    label: 'Project types changed',
+    tone: 'default',
+  },
+  [ProjectActivityType.MEMBER_JOINED]: {
+    label: 'Member joined',
+    tone: 'default',
+  },
+  [ProjectActivityType.MEMBER_LEFT]: { label: 'Member left', tone: 'default' },
+  [ProjectActivityType.DOCUMENT_ADDED]: {
+    label: 'Document added',
+    tone: 'default',
+  },
+  [ProjectActivityType.DOCUMENT_UPDATED]: {
+    label: 'Document updated',
+    tone: 'default',
+  },
+  [ProjectActivityType.DOCUMENT_REMOVED]: {
+    label: 'Document removed',
+    tone: 'default',
+  },
+  [ProjectActivityType.TIME_STARTED]: {
+    label: 'Time started',
+    tone: 'default',
+  },
+  [ProjectActivityType.TIME_PAUSED]: { label: 'Time paused', tone: 'default' },
+  [ProjectActivityType.TIME_RESUMED]: {
+    label: 'Time resumed',
+    tone: 'default',
+  },
+  [ProjectActivityType.TIME_STOPPED]: {
+    label: 'Time stopped',
+    tone: 'default',
+  },
+  [ProjectActivityType.TIME_AUTO_STOPPED]: {
+    label: 'Time auto stopped',
+    tone: 'warning',
+  },
+  [ProjectActivityType.ESTIMATED_HOURS_CHANGED]: {
+    label: 'Estimated hours changed',
+    tone: 'default',
+  },
+  [ProjectActivityType.ADDITIONAL_REQUIREMENT_ADDED]: {
+    label: 'Additional requirement added',
+    tone: 'default',
+  },
+  [ProjectActivityType.ADDITIONAL_REQUIREMENT_REVIEWED]: {
+    label: 'Additional requirement reviewed',
+    tone: 'default',
+  },
+  [ProjectActivityType.PROJECT_COMPLETED]: {
+    label: 'Project completed',
+    tone: 'success',
+  },
+  [ProjectActivityType.PROJECT_CANCELLED]: {
+    label: 'Project cancelled',
+    tone: 'danger',
+  },
+  [ProjectActivityType.PROJECT_ARCHIVED]: {
+    label: 'Project archived',
+    tone: 'warning',
+  },
+  [ProjectActivityType.PROJECT_RESTORED]: {
+    label: 'Project restored',
+    tone: 'primary',
+  },
+  [ProjectActivityType.PLAN_SUBMITTED]: {
+    label: 'Plan submitted',
+    tone: 'default',
+  },
+  [ProjectActivityType.PLAN_UPDATED]: {
+    label: 'Plan updated',
+    tone: 'default',
+  },
+  [ProjectActivityType.WRAP_UP_SUBMITTED]: {
+    label: 'Wrap up submitted',
+    tone: 'default',
+  },
+  [ProjectActivityType.WRAP_UP_UPDATED]: {
+    label: 'Wrap up updated',
+    tone: 'default',
+  },
+  [ProjectActivityType.WORK_REPORT_REVIEWED]: {
+    label: 'Work report reviewed',
+    tone: 'default',
+  },
+  [ProjectActivityType.BLOCKER_ADDED]: {
+    label: 'Blocker added',
+    tone: 'danger',
+  },
+  [ProjectActivityType.BLOCKER_STATUS_CHANGED]: {
+    label: 'Blocker status changed',
+    tone: 'warning',
+  },
+  [ProjectActivityType.BLOCKER_ASSIGNED]: {
+    label: 'Blocker assigned',
+    tone: 'default',
+  },
+  [ProjectActivityType.INTERNAL_FEEDBACK_RECEIVED]: {
+    label: 'Internal feedback received',
+    tone: 'primary',
+  },
+  [ProjectActivityType.CLIENT_FEEDBACK_RECEIVED]: {
+    label: 'Client feedback received',
+    tone: 'primary',
+  },
+  [ProjectActivityType.AI_STATUS_REPORT_GENERATED]: {
+    label: 'AI status report generated',
+    tone: 'default',
+  },
+};
+
+/**
+ * The notification vocabulary.
+ *
+ * Toned more heavily than the activity log, on purpose: a notification exists
+ * because someone needs to act, and the tone is how urgently.
+ */
+export const NOTIFICATION_TYPE_DISPLAY: Record<
+  NotificationType,
+  EnumDisplayEntry
+> = {
+  [NotificationType.PROJECT_CREATED]: {
+    label: 'Project created',
+    tone: 'default',
+  },
+  [NotificationType.MEMBER_ASSIGNED]: {
+    label: 'Member assigned',
+    tone: 'default',
+  },
+  [NotificationType.MEMBER_REMOVED]: {
+    label: 'Member removed',
+    tone: 'default',
+  },
+  [NotificationType.MEMBER_REASSIGNED]: {
+    label: 'Member reassigned',
+    tone: 'default',
+  },
+  [NotificationType.MEMBER_HANDOVER]: {
+    label: 'Member handover',
+    tone: 'default',
+  },
+  [NotificationType.PROJECT_STATUS_CHANGED]: {
+    label: 'Project status changed',
+    tone: 'default',
+  },
+  [NotificationType.PROJECT_ON_HOLD]: {
+    label: 'Project on hold',
+    tone: 'warning',
+  },
+  [NotificationType.PROJECT_CANCELLED]: {
+    label: 'Project cancelled',
+    tone: 'danger',
+  },
+  [NotificationType.PROJECT_PRIORITY_RAISED]: {
+    label: 'Project priority raised',
+    tone: 'warning',
+  },
+  [NotificationType.DOCUMENT_UPLOADED]: {
+    label: 'Document uploaded',
+    tone: 'default',
+  },
+  [NotificationType.BLOCKER_ASSIGNED]: {
+    label: 'Blocker assigned',
+    tone: 'danger',
+  },
+  [NotificationType.WORK_REPORT_COMMENTED]: {
+    label: 'Work report commented',
+    tone: 'default',
+  },
+  [NotificationType.STANDUP_MISSED]: {
+    label: 'Standup missed',
+    tone: 'warning',
+  },
+  [NotificationType.WRAP_UP_MISSED]: {
+    label: 'Wrap up missed',
+    tone: 'warning',
+  },
+  [NotificationType.DEADLINE_APPROACHING]: {
+    label: 'Deadline approaching',
+    tone: 'warning',
+  },
+  [NotificationType.INTERNAL_REVIEW_SUBMITTED]: {
+    label: 'Internal review submitted',
+    tone: 'primary',
+  },
+  [NotificationType.INTERNAL_REVIEW_CHANGES_REQUIRED]: {
+    label: 'Internal review changes required',
+    tone: 'warning',
+  },
+  [NotificationType.PROJECT_READY_FOR_CLIENT]: {
+    label: 'Project ready for client',
+    tone: 'primary',
+  },
+  [NotificationType.CLIENT_FEEDBACK_APPROVED]: {
+    label: 'Client feedback approved',
+    tone: 'success',
+  },
+  [NotificationType.CLIENT_FEEDBACK_CHANGES_REQUESTED]: {
+    label: 'Client feedback changes requested',
+    tone: 'warning',
+  },
+  [NotificationType.PROJECT_AUTO_COMPLETED]: {
+    label: 'Project auto completed',
+    tone: 'success',
+  },
+  [NotificationType.ADDITIONAL_REQUIREMENT_SUBMITTED]: {
+    label: 'Additional requirement submitted',
+    tone: 'default',
+  },
+  [NotificationType.ADDITIONAL_REQUIREMENT_FLAGGED_OUT_OF_SCOPE]: {
+    label: 'Additional requirement flagged out of scope',
+    tone: 'warning',
+  },
+  [NotificationType.ADDITIONAL_REQUIREMENT_APPROVED]: {
+    label: 'Additional requirement approved',
+    tone: 'success',
+  },
+  [NotificationType.ADDITIONAL_REQUIREMENT_REJECTED]: {
+    label: 'Additional requirement rejected',
+    tone: 'danger',
+  },
+  [NotificationType.ADDITIONAL_REQUIREMENT_HOURS_OR_DEADLINE_CHANGED]: {
+    label: 'Additional requirement hours or deadline changed',
+    tone: 'default',
+  },
+  [NotificationType.LEAVE_REQUEST_SUBMITTED]: {
+    label: 'Leave request submitted',
+    tone: 'default',
+  },
+  [NotificationType.LEAVE_REQUEST_APPROVED]: {
+    label: 'Leave request approved',
+    tone: 'success',
+  },
+  [NotificationType.LEAVE_REQUEST_REJECTED]: {
+    label: 'Leave request rejected',
+    tone: 'danger',
+  },
 };
 
 // ════════════════════════════════════════════════════════════════════════════

@@ -263,8 +263,8 @@ export class ProjectResponseDto {
 }
 
 export class ClientProjectTypeTagDto {
-  @ApiProperty({ enum: ProjectType, example: ProjectType.WORDPRESS })
-  type!: ProjectType;
+  @ApiProperty({ type: EnumDisplayDto })
+  type!: EnumDisplayDto;
 }
 
 /**
@@ -287,8 +287,8 @@ export class ClientProjectResponseDto {
   })
   description!: string | null;
 
-  @ApiProperty({ enum: ProjectStatus, example: ProjectStatus.IN_PROGRESS })
-  status!: ProjectStatus;
+  @ApiProperty({ type: EnumDisplayDto })
+  status!: EnumDisplayDto;
 
   @ApiPropertyOptional({ example: '2026-09-01T00:00:00.000Z', nullable: true })
   plannedStartDate!: Date | null;
@@ -334,11 +334,8 @@ export class ProjectActivityResponseDto {
   @ApiProperty({ example: '3fa85f64-5717-4562-b3fc-2c963f66afa6' })
   projectId!: string;
 
-  @ApiProperty({
-    enum: ProjectActivityType,
-    example: ProjectActivityType.STATUS_CHANGED,
-  })
-  type!: ProjectActivityType;
+  @ApiProperty({ type: EnumDisplayDto })
+  type!: EnumDisplayDto;
 
   @ApiPropertyOptional({
     example: 'Status changed from IN_PROGRESS to INTERNAL_REVIEW',

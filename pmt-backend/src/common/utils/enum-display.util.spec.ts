@@ -11,8 +11,10 @@ import {
   EmployeeWorkStatus,
   InternalReviewDecision,
   LeaveStatus,
+  NotificationType,
   ProjectDocumentFormat,
   ProjectDocumentType,
+  ProjectActivityType,
   ProjectPriority,
   ProjectRole,
   ProjectStatus,
@@ -28,6 +30,8 @@ import {
   AI_JOB_STATUS_DISPLAY,
   AI_JOB_TYPE_DISPLAY,
   AI_TEMPLATE_KIND_DISPLAY,
+  NOTIFICATION_TYPE_DISPLAY,
+  PROJECT_ACTIVITY_TYPE_DISPLAY,
   AVAILABILITY_STATUS_DISPLAY,
   BLOCKER_SEVERITY_DISPLAY,
   BLOCKER_STATUS_DISPLAY,
@@ -103,6 +107,8 @@ const MAPS: Array<
   ['AiJobStatus', AiJobStatus, AI_JOB_STATUS_DISPLAY],
   ['AiJobType', AiJobType, AI_JOB_TYPE_DISPLAY],
   ['AiTemplateKind', AiTemplateKind, AI_TEMPLATE_KIND_DISPLAY],
+  ['ProjectActivityType', ProjectActivityType, PROJECT_ACTIVITY_TYPE_DISPLAY],
+  ['NotificationType', NotificationType, NOTIFICATION_TYPE_DISPLAY],
 ];
 
 describe('enum display maps', () => {

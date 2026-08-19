@@ -4,6 +4,7 @@ import { PrismaService } from '@/prisma/prisma.service';
 import { CloudinaryService } from '@/uploads/cloudinary.service';
 import { AuditLogService } from '@/audit-log/audit-log.service';
 import { UpdateProfileRequestDto } from '@/profiles/dto/profile.dto';
+import { toProfileResponse } from '@/profiles/profile.mapper';
 
 const USER_WITH_PROFILE_SELECT = {
   id: true,
@@ -35,7 +36,7 @@ export class ProfilesService {
     if (!user) {
       throw new NotFoundException('User not found');
     }
-    return user;
+    return toProfileResponse(user);
   }
 
   async update(userId: string, role: Role, dto: UpdateProfileRequestDto) {

@@ -11,6 +11,10 @@ import { paginate } from '@/common/utils/pagination.util';
 import { SlackService } from '@/slack/slack.service';
 import { SlackUserResolverService } from '@/slack/slack-user-resolver.service';
 import { QueryNotificationsDto } from '@/notifications/dto/notification.dto';
+import {
+  NOTIFICATION_TYPE_DISPLAY,
+  toEnumDisplay,
+} from '@/common/utils/enum-display.util';
 
 export interface NotifyOptions {
   userId: string;
@@ -98,7 +102,7 @@ export class NotificationsService {
       ...(unreadOnly && { readAt: null }),
     };
 
-    return paginate(
+    const result = await paginate(
       (args) =>
         this.prisma.notification.findMany({
           where,
@@ -109,6 +113,14 @@ export class NotificationsService {
       page,
       pageSize,
     );
+
+    return {
+      ...result,
+      items: result.items.map((notification) => ({
+        ...notification,
+        type: toEnumDisplay(NOTIFICATION_TYPE_DISPLAY, notification.type),
+      })),
+    };
   }
 
   getUnreadCount(userId: string): Promise<number> {

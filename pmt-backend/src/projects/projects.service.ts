@@ -25,7 +25,12 @@ import { PaginationQueryDto } from '@/common/dto/pagination-query.dto';
 import { ProjectActivityService } from '@/project-activity/project-activity.service';
 import { ProjectScopeService } from '@/project-scope/project-scope.service';
 import { PermissionsService } from '@/auth/permissions.service';
-import { ProjectContext, toProjectResponse } from '@/projects/project.mapper';
+import {
+  ProjectContext,
+  toClientProjectResponse,
+  toProjectActivityResponse,
+  toProjectResponse,
+} from '@/projects/project.mapper';
 import { RECOMMENDED_MAX_ACTIVE_PROJECTS } from './workload.constants';
 import {
   ConnectSlackChannelDto,
@@ -357,7 +362,7 @@ export class ProjectsService {
       if (!project) {
         throw new NotFoundException('Project not found');
       }
-      return project;
+      return toClientProjectResponse(project);
     }
 
     const project = await this.prisma.project.findUnique({
@@ -389,7 +394,7 @@ export class ProjectsService {
     const { page = 1, pageSize = 20 } = query;
     const where = { projectId: id };
 
-    return paginate(
+    const result = await paginate(
       (args) =>
         this.prisma.projectActivity.findMany({
           where,
@@ -401,6 +406,11 @@ export class ProjectsService {
       page,
       pageSize,
     );
+
+    return {
+      ...result,
+      items: result.items.map(toProjectActivityResponse),
+    };
   }
 
   // The Developer/Designer Dashboard (staff) and "my projects" (CLIENT) in
@@ -409,7 +419,7 @@ export class ProjectsService {
     if (actorRole === Role.CLIENT) {
       const { page = 1, pageSize = 20 } = query;
       const where = { clientId: actorId };
-      return paginate(
+      const clientResult = await paginate(
         (args) =>
           this.prisma.project.findMany({
             where,
@@ -421,6 +431,10 @@ export class ProjectsService {
         page,
         pageSize,
       );
+      return {
+        ...clientResult,
+        items: clientResult.items.map(toClientProjectResponse),
+      };
     }
 
     // PROJECT_MANAGER/DEVELOPER/DESIGNER (and ADMIN/SYSTEM_ADMIN, who will
