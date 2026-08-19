@@ -1,0 +1,26 @@
+// prisma/notifications.prisma
+//
+// Per recipient in app notifications.
+
+// One row per recipient, unlike ProjectActivity (one row per project event,
+// read by everyone with access). A notification is inherently per person,
+// a PM's unread count is never the same number as their developer's, so
+// the same event legitimately produces multiple rows here. Never deleted,
+// same convention as ProjectActivity/AuditLog, readAt is the only
+// lifecycle state a row ever gets. Always self scoped on read, a user only
+// ever sees their own rows, no staff role sees anyone else's.
+model Notification {
+  id       String           @id @default(uuid())
+  userId   String
+  user     User             @relation(fields: [userId], references: [id])
+  type     NotificationType
+  title    String
+  message  String?
+  metadata Json? // projectId, blockerId, whatever the frontend needs to deep link
+  readAt   DateTime? // null = unread
+
+  createdAt DateTime @default(now())
+
+  @@index([userId])
+  @@index([userId, readAt])
+}

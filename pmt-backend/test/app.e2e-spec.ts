@@ -65,9 +65,15 @@ describe('Global request pipeline (e2e)', () => {
   });
 
   describe('unknown routes', () => {
-    it('returns 404', async () => {
+    it('returns 404 through the global exception filter', async () => {
       const res = await request(app.getHttpServer()).get('/api/does-not-exist');
       expect(res.status).toBe(404);
+      // The filter's stable envelope, so a client never has to branch on
+      // which layer produced the error.
+      expect(res.body).toHaveProperty('statusCode', 404);
+      expect(res.body).toHaveProperty('timestamp');
+      expect(res.body).toHaveProperty('path', '/api/does-not-exist');
+      expect(res.body).toHaveProperty('message');
     });
   });
 });

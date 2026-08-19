@@ -1,0 +1,76 @@
+// prisma/blockers.prisma
+//
+// Real time blockers and their PM managed reasons.
+
+// Reference data managed by Admin/PM, using the same soft delete pattern as
+// User.deletedAt. A reason can be soft deleted after it's been used.
+// Existing blockers keep referencing it (still readable); it just drops out
+// of the picker for new blockers. The seeded "Unspecified" row is the
+// fallback BlockerService assigns when a blocker is reported without an
+// explicit reasonId, and is identified by name, not a dedicated column,
+// since name is the only field here, so it's protected from rename and
+// delete in BlockerReasonsService to keep that fallback working.
+// Uniqueness on `name` is enforced by a partial unique index
+// (WHERE deletedAt IS NULL) created directly in the migration SQL rather
+// than a `@unique` here, since Prisma's schema DSL can't express a partial
+// index. This is intentionally unmanaged by `prisma migrate diff`, matching
+// this project's hand written migration workflow.
+model BlockerReason {
+  id        String    @id @default(uuid())
+  name      String
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  deletedAt DateTime?
+
+  blockers Blocker[]
+}
+
+
+// This is completely independent of DailyWorkReport/DailyProjectEntry. It
+// can be reported and resolved anytime, can span however many days it
+// takes, and isn't scoped to a calendar date. Once RESOLVED it's locked and
+// read only, the same terminal state convention as Project's
+// COMPLETED/CANCELLED statuses. resolutionTime/daysOpen/
+// causedDeadlineExtension are derived on read, not stored.
+model Blocker {
+  id          String          @id @default(uuid())
+  projectId   String
+  project     Project         @relation(fields: [projectId], references: [id])
+  description String
+  status      BlockerStatus   @default(OPEN)
+  severity    BlockerSeverity @default(MEDIUM)
+
+  reasonId String
+  reason   BlockerReason @relation(fields: [reasonId], references: [id])
+
+  reportedById String
+  reportedBy   User   @relation("BlockerReportedBy", fields: [reportedById], references: [id])
+
+  // Who is currently working the blocker. This is distinct from
+  // reportedBy/resolvedBy, since ownership can change hands: the reporter
+  // opens it, someone else takes it IN_PROGRESS, and a third person
+  // resolves it.
+  assignedToId String?
+  assignedTo   User?     @relation("BlockerAssignedTo", fields: [assignedToId], references: [id])
+  assignedAt   DateTime?
+
+  resolvedById    String?
+  resolvedBy      User?     @relation("BlockerResolvedBy", fields: [resolvedById], references: [id])
+  resolvedAt      DateTime?
+  resolutionNotes String?
+
+  // Additive on top of Project.deadline when set on resolve, the same
+  // pattern as AdditionalRequirement.deadlineExtensionDays. It is never an
+  // absolute override.
+  deadlineExtensionDays Int?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([projectId])
+  @@index([status])
+  @@index([severity])
+  @@index([createdAt])
+  @@index([reasonId])
+  @@index([assignedToId])
+}

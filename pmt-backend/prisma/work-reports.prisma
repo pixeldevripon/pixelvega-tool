@@ -1,0 +1,72 @@
+// prisma/work-reports.prisma
+//
+// Daily plan and wrap up reporting.
+
+// One row per (user, date), covering the day's plan then wrap up lifecycle,
+// spanning however many projects that person touches that day. Plan is
+// mandatory: submitWrapUp() rejects with 409 unless status is already
+// PLAN_SUBMITTED, so a developer can never wrap up a day they never
+// planned. Plan is editable anytime up to wrap up submission (a lock based
+// on state, with no time limit); wrap up is editable for a fixed 2 hour
+// window after wrapUpSubmittedAt (a lock based on time).
+model DailyWorkReport {
+  id     String @id @default(uuid())
+  userId String
+  user   User   @relation("WorkReportAuthor", fields: [userId], references: [id])
+  date   DateTime @db.Date
+
+  status DailyWorkReportStatus @default(PLAN_SUBMITTED)
+
+  planSubmittedAt   DateTime?
+  wrapUpSubmittedAt DateTime?
+
+  // ts of the one combined plan/wrap up message posted to
+  // SLACK_DAILY_FEED_CHANNEL_ID for this report. One message per report,
+  // covering every project entry at once, not one per project (that's what
+  // planProjectSlackTs/wrapUpProjectSlackTs on each entry below are for).
+  planFeedSlackTs   String?
+  wrapUpFeedSlackTs String?
+
+  entries DailyProjectEntry[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([userId, date])
+  @@index([userId])
+  @@index([date])
+}
+
+
+// One row per project touched on a given day's report. A row can exist with
+// only `plan` set (planned but not yet wrapped up) or with both `plan` and
+// `accomplishments` set (wrapped up). A row can also be created at wrap up
+// time with `plan` left null though, for a project added at wrap up that
+// wasn't part of the morning plan. That's allowed; only the report as a
+// whole requires a plan to exist first, not every individual project entry.
+model DailyProjectEntry {
+  id                String          @id @default(uuid())
+  dailyWorkReportId String
+  dailyWorkReport   DailyWorkReport @relation(fields: [dailyWorkReportId], references: [id])
+  projectId         String
+  project           Project         @relation(fields: [projectId], references: [id])
+
+  plan            String?
+  accomplishments String?
+
+  planProjectSlackTs   String? // ts of the plan message posted to the project's Slack channel
+  wrapUpProjectSlackTs String? // ts of the wrap up message posted to the project's Slack channel
+  // The combined ts for the feed channel lives on DailyWorkReport instead,
+  // not here: one message per report covering all projects, not one per entry.
+
+  reviewedById  String?
+  reviewedBy    User?     @relation("ProjectEntryReviewer", fields: [reviewedById], references: [id])
+  reviewedAt    DateTime?
+  reviewComment String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([dailyWorkReportId, projectId])
+  @@index([projectId])
+}

@@ -1,0 +1,293 @@
+// prisma/enums.prisma
+//
+// Every enum in the schema. Kept together, matching the reference backend.
+
+enum UserStatus {
+  INVITED
+  ACTIVE
+  SUSPENDED
+}
+
+
+enum Role {
+  SYSTEM_ADMIN
+  ADMIN
+  PROJECT_MANAGER
+  DEVELOPER
+  DESIGNER
+  CLIENT
+}
+
+
+enum EmployeeWorkStatus {
+  WORKING
+  ON_LEAVE
+}
+
+
+enum AvailabilityStatus {
+  AVAILABLE
+  BUSY
+  UNAVAILABLE
+}
+
+
+enum LeaveStatus {
+  PENDING
+  APPROVED
+  REJECTED
+  CANCELLED
+}
+
+
+// ---------------------------------------------------------------------------
+// Project management
+// ---------------------------------------------------------------------------
+
+enum ProjectStatus {
+  PLANNING
+  SCHEDULED
+  READY_FOR_WORK
+  IN_PROGRESS
+  ON_HOLD
+  INTERNAL_REVIEW
+  READY_FOR_CLIENT
+  WAITING_FOR_FEEDBACK
+  COMPLETED
+  CANCELLED
+}
+
+
+enum ProjectPriority {
+  LOW
+  MEDIUM
+  HIGH
+  URGENT
+  CRITICAL
+}
+
+
+enum ProjectType {
+  WORDPRESS
+  WEBFLOW
+  WIX
+  FRAMER
+  FIGMA
+  MERN_STACK
+  SEO
+}
+
+
+// Mirrors the staff subset of Role one to one (PROJECT_MANAGER/DEVELOPER/
+// DESIGNER). A ProjectMember's role must match the user's actual global
+// Role, enforced in ProjectMembersService's ALLOWED_GLOBAL_ROLES map. Kept
+// as its own enum, rather than reusing Role directly, since a project team
+// slot is a narrower concept scoped to a project, unlike the global Role
+// column.
+enum ProjectRole {
+  PROJECT_MANAGER
+  DEVELOPER
+  DESIGNER
+}
+
+
+// Scoped to activity types the app can actually produce today. Extend this
+// enum as documents, time tracking, standups, etc. land.
+enum ProjectActivityType {
+  PROJECT_CREATED
+  PROJECT_DETAILS_UPDATED
+  STATUS_CHANGED
+  PRIORITY_CHANGED
+  DEADLINE_CHANGED
+  PROJECT_TYPES_CHANGED
+  MEMBER_JOINED
+  MEMBER_LEFT
+  DOCUMENT_ADDED
+  DOCUMENT_UPDATED
+  DOCUMENT_REMOVED
+  TIME_STARTED
+  TIME_PAUSED
+  TIME_RESUMED
+  TIME_STOPPED
+  TIME_AUTO_STOPPED
+  ESTIMATED_HOURS_CHANGED
+  ADDITIONAL_REQUIREMENT_ADDED
+  ADDITIONAL_REQUIREMENT_REVIEWED
+  PROJECT_COMPLETED
+  PROJECT_CANCELLED
+  PROJECT_ARCHIVED
+  PROJECT_RESTORED
+  PLAN_SUBMITTED
+  PLAN_UPDATED
+  WRAP_UP_SUBMITTED
+  WRAP_UP_UPDATED
+  WORK_REPORT_REVIEWED
+  BLOCKER_ADDED
+  BLOCKER_STATUS_CHANGED
+  BLOCKER_ASSIGNED
+  INTERNAL_FEEDBACK_RECEIVED
+  CLIENT_FEEDBACK_RECEIVED
+  AI_STATUS_REPORT_GENERATED
+}
+
+
+// A project document is either typed text (e.g. a Credential, a quick note)
+// or an uploaded file, never both. Only Admin/System Admin/Project Manager
+// ever create, edit, or delete these. Developer/Designer are read only via
+// the same active ProjectMember scoping as the rest of this module, and
+// Client is restricted to DELIVERABLE type rows only, enforced in the
+// service layer.
+enum ProjectDocumentType {
+  PRD
+  REQUIREMENT
+  MEETING_NOTE
+  CREDENTIAL
+  ASSET
+  DELIVERABLE
+}
+
+
+enum ProjectDocumentFormat {
+  TEXT // credentials, quick notes, typed directly with no file
+  FILE // pdf, docx, image, zip, etc.
+}
+
+
+enum TimeEntryStatus {
+  RUNNING
+  PAUSED
+  STOPPED
+}
+
+
+enum AdditionalRequirementStatus {
+  PENDING_REVIEW
+  APPROVED
+  REJECTED
+}
+
+
+// ---------------------------------------------------------------------------
+// Daily work reports (standup plan plus wrap up)
+// ---------------------------------------------------------------------------
+
+// DRAFT is unused in practice today. create() goes straight to
+// PLAN_SUBMITTED, since submitting a plan is what creates the row at all.
+// Kept as the enum's first value for forward compatibility (e.g. a future
+// "save without submitting" flow) rather than removed.
+enum DailyWorkReportStatus {
+  DRAFT
+  PLAN_SUBMITTED
+  COMPLETED
+}
+
+
+// ---------------------------------------------------------------------------
+// Real time blockers (independent of daily work reports)
+// ---------------------------------------------------------------------------
+
+enum BlockerStatus {
+  OPEN
+  IN_PROGRESS
+  RESOLVED
+}
+
+
+enum BlockerSeverity {
+  LOW
+  MEDIUM
+  HIGH
+}
+
+
+// ---------------------------------------------------------------------------
+// Internal review (QA gate before a project reaches the client)
+// ---------------------------------------------------------------------------
+
+enum InternalReviewDecision {
+  APPROVED
+  CHANGES_REQUIRED
+}
+
+
+// ---------------------------------------------------------------------------
+// Client feedback (client-facing counterpart to internal review)
+// ---------------------------------------------------------------------------
+
+enum ClientFeedbackDecision {
+  APPROVED
+  CHANGES_REQUESTED
+}
+
+
+// ---------------------------------------------------------------------------
+// AI integration (scope checker, project summary, AI status report)
+// ---------------------------------------------------------------------------
+
+enum AiJobType {
+  CHECK_SCOPE
+  GENERATE_STATUS_REPORT
+}
+
+
+enum AiJobStatus {
+  QUEUED
+  PROCESSING
+  COMPLETED
+  FAILED
+}
+
+
+enum AiTemplateKind {
+  PROJECT_SUMMARY
+  STATUS_REPORT
+}
+
+
+enum StatusReportType {
+  STATUS_UPDATE
+}
+
+
+// ---------------------------------------------------------------------------
+// Notifications
+// ---------------------------------------------------------------------------
+
+// One value per distinct event, never a generic bucket, see
+// docs/features/notifications/DESIGN.md: "assigned to a new project" and
+// "new requirement added to an existing project" must stay two separate
+// types, for example, even though both could be described as "project
+// updated." Who receives a given type is a recipient rule resolved by
+// whichever service fires it, not baked into the type itself, the same
+// event fans out into one row per recipient below.
+enum NotificationType {
+  PROJECT_CREATED
+  MEMBER_ASSIGNED
+  MEMBER_REMOVED
+  MEMBER_REASSIGNED
+  MEMBER_HANDOVER
+  PROJECT_STATUS_CHANGED
+  PROJECT_ON_HOLD
+  PROJECT_CANCELLED
+  PROJECT_PRIORITY_RAISED
+  DOCUMENT_UPLOADED
+  BLOCKER_ASSIGNED
+  WORK_REPORT_COMMENTED
+  STANDUP_MISSED
+  WRAP_UP_MISSED
+  DEADLINE_APPROACHING
+  INTERNAL_REVIEW_SUBMITTED
+  INTERNAL_REVIEW_CHANGES_REQUIRED
+  PROJECT_READY_FOR_CLIENT
+  CLIENT_FEEDBACK_APPROVED
+  CLIENT_FEEDBACK_CHANGES_REQUESTED
+  PROJECT_AUTO_COMPLETED
+  ADDITIONAL_REQUIREMENT_SUBMITTED
+  ADDITIONAL_REQUIREMENT_FLAGGED_OUT_OF_SCOPE
+  ADDITIONAL_REQUIREMENT_APPROVED
+  ADDITIONAL_REQUIREMENT_REJECTED
+  ADDITIONAL_REQUIREMENT_HOURS_OR_DEADLINE_CHANGED
+  LEAVE_REQUEST_SUBMITTED
+  LEAVE_REQUEST_APPROVED
+  LEAVE_REQUEST_REJECTED
+}

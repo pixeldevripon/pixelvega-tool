@@ -1,0 +1,99 @@
+// prisma/reviews.prisma
+//
+// Additional requirements, internal review and client feedback.
+
+// A requirement received outside the normal project scope (e.g. by email, a
+// client phone call, or a marketplace platform like Upwork/Fiverr), logged
+// here so a Project Manager can decide whether to fold it into the project.
+// Approving one is additive on top of the project's current
+// estimatedHours/deadline, never an absolute override.
+// aiScopeAnalysis is reserved for an automatic comparison of whether this
+// falls in or out of scope against the project's existing requirement
+// documents. Not built yet, same as hour estimation assisted by AI on
+// Project.estimatedHours.
+model AdditionalRequirement {
+  id              String                      @id @default(uuid())
+  projectId       String
+  project         Project                     @relation(fields: [projectId], references: [id])
+  description     String
+  sourceChannel   String? // "email", "upwork", "fiverr", "direct", free text
+  aiScopeAnalysis Json?
+  status          AdditionalRequirementStatus @default(PENDING_REVIEW)
+
+  uploadedById String
+  uploadedBy   User    @relation("AdditionalReqUploader", fields: [uploadedById], references: [id])
+  reviewedById String?
+  reviewedBy   User?   @relation("AdditionalReqReviewer", fields: [reviewedById], references: [id])
+  reviewedAt   DateTime?
+
+  // Both additive, applied on top of the project's current values when
+  // approved. Only meaningful when status is APPROVED.
+  approvedAdditionalHours Float?
+  deadlineExtensionDays   Int?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([projectId])
+  @@index([status])
+}
+
+
+// A Developer/Designer moves a project IN_PROGRESS -> INTERNAL_REVIEW once
+// their work is ready. A Project Manager then reviews it here: APPROVED
+// moves the project to READY_FOR_CLIENT, CHANGES_REQUIRED moves it back to
+// READY_FOR_WORK. Rounds accumulate, never overwritten, the same pattern
+// ClientFeedback will use later. reviewRound is unique per project, so the
+// full history reads in order.
+model ProjectInternalReview {
+  id        String  @id @default(uuid())
+  projectId String
+  project   Project @relation(fields: [projectId], references: [id])
+
+  reviewedById String
+  reviewedBy   User   @relation("ProjectInternalReviewReviewer", fields: [reviewedById], references: [id])
+
+  decision    InternalReviewDecision
+  comments    String?
+  reviewRound Int
+
+  createdAt DateTime @default(now())
+
+  @@unique([projectId, reviewRound])
+  @@index([projectId])
+}
+
+
+// A round of client review. Only the first round for a project (created
+// while status is WAITING_FOR_FEEDBACK) drives the project's status —
+// APPROVED to COMPLETED, CHANGES_REQUESTED to READY_FOR_WORK, in
+// ClientFeedbackService.create(). Every later round is accepted regardless
+// of the project's current status (blocked only once COMPLETED/CANCELLED)
+// and is commentary-only: it never moves the project again, so a developer
+// actively IN_PROGRESS on the first round's decision is never interrupted
+// by later client input. clientId is always the project's own assigned
+// client (Project.clientId), even when a Project Manager records feedback
+// the Client gave outside the system (email, phone, a marketplace platform)
+// — recordedById is what distinguishes self-submitted (NULL) from
+// PM-recorded. Rows accumulate and are never overwritten, the same pattern
+// as ProjectInternalReview above.
+model ClientFeedback {
+  id        String  @id @default(uuid())
+  projectId String
+  project   Project @relation(fields: [projectId], references: [id])
+
+  clientId String
+  client   User   @relation("ClientFeedbackClient", fields: [clientId], references: [id])
+
+  recordedById String?
+  recordedBy   User?   @relation("ClientFeedbackRecordedBy", fields: [recordedById], references: [id])
+
+  decision      ClientFeedbackDecision
+  comments      String?
+  feedbackRound Int
+
+  createdAt DateTime @default(now())
+
+  @@unique([projectId, feedbackRound])
+  @@index([projectId])
+}

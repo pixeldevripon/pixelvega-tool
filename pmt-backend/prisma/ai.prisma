@@ -1,0 +1,86 @@
+// prisma/ai.prisma
+//
+// Queued AI jobs, prompt templates and saved status reports.
+
+// One row per queued piece of work across both async AI features (the scope
+// checker and status report generation). Not used by the project summary,
+// which stays a plain synchronous call. Created at QUEUED, updated by the
+// processor to PROCESSING then COMPLETED/FAILED. resultRefId points at
+// whatever the job actually produced (an AdditionalRequirement for a scope
+// check, a ProjectStatusReport for a status report), not a foreign key
+// since it can reference either table.
+model AiJob {
+  id            String      @id @default(uuid())
+  type          AiJobType
+  status        AiJobStatus @default(QUEUED)
+  projectId     String?
+  project       Project?    @relation(fields: [projectId], references: [id])
+  requestedById String?
+  requestedBy   User?       @relation(fields: [requestedById], references: [id])
+
+  input        Json // whatever the job needs: period, requirementId, etc.
+  resultRefId  String?
+  errorMessage String?
+
+  startedAt  DateTime?
+  finishedAt DateTime?
+  createdAt  DateTime  @default(now())
+
+  @@index([projectId])
+  @@index([type, status])
+}
+
+
+// Reference data, managed the same way LeaveType/Holiday already are:
+// Admin writes, every staff role reads. content is a structural outline,
+// not the generated output itself, it goes directly into the system
+// prompt as the required section structure. Exactly one row per kind can
+// have isDefault true at a time, enforced by a partial unique index below
+// (Prisma's schema DSL cannot express a partial index directly), the same
+// approach BlockerReason uses for name uniqueness over non deleted rows.
+model AiTemplate {
+  id          String         @id @default(uuid())
+  kind        AiTemplateKind
+  name        String
+  content     String // a structural outline for the summary or status report
+  isDefault   Boolean        @default(false)
+  createdById String
+  createdBy   User           @relation(fields: [createdById], references: [id])
+  statusReports ProjectStatusReport[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([kind])
+}
+
+
+// A fuller, saved version of the project summary (Feature 2), meant to be
+// handed to a client or to leadership. A separate table from ProjectDocument
+// on purpose, this has its own metadata (a period, a report type) that does
+// not belong on the generic document model. Append only, the same pattern
+// as ProjectMember/TimeEntry: regenerating one for the same period creates
+// a new row rather than overwriting the last, so the full history survives.
+// templateId is nullable only because a kind could theoretically have no
+// current default at generation time (see AiTemplatesService.remove()'s
+// own note on that gap), not because it is ever optional in the normal path.
+model ProjectStatusReport {
+  id            String   @id @default(uuid())
+  projectId     String
+  project       Project  @relation(fields: [projectId], references: [id])
+  requestedById String
+  requestedBy   User     @relation(fields: [requestedById], references: [id])
+
+  reportType  StatusReportType @default(STATUS_UPDATE)
+  content     String // markdown
+  periodStart DateTime
+  periodEnd   DateTime
+  model       String
+
+  templateId String?
+  template   AiTemplate? @relation(fields: [templateId], references: [id])
+
+  createdAt DateTime @default(now())
+
+  @@index([projectId])
+}

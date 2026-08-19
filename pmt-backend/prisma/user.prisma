@@ -1,0 +1,161 @@
+// prisma/user.prisma
+//
+// Better Auth identity plus the two 1:1 profile extensions.
+
+model User {
+  id                String     @id @default(uuid())
+  email             String     @unique
+  emailVerified     Boolean    @default(false)
+  password          String? // managed by better-auth via Account, not used directly
+  name              String
+  avatarUrl         String?
+  avatarPublicId    String? // Cloudinary public_id, used to delete the old asset on replace
+  slackUserId       String? // cached from users.lookupByEmail on first successful resolution
+  role              Role       @default(DEVELOPER)
+  status            UserStatus @default(INVITED)
+  mustResetPassword Boolean    @default(true)
+
+  createdById  String?
+  createdBy    User?   @relation("UserInvites", fields: [createdById], references: [id])
+  invitedUsers User[]  @relation("UserInvites")
+
+  sessions           Session[]
+  accounts           Account[]
+  resetCodes         PasswordResetCode[]
+  auditLogs          AuditLog[]
+  employeeProfile    EmployeeProfile?
+  clientProfile      ClientProfile?
+  leaveRequests      LeaveRequest[]      @relation("LeaveRequestRequester")
+  reviewedLeaves     LeaveRequest[]      @relation("LeaveRequestReviewer")
+  leaveBalances      LeaveBalance[]
+  projectsAsClient   Project[]           @relation("ProjectClient")
+  projectsCreated    Project[]           @relation("ProjectCreatedBy")
+  projectActivities  ProjectActivity[]
+  projectMemberships ProjectMember[]
+  uploadedDocuments  ProjectDocument[]
+  timeEntries        TimeEntry[]
+  meetingTimeEntries MeetingTimeEntry[]
+  uploadedAdditionalRequirements AdditionalRequirement[] @relation("AdditionalReqUploader")
+  reviewedAdditionalRequirements AdditionalRequirement[] @relation("AdditionalReqReviewer")
+  dailyWorkReports               DailyWorkReport[]       @relation("WorkReportAuthor")
+  reviewedProjectEntries         DailyProjectEntry[]      @relation("ProjectEntryReviewer")
+  reportedBlockers               Blocker[]               @relation("BlockerReportedBy")
+  resolvedBlockers               Blocker[]               @relation("BlockerResolvedBy")
+  assignedBlockers               Blocker[]               @relation("BlockerAssignedTo")
+  internalReviewsGiven           ProjectInternalReview[]  @relation("ProjectInternalReviewReviewer")
+  clientFeedbackGiven            ClientFeedback[]         @relation("ClientFeedbackClient")
+  clientFeedbackRecorded         ClientFeedback[]         @relation("ClientFeedbackRecordedBy")
+  requestedAiJobs                AiJob[]
+  createdAiTemplates             AiTemplate[]
+  requestedStatusReports         ProjectStatusReport[]
+  notifications                  Notification[]
+
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  deletedAt DateTime?
+
+  @@index([role])
+  @@index([status])
+}
+
+
+// One per User with role ADMIN | PROJECT_MANAGER | DEVELOPER | DESIGNER, created at invite time.
+model EmployeeProfile {
+  id     String @id @default(uuid())
+  userId String @unique
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  designation        String?
+  phone              String?
+  timezone           String?
+  bio                String?
+  currentStatus      EmployeeWorkStatus @default(WORKING)
+  availabilityStatus AvailabilityStatus @default(AVAILABLE)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+
+// One per User with role CLIENT, created at invite or account creation time.
+model ClientProfile {
+  id     String @id @default(uuid())
+  userId String @unique
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  companyName  String?
+  billingEmail String?
+  phone        String?
+  timezone     String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+
+// Session, Account, Verification below are the tables better-auth needs.
+// Run `npx auth@latest generate --config src/auth/auth.instance.ts` to have
+// better-auth generate or confirm the exact shape of these three models.
+// Do not write their fields by hand; use the CLI output and paste it in here.
+model Session {
+  id        String   @id
+  expiresAt DateTime
+  token     String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  ipAddress String?
+  userAgent String?
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([token])
+  @@index([userId])
+  @@map("session")
+}
+
+
+model Account {
+  id                    String    @id
+  accountId             String
+  providerId            String
+  userId                String
+  user                  User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  accessToken           String?
+  refreshToken          String?
+  idToken               String?
+  accessTokenExpiresAt  DateTime?
+  refreshTokenExpiresAt DateTime?
+  scope                 String?
+  password              String?
+  createdAt             DateTime  @default(now())
+  updatedAt             DateTime  @updatedAt
+
+  @@index([userId])
+  @@map("account")
+}
+
+
+model Verification {
+  id         String   @id
+  identifier String
+  value      String
+  expiresAt  DateTime
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  @@index([identifier])
+  @@map("verification")
+}
+
+
+model PasswordResetCode {
+  id        String    @id @default(uuid())
+  userId    String
+  user      User      @relation(fields: [userId], references: [id])
+  codeHash  String
+  expiresAt DateTime
+  usedAt    DateTime?
+  createdAt DateTime  @default(now())
+
+  @@index([userId])
+}

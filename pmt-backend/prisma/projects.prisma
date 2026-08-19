@@ -1,0 +1,112 @@
+// prisma/projects.prisma
+//
+// The core project entity, its staffing history, type tags and activity log.
+
+model Project {
+  id          String          @id @default(uuid())
+  name        String
+  description String?
+  status      ProjectStatus   @default(PLANNING)
+  priority    ProjectPriority @default(MEDIUM)
+  rushReason  String? // required when priority is set to URGENT or CRITICAL, enforced in service layer
+
+  clientId    String
+  client      User   @relation("ProjectClient", fields: [clientId], references: [id])
+  createdById String
+  createdBy   User   @relation("ProjectCreatedBy", fields: [createdById], references: [id])
+
+  plannedStartDate DateTime?
+  deadline         DateTime?
+  completedAt      DateTime?
+
+  onHoldReason       String?
+  cancellationReason String?
+  archivedAt         DateTime? // independent of status, a COMPLETED or CANCELLED project can both be archived
+
+  estimatedHours Float? // manually set by PM/Admin (or assisted by AI later), no estimate by default
+  actualHours    Float  @default(0) // recalculated as sum(durationMinutes)/60 across ended TimeEntry rows whenever a segment ends. remainingHours is derived on read (estimatedHours - actualHours), never stored
+
+  slackChannelId String? // set once the private Slack channel is created; null until then / if creation failed
+
+  projectTypeTags        ProjectTypeTag[]
+  activities             ProjectActivity[]
+  members                ProjectMember[]
+  documents              ProjectDocument[]
+  timeEntries            TimeEntry[]
+  additionalRequirements AdditionalRequirement[]
+  dailyProjectEntries    DailyProjectEntry[]
+  blockers               Blocker[]
+  internalReviews        ProjectInternalReview[]
+  clientFeedback         ClientFeedback[]
+  aiJobs                 AiJob[]
+  statusReports          ProjectStatusReport[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([status])
+  @@index([priority])
+  @@index([clientId])
+}
+
+
+// One row per membership stint. Adding a member always creates a new row;
+// removing sets leftAt rather than deleting. Full history survives, and a
+// user rejoining later gets a brand new row, not a reactivated old one.
+// Only rows with leftAt = NULL count as active.
+model ProjectMember {
+  id        String      @id @default(uuid())
+  projectId String
+  project   Project     @relation(fields: [projectId], references: [id])
+  userId    String
+  user      User        @relation(fields: [userId], references: [id])
+  role      ProjectRole
+
+  joinedAt DateTime  @default(now())
+  leftAt   DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([projectId])
+  @@index([userId])
+  @@index([role])
+  @@index([leftAt])
+  @@index([projectId, leftAt])
+}
+
+
+model ProjectTypeTag {
+  id        String      @id @default(uuid())
+  projectId String
+  project   Project     @relation(fields: [projectId], references: [id])
+  type      ProjectType
+
+  createdAt DateTime @default(now())
+
+  @@unique([projectId, type]) // a project can't be tagged the same type twice
+  @@index([projectId])
+}
+
+
+// An immutable, typed timeline: the project's historical record. Never
+// updated or deleted once written. Distinct from the generic AuditLog,
+// which covers identity, leave, and system level events instead.
+model ProjectActivity {
+  id        String  @id @default(uuid())
+  projectId String
+  project   Project @relation(fields: [projectId], references: [id])
+  userId    String?
+  user      User?   @relation(fields: [userId], references: [id])
+
+  type ProjectActivityType
+
+  message  String?
+  metadata Json?
+
+  createdAt DateTime @default(now())
+
+  @@index([projectId])
+  @@index([projectId, createdAt])
+  @@index([type])
+}
