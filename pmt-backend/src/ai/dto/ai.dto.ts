@@ -5,10 +5,13 @@ import {
   IsNotEmpty,
   IsOptional,
   IsString,
+  MaxLength,
+  IsEnum,
 } from 'class-validator';
 import { AiTemplateKind } from '@prisma/client';
 
 import { EnumDisplayDto } from '@/common/dto/display.dto';
+import * as FieldLength from '@/common/constants/field-lengths';
 
 const AI_TEMPLATE_KINDS = Object.values(AiTemplateKind);
 
@@ -133,7 +136,7 @@ export class QueryAiTemplatesDto {
     example: AiTemplateKind.PROJECT_SUMMARY,
   })
   @IsOptional()
-  @IsIn(AI_TEMPLATE_KINDS)
+  @IsEnum(AiTemplateKind)
   kind?: AiTemplateKind;
 }
 
@@ -146,7 +149,7 @@ export class CreateAiTemplateDto {
     enum: AI_TEMPLATE_KINDS,
     example: AiTemplateKind.PROJECT_SUMMARY,
   })
-  @IsIn(AI_TEMPLATE_KINDS)
+  @IsEnum(AiTemplateKind)
   kind!: AiTemplateKind;
 
   @ApiProperty({ example: 'Default project summary' })
@@ -161,6 +164,7 @@ export class CreateAiTemplateDto {
   })
   @IsString()
   @IsNotEmpty()
+  @MaxLength(FieldLength.DOCUMENT_TEXT)
   content!: string;
 
   @ApiPropertyOptional({
@@ -188,6 +192,7 @@ export class UpdateAiTemplateDto {
   @IsOptional()
   @IsString()
   @IsNotEmpty()
+  @MaxLength(FieldLength.DOCUMENT_TEXT)
   content?: string;
 
   @ApiPropertyOptional({

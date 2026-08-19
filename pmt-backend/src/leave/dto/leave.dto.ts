@@ -11,12 +11,15 @@ import {
   IsString,
   IsUUID,
   Min,
+  MaxLength,
 } from 'class-validator';
 import { Role } from '@prisma/client';
 
 import { PaginationQueryDto } from '@/common/dto/pagination-query.dto';
 import { EnumDisplayDto } from '@/common/dto/display.dto';
 import { ToBoolean } from '@/common/decorators/to-boolean.decorator';
+import * as FieldLength from '@/common/constants/field-lengths';
+import { IsNotBefore } from '@/common/validators/is-not-before.validator';
 
 const LEAVE_TAKING_ROLES = [
   Role.PROJECT_MANAGER,
@@ -329,6 +332,7 @@ export class QueryLeaveSummaryDto {
   })
   @IsOptional()
   @IsString()
+  @MaxLength(FieldLength.SINGLE_LINE)
   userId?: string;
 
   @ApiPropertyOptional({
@@ -387,6 +391,7 @@ export class CreateHolidayDto {
   })
   @IsOptional()
   @IsDateString()
+  @IsNotBefore('startDate')
   endDate?: string;
 }
 
@@ -394,6 +399,7 @@ export class UpdateHolidayDto {
   @ApiPropertyOptional({ example: 'Eid-ul-Fitr' })
   @IsOptional()
   @IsString()
+  @MaxLength(FieldLength.SHORT_TEXT)
   name?: string;
 
   @ApiPropertyOptional({ example: '2026-03-19' })
@@ -418,11 +424,13 @@ export class CreateLeaveRequestDto {
 
   @ApiProperty({ example: '2026-08-12' })
   @IsDateString()
+  @IsNotBefore('startDate')
   endDate!: string;
 
   @ApiPropertyOptional({ example: 'Family event' })
   @IsOptional()
   @IsString()
+  @MaxLength(FieldLength.LONG_TEXT)
   reason?: string;
 }
 
@@ -430,5 +438,6 @@ export class RejectLeaveRequestDto {
   @ApiPropertyOptional({ example: 'Team is short-staffed that week' })
   @IsOptional()
   @IsString()
+  @MaxLength(FieldLength.LONG_TEXT)
   reason?: string;
 }

@@ -1,5 +1,12 @@
 import { ApiProperty } from '@nestjs/swagger';
-import { IsEmail, IsString, Length, MinLength } from 'class-validator';
+import * as FieldLength from '@/common/constants/field-lengths';
+import {
+  IsEmail,
+  IsString,
+  Length,
+  MinLength,
+  MaxLength,
+} from 'class-validator';
 
 // ════════════════════════════════════════════════════════════════════════════
 // Response
@@ -42,12 +49,14 @@ export class ResetPasswordResponseDto {
 export class ForgotPasswordDto {
   @ApiProperty({ example: 'admin@pixelvega.com' })
   @IsEmail()
+  @MaxLength(FieldLength.EMAIL)
   email!: string;
 }
 
 export class VerifyResetCodeDto {
   @ApiProperty({ example: 'admin@pixelvega.com' })
   @IsEmail()
+  @MaxLength(FieldLength.EMAIL)
   email!: string;
 
   @ApiProperty({ example: '123456', minLength: 6, maxLength: 6 })
@@ -60,6 +69,7 @@ export class ResetPasswordDto {
     description: 'Token returned by /auth-flows/verify-reset-code',
   })
   @IsString()
+  @MaxLength(FieldLength.SINGLE_LINE)
   resetToken!: string;
 
   @ApiProperty({ minLength: 8 })

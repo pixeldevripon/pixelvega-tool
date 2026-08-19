@@ -1,9 +1,17 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
-import { IsDateString, IsIn, IsOptional, IsString } from 'class-validator';
+import {
+  IsDateString,
+  IsIn,
+  IsOptional,
+  IsString,
+  MaxLength,
+  IsEnum,
+} from 'class-validator';
 import { TimeEntryStatus } from '@prisma/client';
 
 import { PaginationQueryDto } from '@/common/dto/pagination-query.dto';
 import { EnumDisplayDto } from '@/common/dto/display.dto';
+import * as FieldLength from '@/common/constants/field-lengths';
 
 const TIME_ENTRY_STATUSES = Object.values(TimeEntryStatus);
 
@@ -425,11 +433,12 @@ export class QueryTimeEntriesDto extends PaginationQueryDto {
   })
   @IsOptional()
   @IsString()
+  @MaxLength(FieldLength.SINGLE_LINE)
   userId?: string;
 
   @ApiPropertyOptional({ enum: TIME_ENTRY_STATUSES })
   @IsOptional()
-  @IsIn(TIME_ENTRY_STATUSES)
+  @IsEnum(TimeEntryStatus)
   status?: TimeEntryStatus;
 
   @ApiPropertyOptional({
@@ -460,11 +469,12 @@ export class QueryMeetingTimeEntriesDto extends PaginationQueryDto {
   })
   @IsOptional()
   @IsString()
+  @MaxLength(FieldLength.SINGLE_LINE)
   userId?: string;
 
   @ApiPropertyOptional({ enum: TIME_ENTRY_STATUSES })
   @IsOptional()
-  @IsIn(TIME_ENTRY_STATUSES)
+  @IsEnum(TimeEntryStatus)
   status?: TimeEntryStatus;
 
   @ApiPropertyOptional({
@@ -493,6 +503,7 @@ export class QueryProjectSummaryDto {
   })
   @IsOptional()
   @IsString()
+  @MaxLength(FieldLength.SINGLE_LINE)
   userId?: string;
 
   @ApiPropertyOptional({
@@ -526,6 +537,7 @@ export class QueryDailySummaryDto {
   })
   @IsOptional()
   @IsString()
+  @MaxLength(FieldLength.SINGLE_LINE)
   userId?: string;
 
   @ApiPropertyOptional({
@@ -553,6 +565,7 @@ export class QueryActiveTimeEntryDto {
   })
   @IsOptional()
   @IsString()
+  @MaxLength(FieldLength.SINGLE_LINE)
   userId?: string;
 }
 
@@ -567,5 +580,6 @@ export class TimeEntryNoteDto {
   @ApiPropertyOptional({ example: 'Fixed the login redirect bug' })
   @IsOptional()
   @IsString()
+  @MaxLength(FieldLength.LONG_TEXT)
   notes?: string;
 }

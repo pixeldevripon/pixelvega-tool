@@ -5,12 +5,15 @@ import {
   IsArray,
   IsBoolean,
   IsDateString,
+  IsEnum,
   IsIn,
   IsNotEmpty,
   IsNumber,
   IsOptional,
   IsString,
+  MaxLength,
   Min,
+  ValidateIf,
 } from 'class-validator';
 import {
   ProjectActivityType,
@@ -24,10 +27,24 @@ import { EnumDisplayDto } from '@/common/dto/display.dto';
 import { SORT_ORDERS } from '@/common/dto/sort-query.dto';
 import type { SortOrder } from '@/common/dto/sort-query.dto';
 import { ToBoolean } from '@/common/decorators/to-boolean.decorator';
+import * as FieldLength from '@/common/constants/field-lengths';
+import { Trim } from '@/common/decorators/trim.decorator';
 
 const STATUSES = Object.values(ProjectStatus);
 const PRIORITIES = Object.values(ProjectPriority);
 const PROJECT_TYPES = Object.values(ProjectType);
+
+/** The two priorities that demand a written justification. */
+const RUSH_PRIORITIES: ProjectPriority[] = [
+  ProjectPriority.URGENT,
+  ProjectPriority.CRITICAL,
+];
+
+/** The two status moves that demand a written reason. */
+const REASON_REQUIRED_STATUSES: ProjectStatus[] = [
+  ProjectStatus.ON_HOLD,
+  ProjectStatus.CANCELLED,
+];
 
 /**
  * The response shapes for the Project entity.
@@ -390,12 +407,12 @@ export class QueryProjectsDto extends PaginationQueryDto {
   sortOrder?: SortOrder = 'desc';
   @ApiPropertyOptional({ enum: STATUSES })
   @IsOptional()
-  @IsIn(STATUSES)
+  @IsEnum(ProjectStatus)
   status?: ProjectStatus;
 
   @ApiPropertyOptional({ enum: PRIORITIES })
   @IsOptional()
-  @IsIn(PRIORITIES)
+  @IsEnum(ProjectPriority)
   priority?: ProjectPriority;
 
   @ApiPropertyOptional({ example: 'FKlPeooYonpdtm6IW7eJkJJvA4sdr2Xg' })
@@ -439,6 +456,7 @@ export class QueryProjectsDto extends PaginationQueryDto {
   @IsOptional()
   @IsString()
   @IsNotEmpty()
+  @MaxLength(FieldLength.SHORT_TEXT)
   search?: string;
 }
 
@@ -520,29 +538,49 @@ export class UpdateProjectDto {
 
 export class UpdateProjectStatusDto {
   @ApiProperty({ enum: STATUSES, example: ProjectStatus.ON_HOLD })
-  @IsIn(STATUSES)
+  @IsEnum(ProjectStatus)
   status!: ProjectStatus;
 
   @ApiPropertyOptional({
     description: 'Required when moving to ON_HOLD or CANCELLED',
     example: 'Waiting on client-supplied assets',
   })
-  @IsOptional()
+  // Required by the trigger, and still type and length checked when
+  // supplied anyway, which a bare trigger predicate would skip.
+  @Trim()
+  @ValidateIf(
+    (o: UpdateProjectStatusDto) =>
+      REASON_REQUIRED_STATUSES.includes(o.status) || o.reason !== undefined,
+  )
   @IsString()
+  @MaxLength(FieldLength.LONG_TEXT)
+  @IsNotEmpty({
+    message: 'reason is required when moving a project to ON_HOLD or CANCELLED',
+  })
   reason?: string;
 }
 
 export class UpdateProjectPriorityDto {
   @ApiProperty({ enum: PRIORITIES, example: ProjectPriority.URGENT })
-  @IsIn(PRIORITIES)
+  @IsEnum(ProjectPriority)
   priority!: ProjectPriority;
 
   @ApiPropertyOptional({
     description: 'Required when priority is URGENT or CRITICAL',
     example: 'Client escalated via phone call',
   })
-  @IsOptional()
+  // Required by the trigger, and still type and length checked when
+  // supplied anyway, which a bare trigger predicate would skip.
+  @Trim()
+  @ValidateIf(
+    (o: UpdateProjectPriorityDto) =>
+      RUSH_PRIORITIES.includes(o.priority) || o.rushReason !== undefined,
+  )
   @IsString()
+  @MaxLength(FieldLength.LONG_TEXT)
+  @IsNotEmpty({
+    message: 'rushReason is required when priority is URGENT or CRITICAL',
+  })
   rushReason?: string;
 }
 
@@ -575,5 +613,6 @@ export class ConnectSlackChannelDto {
   })
   @IsOptional()
   @IsString()
+  @MaxLength(FieldLength.SINGLE_LINE)
   slackChannelId?: string;
 }

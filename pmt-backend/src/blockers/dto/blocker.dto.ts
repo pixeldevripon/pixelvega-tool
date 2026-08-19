@@ -6,12 +6,16 @@ import {
   IsOptional,
   IsString,
   IsUUID,
+  MaxLength,
   Min,
+  ValidateIf,
 } from 'class-validator';
 import { BlockerSeverity, BlockerStatus } from '@prisma/client';
 
 import { PaginationQueryDto } from '@/common/dto/pagination-query.dto';
 import { EnumDisplayDto } from '@/common/dto/display.dto';
+import * as FieldLength from '@/common/constants/field-lengths';
+import { Trim } from '@/common/decorators/trim.decorator';
 
 // ════════════════════════════════════════════════════════════════════════════
 // Response
@@ -271,6 +275,7 @@ export class AddBlockerDto {
   })
   @IsString()
   @IsNotEmpty()
+  @MaxLength(FieldLength.LONG_TEXT)
   description!: string;
 
   @ApiPropertyOptional({
@@ -300,6 +305,7 @@ export class UpdateBlockerDto {
   @IsOptional()
   @IsString()
   @IsNotEmpty()
+  @MaxLength(FieldLength.LONG_TEXT)
   description?: string;
 
   @ApiPropertyOptional({ enum: BlockerSeverity })
@@ -331,15 +337,25 @@ export class UpdateBlockerDto {
   @IsOptional()
   @IsString()
   @IsNotEmpty()
+  @MaxLength(FieldLength.SINGLE_LINE)
   assignedToId?: string;
 
   @ApiPropertyOptional({
     example: 'PM approved schema, code updated',
     description: 'Required when status is RESOLVED.',
   })
-  @IsOptional()
+  // Required by the trigger, and still type and length checked when
+  // supplied anyway, which a bare trigger predicate would skip.
+  @Trim()
+  @ValidateIf(
+    (o: Record<string, unknown>) =>
+      o.status === BlockerStatus.RESOLVED || o.resolutionNotes !== undefined,
+  )
   @IsString()
-  @IsNotEmpty()
+  @MaxLength(FieldLength.LONG_TEXT)
+  @IsNotEmpty({
+    message: 'resolutionNotes is required when resolving a blocker',
+  })
   resolutionNotes?: string;
 
   @ApiPropertyOptional({
@@ -358,6 +374,7 @@ export class CreateBlockerReasonDto {
   @ApiProperty({ example: 'Technical' })
   @IsString()
   @IsNotEmpty()
+  @MaxLength(FieldLength.SHORT_TEXT)
   name!: string;
 }
 
@@ -366,5 +383,6 @@ export class UpdateBlockerReasonDto {
   @IsOptional()
   @IsString()
   @IsNotEmpty()
+  @MaxLength(FieldLength.SHORT_TEXT)
   name?: string;
 }

@@ -6,12 +6,15 @@ import {
   IsNotEmpty,
   IsOptional,
   IsString,
+  MaxLength,
+  IsEnum,
 } from 'class-validator';
 import { ProjectRole } from '@prisma/client';
 
 import { PaginationQueryDto } from '@/common/dto/pagination-query.dto';
 import { EnumDisplayDto } from '@/common/dto/display.dto';
 import { ToBoolean } from '@/common/decorators/to-boolean.decorator';
+import * as FieldLength from '@/common/constants/field-lengths';
 
 const PROJECT_ROLES = Object.values(ProjectRole);
 
@@ -183,9 +186,10 @@ export class AddProjectMemberDto {
   @ApiProperty({ example: 'FKlPeooYonpdtm6IW7eJkJJvA4sdr2Xg' })
   @IsString()
   @IsNotEmpty()
+  @MaxLength(FieldLength.SINGLE_LINE)
   userId!: string;
 
   @ApiProperty({ enum: PROJECT_ROLES, example: ProjectRole.DEVELOPER })
-  @IsIn(PROJECT_ROLES)
+  @IsEnum(ProjectRole)
   role!: ProjectRole;
 }

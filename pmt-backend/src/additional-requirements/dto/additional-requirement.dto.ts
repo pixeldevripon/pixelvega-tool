@@ -7,11 +7,14 @@ import {
   IsOptional,
   IsString,
   Min,
+  MaxLength,
+  IsEnum,
 } from 'class-validator';
 import { AdditionalRequirementStatus } from '@prisma/client';
 
 import { PaginationQueryDto } from '@/common/dto/pagination-query.dto';
 import { EnumDisplayDto } from '@/common/dto/display.dto';
+import * as FieldLength from '@/common/constants/field-lengths';
 
 const ADDITIONAL_REQUIREMENT_STATUSES = Object.values(
   AdditionalRequirementStatus,
@@ -148,7 +151,7 @@ export class QueryAdditionalRequirementsDto extends PaginationQueryDto {
     description: 'Filter to a single status, e.g. PENDING_REVIEW.',
   })
   @IsOptional()
-  @IsIn(ADDITIONAL_REQUIREMENT_STATUSES)
+  @IsEnum(AdditionalRequirementStatus)
   status?: AdditionalRequirementStatus;
 }
 
@@ -166,6 +169,7 @@ export class CreateAdditionalRequirementDto {
   })
   @IsString()
   @IsNotEmpty()
+  @MaxLength(FieldLength.LONG_TEXT)
   description!: string;
 
   @ApiPropertyOptional({
@@ -175,6 +179,7 @@ export class CreateAdditionalRequirementDto {
   })
   @IsOptional()
   @IsString()
+  @MaxLength(FieldLength.SINGLE_LINE)
   sourceChannel?: string;
 }
 

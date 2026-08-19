@@ -1,8 +1,17 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
-import { IsIn, IsOptional, IsString } from 'class-validator';
+import {
+  IsIn,
+  IsNotEmpty,
+  IsOptional,
+  IsString,
+  MaxLength,
+  ValidateIf,
+} from 'class-validator';
 import { ClientFeedbackDecision } from '@prisma/client';
 
 import { EnumDisplayDto } from '@/common/dto/display.dto';
+import * as FieldLength from '@/common/constants/field-lengths';
+import { Trim } from '@/common/decorators/trim.decorator';
 
 const FEEDBACK_DECISIONS = [
   ClientFeedbackDecision.APPROVED,
@@ -96,7 +105,16 @@ export class CreateClientFeedbackDto {
     example: 'The header logo looks too small on mobile, please enlarge it',
     description: 'Required when decision is CHANGES_REQUESTED.',
   })
-  @IsOptional()
+  // Required by the trigger, and still type and length checked when
+  // supplied anyway, which a bare trigger predicate would skip.
+  @Trim()
+  @ValidateIf(
+    (o: Record<string, unknown>) =>
+      o.decision === ClientFeedbackDecision.CHANGES_REQUESTED ||
+      o.comments !== undefined,
+  )
   @IsString()
+  @MaxLength(FieldLength.LONG_TEXT)
+  @IsNotEmpty({ message: 'comments are required when requesting changes' })
   comments?: string;
 }

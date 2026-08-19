@@ -1,7 +1,9 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
-import { IsDateString, IsOptional, IsString } from 'class-validator';
+import { IsDateString, IsOptional, IsString, MaxLength } from 'class-validator';
 
 import { EnumDisplayDto } from '@/common/dto/display.dto';
+import * as FieldLength from '@/common/constants/field-lengths';
+import { IsNotBefore } from '@/common/validators/is-not-before.validator';
 
 // ════════════════════════════════════════════════════════════════════════════
 // Response
@@ -385,6 +387,7 @@ export class QueryProjectReportDto {
     description: 'End of the report range (inclusive).',
   })
   @IsDateString()
+  @IsNotBefore('startDate')
   endDate!: string;
 }
 
@@ -395,6 +398,7 @@ export class QueryDeveloperReportDto {
   })
   @IsOptional()
   @IsString()
+  @MaxLength(FieldLength.SINGLE_LINE)
   userId?: string;
 
   @ApiPropertyOptional({
@@ -403,6 +407,7 @@ export class QueryDeveloperReportDto {
   })
   @IsOptional()
   @IsString()
+  @MaxLength(FieldLength.SINGLE_LINE)
   projectId?: string;
 
   @ApiProperty({
@@ -417,5 +422,6 @@ export class QueryDeveloperReportDto {
     description: 'End of the report range (inclusive).',
   })
   @IsDateString()
+  @IsNotBefore('startDate')
   endDate!: string;
 }

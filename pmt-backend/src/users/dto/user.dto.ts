@@ -18,6 +18,7 @@ import { EnumDisplayDto } from '@/common/dto/display.dto';
 import { PaginationQueryDto } from '@/common/dto/pagination-query.dto';
 import { SORT_ORDERS } from '@/common/dto/sort-query.dto';
 import type { SortOrder } from '@/common/dto/sort-query.dto';
+import * as FieldLength from '@/common/constants/field-lengths';
 
 /**
  * SYSTEM_ADMIN is excluded from both request DTOs below.
@@ -217,10 +218,12 @@ export class ChangeOwnPasswordRequestDto {
     description: 'Must match the password currently on the account.',
   })
   @IsString()
+  @MaxLength(FieldLength.PASSWORD_MAX)
   currentPassword!: string;
 
   @ApiProperty({ minLength: 8 })
   @IsString()
   @MinLength(8)
+  @MaxLength(FieldLength.PASSWORD_MAX)
   newPassword!: string;
 }

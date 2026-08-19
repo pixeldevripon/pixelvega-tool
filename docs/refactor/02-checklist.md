@@ -331,11 +331,11 @@ endpoint. The suite green throughout.
 
 ### Validation surface (D5)
 
-- [ ] A custom validator in `src/common/validators/` for every rule the built in decorators cannot express, each with a co-located spec
+- [x] A custom validator in `src/common/validators/` for every rule the built in decorators cannot express, each with a co-located spec One: `IsNotBefore`, for cross field date ordering. A `RequiredWhen` was written and deleted, because `@IsOptional` short circuits every other validator so it never ran; conditional requiredness is expressible with `@ValidateIf` plus `@IsNotEmpty`, and `validators/README.md` records why.
 - [x] Numeric query params carry `@Type(() => Number)` Audited. Every numeric QUERY param has it; the four without are request bodies, which arrive as JSON already typed.
 - [x] Boolean query params carry an explicit `@Transform` **Found a real bug.** All six used `@Type(() => Boolean)`, and `Boolean('false')` is `true`, so `?archived=false` returned archived projects. Replaced with `@ToBoolean()`, 8 specs.
-- [ ] Enum fields use `@IsEnum` against the Prisma enum, never a string union
-- [ ] Length bounds on every free text field reaching the database, an email, a Slack message, or an AI prompt
+- [x] Enum fields use `@IsEnum` against the Prisma enum, never a string union 15 converted. The deliberate subsets stay `@IsIn`, including `ASSIGNABLE_ROLES`, whose comment says not to relax it.
+- [x] Length bounds on every free text field reaching the database, an email, a Slack message, or an AI prompt 43 fields, bounded by named constants in `common/constants/field-lengths.ts` rather than inline numbers.
 
 ### Publish the contract
 

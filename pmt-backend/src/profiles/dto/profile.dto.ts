@@ -6,8 +6,10 @@ import {
   IsOptional,
   IsString,
   MaxLength,
+  IsEnum,
 } from 'class-validator';
 import { EnumDisplayDto } from '@/common/dto/display.dto';
+import * as FieldLength from '@/common/constants/field-lengths';
 
 const WORK_STATUSES = Object.values(EmployeeWorkStatus);
 const AVAILABILITY_STATUSES = Object.values(AvailabilityStatus);
@@ -161,7 +163,7 @@ export class UpdateProfileRequestDto {
 
   @ApiPropertyOptional({ enum: WORK_STATUSES, description: 'Employee only' })
   @IsOptional()
-  @IsIn(WORK_STATUSES)
+  @IsEnum(EmployeeWorkStatus)
   currentStatus?: EmployeeWorkStatus;
 
   @ApiPropertyOptional({
@@ -169,7 +171,7 @@ export class UpdateProfileRequestDto {
     description: 'Employee only',
   })
   @IsOptional()
-  @IsIn(AVAILABILITY_STATUSES)
+  @IsEnum(AvailabilityStatus)
   availabilityStatus?: AvailabilityStatus;
 
   @ApiPropertyOptional({ description: 'Client only', maxLength: 160 })
@@ -181,5 +183,6 @@ export class UpdateProfileRequestDto {
   @ApiPropertyOptional({ description: 'Client only' })
   @IsOptional()
   @IsEmail()
+  @MaxLength(FieldLength.EMAIL)
   billingEmail?: string;
 }

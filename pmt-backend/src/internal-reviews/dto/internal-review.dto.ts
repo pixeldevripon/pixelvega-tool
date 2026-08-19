@@ -1,8 +1,17 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
-import { IsIn, IsOptional, IsString } from 'class-validator';
+import {
+  IsIn,
+  IsNotEmpty,
+  IsOptional,
+  IsString,
+  MaxLength,
+  ValidateIf,
+} from 'class-validator';
 import { InternalReviewDecision } from '@prisma/client';
 
 import { EnumDisplayDto } from '@/common/dto/display.dto';
+import * as FieldLength from '@/common/constants/field-lengths';
+import { Trim } from '@/common/decorators/trim.decorator';
 
 const REVIEW_DECISIONS = [
   InternalReviewDecision.APPROVED,
@@ -82,7 +91,16 @@ export class CreateInternalReviewDto {
     example: 'The contact form is missing the honeypot field, please add it',
     description: 'Required when decision is CHANGES_REQUIRED.',
   })
-  @IsOptional()
+  // Required by the trigger, and still type and length checked when
+  // supplied anyway, which a bare trigger predicate would skip.
+  @Trim()
+  @ValidateIf(
+    (o: Record<string, unknown>) =>
+      o.decision === InternalReviewDecision.CHANGES_REQUIRED ||
+      o.comments !== undefined,
+  )
   @IsString()
+  @MaxLength(FieldLength.LONG_TEXT)
+  @IsNotEmpty({ message: 'comments are required when requesting changes' })
   comments?: string;
 }

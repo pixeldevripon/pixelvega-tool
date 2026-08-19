@@ -10,10 +10,12 @@ import {
   IsString,
   IsUUID,
   ValidateNested,
+  MaxLength,
 } from 'class-validator';
 
 import { PaginationQueryDto } from '@/common/dto/pagination-query.dto';
 import { EnumDisplayDto } from '@/common/dto/display.dto';
+import * as FieldLength from '@/common/constants/field-lengths';
 
 const DAILY_ENTRY_TYPES = ['PLAN', 'WRAP_UP'] as const;
 export type DailyEntryTypeFilter = (typeof DAILY_ENTRY_TYPES)[number];
@@ -238,6 +240,7 @@ export class QueryDailyWorkReportsDto extends PaginationQueryDto {
   })
   @IsOptional()
   @IsString()
+  @MaxLength(FieldLength.SINGLE_LINE)
   userId?: string;
 
   @ApiPropertyOptional({
@@ -274,6 +277,7 @@ export class QueryProjectDailyEntriesDto extends PaginationQueryDto {
   })
   @IsOptional()
   @IsString()
+  @MaxLength(FieldLength.SINGLE_LINE)
   userId?: string;
 
   @ApiPropertyOptional({
@@ -318,6 +322,7 @@ export class DailyProjectEntryPlanDto {
   })
   @IsString()
   @IsNotEmpty()
+  @MaxLength(FieldLength.LONG_TEXT)
   plan!: string;
 }
 
@@ -351,6 +356,7 @@ export class DailyProjectEntryWrapUpDto {
   })
   @IsString()
   @IsNotEmpty()
+  @MaxLength(FieldLength.LONG_TEXT)
   accomplishments!: string;
 }
 
@@ -376,5 +382,6 @@ export class ReviewEntryDto {
   @ApiPropertyOptional({ example: 'Good progress, nice work on the tests.' })
   @IsOptional()
   @IsString()
+  @MaxLength(FieldLength.LONG_TEXT)
   reviewComment?: string;
 }

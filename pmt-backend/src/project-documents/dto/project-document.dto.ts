@@ -6,12 +6,15 @@ import {
   IsNotEmpty,
   IsOptional,
   IsString,
+  MaxLength,
+  IsEnum,
 } from 'class-validator';
 import { ProjectDocumentType } from '@prisma/client';
 
 import { PaginationQueryDto } from '@/common/dto/pagination-query.dto';
 import { EnumDisplayDto } from '@/common/dto/display.dto';
 import { ToBoolean } from '@/common/decorators/to-boolean.decorator';
+import * as FieldLength from '@/common/constants/field-lengths';
 
 const PROJECT_DOCUMENT_TYPES = Object.values(ProjectDocumentType);
 
@@ -184,7 +187,7 @@ export class QueryProjectDocumentsDto extends PaginationQueryDto {
       'Filter to a single document type. Ignored for a CLIENT caller, who is always restricted to DELIVERABLE regardless of this filter.',
   })
   @IsOptional()
-  @IsIn(PROJECT_DOCUMENT_TYPES)
+  @IsEnum(ProjectDocumentType)
   type?: ProjectDocumentType;
 
   @ApiPropertyOptional({
@@ -216,7 +219,7 @@ export class CreateProjectDocumentDto {
     enum: PROJECT_DOCUMENT_TYPES,
     example: ProjectDocumentType.CREDENTIAL,
   })
-  @IsIn(PROJECT_DOCUMENT_TYPES)
+  @IsEnum(ProjectDocumentType)
   type!: ProjectDocumentType;
 
   @ApiPropertyOptional()
@@ -230,6 +233,7 @@ export class CreateProjectDocumentDto {
   })
   @IsOptional()
   @IsString()
+  @MaxLength(FieldLength.DOCUMENT_TEXT)
   textContent?: string;
 }
 
@@ -241,7 +245,7 @@ export class CreateProjectDocumentsBatchDto {
     enum: PROJECT_DOCUMENT_TYPES,
     example: ProjectDocumentType.DELIVERABLE,
   })
-  @IsIn(PROJECT_DOCUMENT_TYPES)
+  @IsEnum(ProjectDocumentType)
   type!: ProjectDocumentType;
 
   @ApiPropertyOptional()
@@ -269,5 +273,6 @@ export class UpdateProjectDocumentDto {
   })
   @IsOptional()
   @IsString()
+  @MaxLength(FieldLength.DOCUMENT_TEXT)
   textContent?: string;
 }

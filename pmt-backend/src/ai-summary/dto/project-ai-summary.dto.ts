@@ -1,4 +1,5 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
+import { IsNotBefore } from '@/common/validators/is-not-before.validator';
 import { IsDateString } from 'class-validator';
 
 // ════════════════════════════════════════════════════════════════════════════
@@ -66,5 +67,6 @@ export class QueryProjectAiSummaryDto {
       'End of the window to pull reported accomplishments from (inclusive).',
   })
   @IsDateString()
+  @IsNotBefore('startDate')
   endDate!: string;
 }
