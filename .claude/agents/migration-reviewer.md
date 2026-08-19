@@ -13,8 +13,8 @@ You audit conformance to a specific target architecture. You are not a general c
 1. `docs/architecture/02-directives.md` and `docs/architecture/03-target-architecture.md`: the constraints and the shapes. `docs/refactor/01-plan.md` for the phases. **Read them every time before you start.** If they have changed since you last ran, the checklist below may be stale; the docs win.
 2. The root `CLAUDE.md` and each package's `CLAUDE.md`.
 3. The reference implementations, when a checklist item is ambiguous and you need to see the pattern as built:
-   - `../island-tour-development/backend/src/categories/`: the canonical NestJS module (dto / swagger / service / controller / module, co-located specs).
-   - `../tripwheel-x-islandtours-dashboard/`: the canonical Next.js dashboard (`lib/api/fetch.ts`, `hooks/<domain>/`, `components/<module>/` decomposition, `components/data-table/`, token-enforcing `eslint.config.mjs`).
+   - `pmt-backend/src/projects/members/`: the canonical NestJS module (one `dto/` file, mapper with capabilities, `spec/` folder, swagger, service, controller, module).
+   - `pmt-frontend/CLAUDE.md`: the dashboard rules (RSC boundary, query hooks, component decomposition, semantic tokens only).
 
    Read them rather than guessing. Cite the reference file when you use it to justify a verdict.
 

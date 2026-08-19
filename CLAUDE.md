@@ -41,7 +41,14 @@ The reviewers are not a formality. If they find nothing on a non trivial change,
 silence reads as "not run". Run independent agents in parallel. Never report a stage complete that
 was skipped; say which and why.
 
-Agents live in `.claude/agents/`. See the table under **Subagents** below for which one to reach for.
+Agents live in `.claude/agents/`, and there are seven: `code-reviewer`, `frontend-code-reviewer`,
+`security-reviewer`, `unit-test-writer`, `e2e-test-writer`, `performance-reviewer`,
+`migration-reviewer`. See the table under **Subagents** below.
+
+**Their definitions are registered when a session STARTS.** If the launcher reports a type as unknown,
+the session predates it: fall back to a general-purpose agent carrying the same adversarial brief, and
+say in the report that the named agent was unavailable. The review stage is never skipped for that
+reason.
 
 ---
 
@@ -49,11 +56,11 @@ Agents live in `.claude/agents/`. See the table under **Subagents** below for wh
 
 Binding constraints on everything in this repo. Full text in `docs/architecture/02-directives.md`.
 
-**D1. The backend mirrors `../island-tour-development/backend`.** Not "is inspired by". Mirrors.
-Folder structure, file naming, module anatomy, guard order, DTO and Swagger conventions, service
-conventions, spec placement, code style. When a question comes up, the answer is whatever that repo
-does, and you find it by **reading that repo**, not by reasoning from first principles. Modules live
-at `src/<module>/`, never `src/modules/<module>/`, because the reference has no `modules/` wrapper.
+**D1. One module shape, everywhere.** Folder structure, file naming, module anatomy, guard order,
+DTO and Swagger conventions, service conventions, spec placement and code style are the same in every
+module, no exceptions. The shape is written out under **Backend rules** below and in
+`pmt-backend/CLAUDE.md`; `src/projects/members/` is the worked example to copy. Modules live at
+`src/<module>/`, never `src/modules/<module>/`, and the folder path mirrors the route path.
 
 **D2. Authorization is a granular permission gate.** `@RequirePermissions(Permission.X)` on endpoints,
 not `@Roles()`. Guard order is `TrustedOriginThrottlerGuard → AuthGuard → PermissionsGuard`. The
@@ -91,19 +98,21 @@ Six roles: `SYSTEM_ADMIN · ADMIN · PROJECT_MANAGER · DEVELOPER · DESIGNER ·
 Domain: projects and staffing, time tracking, daily work reports, blockers, internal reviews,
 client feedback, additional requirements, leave, audit logging, Slack integration, AI summaries.
 
-### Reference implementations
+### Canonical modules
 
-Two sibling repos are the pattern source for this migration. When a convention here is ambiguous,
-**read the reference rather than guessing**, and cite the file you copied from:
+When a convention is ambiguous, copy the nearest complete module in THIS repo rather than reasoning
+from first principles or inventing a variant:
 
-| Repo                                   | Use it for                                                                                                         |
-| -------------------------------------- | ------------------------------------------------------------------------------------------------------------------ |
-| `../island-tour-development/backend`   | NestJS module shape, swagger files, response DTOs, guards, global filter, env validation, spec style               |
-| `../tripwheel-x-islandtours-dashboard` | Next.js dashboard: `lib/api/fetch.ts`, query hooks, component decomposition, data-table, design-token ESLint rules |
+| Copy this                            | For                                                                                                |
+| ------------------------------------ | -------------------------------------------------------------------------------------------------- |
+| `pmt-backend/src/projects/members/`  | The full module shape: one `dto/` file, a mapper with capabilities, `spec/`, swagger               |
+| `pmt-backend/src/projects/blockers/` | A module with sub-features (`reasons/`) and its own top level route alongside a project scoped one |
+| `pmt-backend/src/common/utils/`      | A pure unit with a co-located spec                                                                 |
 
-`../island-tour-development/backend/src/categories/` and
-`../tripwheel-x-islandtours-dashboard/components/categories/` are the two canonical modules. Copy
-their shape.
+A migration originally took its patterns from a sibling repository. That repository is **not** part
+of this project and will not be present: everything worth keeping from it is written down here and in
+`pmt-backend/CLAUDE.md`. If a rule seems to have no explanation, the explanation is in the comment
+next to the code it governs, not in another repository.
 
 ---
 

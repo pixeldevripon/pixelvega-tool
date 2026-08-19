@@ -2,14 +2,14 @@
 
 > Part of the PixelVega refactor documentation. Index: [`docs/README.md`](../README.md).
 
-The shapes every module lands in. Mirrors `../island-tour-development/backend` per directive **D1**.
+The shapes every module lands in, per directive **D1**. `pmt-backend/CLAUDE.md` is the enforceable version of this document.
 Read [`02-directives.md`](./02-directives.md) first: this document is what those directives produce.
 
 ---
 
 ## 1. Backend module template
 
-Mirrors `island-tour-development/backend/src/categories/` exactly.
+`pmt-backend/src/projects/members/` is the worked example in this repo.
 
 ```
 src/<module>/

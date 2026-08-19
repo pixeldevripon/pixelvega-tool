@@ -35,13 +35,13 @@ Numbered prefixes are the reading order, not a category.
 [`architecture/02-directives.md`](./architecture/02-directives.md). Five constraints govern every
 change in this repo:
 
-|        | Directive                                                                                                       |
-| ------ | --------------------------------------------------------------------------------------------------------------- |
-| **D1** | The backend **mirrors** `../island-tour-development/backend`. Modules at `src/<module>/`, no `modules/` wrapper |
-| **D2** | Authorization is a granular permission gate: `@RequirePermissions()`, not `@Roles()`                            |
-| **D3** | The Prisma schema is split by domain                                                                            |
-| **D4** | The backend serves everything. The frontend performs no computation, transformation, or derivation              |
-| **D5** | Validation is owned by the backend. The DTO is the specification                                                |
+|        | Directive                                                                                                          |
+| ------ | ------------------------------------------------------------------------------------------------------------------ |
+| **D1** | **One module shape everywhere.** Modules at `src/<module>/`, no `modules/` wrapper, folder path mirrors route path |
+| **D2** | Authorization is a granular permission gate: `@RequirePermissions()`, not `@Roles()`                               |
+| **D3** | The Prisma schema is split by domain                                                                               |
+| **D4** | The backend serves everything. The frontend performs no computation, transformation, or derivation                 |
+| **D5** | Validation is owned by the backend. The DTO is the specification                                                   |
 
 The short form of all of it is in the root [`CLAUDE.md`](../CLAUDE.md), which every Claude Code
 session loads automatically.

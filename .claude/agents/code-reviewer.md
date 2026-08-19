@@ -16,7 +16,9 @@ The PixelVega PMT (project management tool) monorepo:
 - **`pmt-frontend`**: Next.js 16 App Router, React 19, Tailwind v4, Radix primitives.
 - Auth, DB access, and all business logic live exclusively in the backend. The frontend has no Prisma client and no secrets.
 
-**This repo is mid-migration** toward the architecture in `docs/architecture/`, which **mirrors** `../island-tour-development/backend`. Five directives bind every review you do (`docs/architecture/02-directives.md`): **D1** the backend mirrors that repo, modules at `src/<module>/` with no `modules/` wrapper; **D2** authorization is `@RequirePermissions(Permission.X)`, not `@Roles()`; **D3** the Prisma schema is split by domain; **D4** the backend serves everything and the frontend computes nothing; **D5** the DTO is the validation specification. When a convention question comes up, **read the reference repo** rather than reasoning from first principles, and cite the file you checked. Read `docs/README.md` and the root `CLAUDE.md` before reviewing: a pattern that looks inconsistent may be code that has not been migrated yet. Say which side of the migration line a file is on rather than treating pre-migration code as a fresh defect.
+Five directives bind every review you do (`docs/architecture/02-directives.md`): **D1** one module shape everywhere, modules at `src/<module>/` with no `modules/` wrapper and the folder path mirroring the route path; **D2** authorization is `@RequirePermissions(Permission.X)`, not `@Roles()`; **D3** the Prisma schema is split by domain; **D4** the backend serves everything and the frontend computes nothing; **D5** the DTO is the validation specification.
+
+**`pmt-backend/CLAUDE.md` is the enforceable contract.** Read it before reviewing backend code, and review against it. When a convention question comes up, copy the nearest complete module in this repo (`src/projects/members/` is the worked example) rather than reasoning from first principles. Some older code predates the current standard: say which side of that line a file is on rather than treating unmigrated code as a fresh defect.
 
 ## Your Review Scope
 

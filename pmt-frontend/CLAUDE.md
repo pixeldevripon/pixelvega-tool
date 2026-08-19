@@ -56,23 +56,24 @@ behind that prefix. This app has no server-only secrets today.
   radius, type-scale, and motion tokens; it does not change the palette.
 - **`ApiError` with a `status` field.** Callers branch on it. The new `apiFetch` keeps the same shape.
 
-## Reference implementation
+## The answers, written down
 
-`../../tripwheel-x-islandtours-dashboard/` is the same kind of app (a role-gated admin CRM calling a
-NestJS API with a better-auth cookie) built to the target architecture. Read it rather than guessing:
+These were originally taken from a sibling dashboard repository. That repository is **not** part of
+this project and will not be present, so the rules are stated here instead:
 
-| Question | File |
+| Question | Answer |
 |---|---|
-| How should the HTTP client look? | `lib/api/fetch.ts`, `lib/api/humane-error.ts` |
-| How should a query hook look? | `hooks/categories/use-categories.ts` |
-| How should a list screen decompose? | `components/categories/*` |
-| How should list state work? | `components/data-table/use-table-state.ts` |
-| How should a form look? | `components/categories/category-form.tsx` |
-| How is the design system enforced? | `eslint.config.mjs` |
-| How is the session guarded? | `proxy.ts` |
+| How should the HTTP client look? | One `lib/api/fetch.ts` wrapping `fetch` with `credentials: 'include'`, throwing an `ApiError` whose `message` is safe to toast verbatim. Raw technical text never reaches a user |
+| How should a query hook look? | `hooks/<domain>/use-<domain>.ts`, exporting a key factory. Every query and every invalidation goes through it; inline key arrays drift and silently stop matching |
+| How should a list screen decompose? | `<module>-list-view.tsx` owns state, `<module>-table.tsx` is presentational, `<module>-columns.tsx` defines columns, `<module>-row-actions.tsx` holds the per row menu. Nothing over ~400 lines |
+| How should list state work? | Page, sort and filters live in one hook and go to the API as query params. The server sorts and filters; the client never re-sorts a page it was given |
+| How should a form look? | React Hook Form + Zod, `zodResolver`, one schema per form, `z.infer` for the values type. No hand rolled validation state |
+| How is the design system enforced? | Semantic tokens only, checked by ESLint: no numeric palette classes, no raw hex, no inline `style`, no arbitrary values |
+| How is the session guarded? | The server decides. The UI hides what the response says is not permitted and never re-derives it from a role |
 
-`../../island-tour-development/frontend/DASHBOARD-PATTERNS.md` is the written version of those rules,
-including why TanStack Query is preferred over Server Actions for admin screens.
+**TanStack Query, not Server Actions, for admin screens.** A dashboard is read heavy, needs cache
+invalidation across screens that show the same record, and needs optimistic updates with rollback.
+Server Actions give none of those and turn every mutation into a full round trip plus a revalidation.
 
 ## Next.js version rules
 
