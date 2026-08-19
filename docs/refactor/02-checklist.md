@@ -193,7 +193,7 @@ the mock factory template.
 - [x] `ProjectMembersService`, including the automatic transition out of `PLANNING`
 - [x] `ProjectDocumentsService`, including the revision grouping and the CLIENT `DELIVERABLE` restriction
 - [x] `ProjectTimeEntriesService` and `MeetingTimeEntriesService`
-- [x] `DailyWorkReportService` and `DailyProjectEntryService`, including both edit windows **Half done.** `DailyWorkReportService` has a spec; `DailyProjectEntryService` does not.
+- [x] `DailyWorkReportService` and `DailyProjectEntryService`, including both edit windows Both now covered; the wrap-up window is pinned to the millisecond at its boundary.
 - [x] `BlockerService`, including the permanent lock once resolved
 - [x] `InternalReviewsService` and `ClientFeedbackService`, including the first round only status move
 - [x] `AdditionalRequirementsService`, including the additive approve
