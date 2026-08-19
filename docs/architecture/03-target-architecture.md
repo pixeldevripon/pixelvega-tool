@@ -13,6 +13,7 @@ Mirrors `island-tour-development/backend/src/categories/` exactly.
 
 ```
 src/<module>/
+├── spec/                            every *.spec.ts for this module
 ├── dto/<module>.dto.ts        Response DTOs, then Query DTOs, then Request DTOs
 ├── <module>.swagger.ts        one applyDecorators() function per endpoint
 ├── <module>.service.ts        all business logic
@@ -20,7 +21,7 @@ src/<module>/
 ├── <module>.controller.ts     routing only
 ├── <module>.controller.spec.ts
 ├── <module>.module.ts
-└── <helper>.ts + <helper>.spec.ts   pure units, with a co-located spec
+└── <helper>.ts                      pure units (spec lives in spec/)
 ```
 
 **Controller.** Routing only: decorate, delegate, return. No Prisma, no business rules, no try/catch.

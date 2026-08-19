@@ -104,20 +104,25 @@ Every module matches this, no exceptions:
 ```
 src/<module>/                        NOT src/modules/<module>/ (D1)
 ├── dto/<module>.dto.ts              ALL DTOs: Response, then Query, then Request, in that order
+├── spec/                            EVERY *.spec.ts for this module lives here
+│   ├── <module>.service.spec.ts     Prisma fully mocked
+│   └── <helper>.spec.ts
 ├── <module>.swagger.ts              one applyDecorators() function per endpoint
 ├── <module>.service.ts              all business logic
-├── <module>.service.spec.ts         co-located, Prisma fully mocked
 ├── <module>.controller.ts           thin routing only
-├── <module>.controller.spec.ts
 ├── <module>.module.ts
-└── <helper>.ts + <helper>.spec.ts   pure units, with a co-located spec
+└── <helper>.ts                      pure units
 ```
 
-**Subdirectories are allowed for organization.** The reference keeps most modules flat, and small
-modules should stay that way, but a module large enough that its file list is hard to scan is better
-grouped than flat. What matters is that a spec sits beside the file it tests, wherever that file
-lives, and that the grouping means something (`dto/`, `mappers/`, `jobs/`) rather than being a dumping
-ground.
+**Every spec goes in the module's own `spec/` folder.** Not beside the file it tests: a module with
+eight source files and eight specs is sixteen entries to scan, and half of them are noise when you are
+looking for the implementation. `spec/project.mapper.spec.ts` still names what it covers, so nothing
+is lost by moving it.
+
+**Subdirectories are allowed for organization generally.** The reference keeps most modules flat, and
+small modules should stay that way, but a module large enough that its file list is hard to scan is
+better grouped than flat, so long as the grouping means something (`dto/`, `spec/`, `jobs/`) rather
+than being a dumping ground.
 
 - **`@/` path alias for every internal import.** `@prisma/client` and other real packages are the
   exception. A new `../../` chain is a defect.
