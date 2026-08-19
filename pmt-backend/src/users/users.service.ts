@@ -2,6 +2,7 @@ import {
   ConflictException,
   ForbiddenException,
   Injectable,
+  Logger,
   NotFoundException,
 } from '@nestjs/common';
 import type { Request } from 'express';
@@ -38,6 +39,8 @@ const USER_SELECT = {
 
 @Injectable()
 export class UsersService {
+  private readonly logger = new Logger(UsersService.name);
+
   constructor(
     private readonly prisma: PrismaService,
     private readonly mail: MailService,
@@ -193,6 +196,7 @@ export class UsersService {
       targetType: 'User',
       targetId: id,
     });
+    this.logger.log(`User ${id} deleted by ${actorId}`);
     return { message: 'User deleted.' };
   }
 

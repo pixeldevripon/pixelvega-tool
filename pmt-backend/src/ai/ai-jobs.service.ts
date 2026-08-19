@@ -1,6 +1,7 @@
 import {
   ForbiddenException,
   Injectable,
+  Logger,
   NotFoundException,
 } from '@nestjs/common';
 import { InjectQueue } from '@nestjs/bullmq';
@@ -22,6 +23,8 @@ export interface EnqueueAiJobOptions {
 // feature, since enqueue/lookup/access-check logic is identical for both.
 @Injectable()
 export class AiJobsService {
+  private readonly logger = new Logger(AiJobsService.name);
+
   constructor(
     private readonly prisma: PrismaService,
     @InjectQueue('ai-jobs') private readonly queue: Queue,
@@ -37,6 +40,7 @@ export class AiJobsService {
       },
     });
     await this.queue.add(type, { aiJobId: job.id });
+    this.logger.log(`Queued ${type} job ${job.id}`);
     return job;
   }
 

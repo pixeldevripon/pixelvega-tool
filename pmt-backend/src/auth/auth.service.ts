@@ -1,4 +1,4 @@
-import { Injectable, UnauthorizedException } from '@nestjs/common';
+import { Injectable, Logger, UnauthorizedException } from '@nestjs/common';
 import { hashPassword, signJWT, verifyJWT } from 'better-auth/crypto';
 import { PrismaService } from '@/prisma/prisma.service';
 import { MailService } from '@/mail/mail.service';
@@ -15,6 +15,8 @@ interface ResetTokenPayload {
 
 @Injectable()
 export class AuthService {
+  private readonly logger = new Logger(AuthService.name);
+
   constructor(
     private readonly prisma: PrismaService,
     private readonly mail: MailService,
@@ -111,6 +113,7 @@ export class AuthService {
       targetId: payload.userId,
     });
 
+    this.logger.log(`Password reset completed for user ${payload.userId}`);
     return { message: 'Password has been reset.' };
   }
 }

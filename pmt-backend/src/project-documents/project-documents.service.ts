@@ -2,6 +2,7 @@ import {
   BadRequestException,
   ForbiddenException,
   Injectable,
+  Logger,
   NotFoundException,
 } from '@nestjs/common';
 import {
@@ -47,6 +48,8 @@ const CLIENT_VISIBLE_TYPES: ProjectDocumentType[] = [
 
 @Injectable()
 export class ProjectDocumentsService {
+  private readonly logger = new Logger(ProjectDocumentsService.name);
+
   constructor(
     private readonly projectScope: ProjectScopeService,
     private readonly prisma: PrismaService,
@@ -424,6 +427,8 @@ export class ProjectDocumentsService {
       message: `Document "${existing.title}" removed`,
       metadata: { documentId, type: existing.type },
     });
+
+    this.logger.log(`Document ${documentId} removed from project ${projectId}`);
 
     return { id: documentId, removed: true };
   }

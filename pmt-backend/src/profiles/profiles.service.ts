@@ -1,4 +1,4 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { Injectable, Logger, NotFoundException } from '@nestjs/common';
 import { Role } from '@prisma/client';
 import { PrismaService } from '@/prisma/prisma.service';
 import { CloudinaryService } from '@/uploads/cloudinary.service';
@@ -22,6 +22,8 @@ function isClientRole(role: Role) {
 
 @Injectable()
 export class ProfilesService {
+  private readonly logger = new Logger(ProfilesService.name);
+
   constructor(
     private readonly prisma: PrismaService,
     private readonly cloudinary: CloudinaryService,
@@ -124,9 +126,15 @@ export class ProfilesService {
     );
 
     if (user.avatarPublicId) {
+      // Swallowed on purpose: a failed delete leaves an orphaned asset, which
+      // is not worth failing the upload over. Logged so it is not invisible.
       await this.cloudinary
         .delete(user.avatarPublicId, 'image')
-        .catch(() => undefined);
+        .catch((error) =>
+          this.logger.warn(
+            `Failed to delete the replaced avatar ${user.avatarPublicId}: ${error}`,
+          ),
+        );
     }
 
     await this.prisma.user.update({
