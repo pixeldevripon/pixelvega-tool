@@ -1,13 +1,11 @@
 import { applyDecorators } from '@nestjs/common';
 import { ApiOperation, ApiParam, ApiResponse } from '@nestjs/swagger';
+import { ConflictErrorDto } from '@/common/dto/error-responses.dto';
 import {
-  BadRequestErrorDto,
-  ConflictErrorDto,
-  ForbiddenErrorDto,
-  InternalServerErrorDto,
-  NotFoundErrorDto,
-  UnauthorizedErrorDto,
-} from '@/common/dto/error-responses.dto';
+  commonErrors,
+  gatedErrors,
+  notFound,
+} from '@/common/swagger/error-sets';
 import {
   MessageResponseDto,
   MyPermissionsResponseDto,
@@ -15,46 +13,8 @@ import {
   UserResponseDto,
 } from '@/users/dto/user.dto';
 
-// ── Shared error sets ────────────────────────────────────────────────────────
-// Composed once here rather than retyped per route. Adding a status to
-// `commonErrors` documents it on every endpoint that uses it, which is the
-// whole point of extracting these out of the controller.
-
-const serverError = ApiResponse({ status: 500, type: InternalServerErrorDto });
-
-const commonErrors = [
-  ApiResponse({
-    status: 400,
-    description: 'Bad Request',
-    type: BadRequestErrorDto,
-  }),
-  ApiResponse({
-    status: 401,
-    description: 'Unauthorized',
-    type: UnauthorizedErrorDto,
-  }),
-  serverError,
-];
-
-/** Any route behind a permission can answer 403. */
-const gatedErrors = [
-  ...commonErrors,
-  ApiResponse({
-    status: 403,
-    description: 'Forbidden',
-    type: ForbiddenErrorDto,
-  }),
-];
-
-/** A route addressing a user by id can answer 404. */
-const targetedErrors = [
-  ...gatedErrors,
-  ApiResponse({
-    status: 404,
-    description: 'User not found',
-    type: NotFoundErrorDto,
-  }),
-];
+/** A route addressing a user by id can also answer 404. */
+const targetedErrors = [...gatedErrors, notFound('User not found')];
 
 const userIdParam = ApiParam({
   name: 'id',

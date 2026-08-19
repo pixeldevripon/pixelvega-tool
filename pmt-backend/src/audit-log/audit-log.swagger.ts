@@ -1,31 +1,7 @@
 import { applyDecorators } from '@nestjs/common';
 import { ApiOperation, ApiResponse } from '@nestjs/swagger';
-import {
-  BadRequestErrorDto,
-  ForbiddenErrorDto,
-  InternalServerErrorDto,
-  UnauthorizedErrorDto,
-} from '@/common/dto/error-responses.dto';
+import { gatedErrors } from '@/common/swagger/error-sets';
 import { PaginatedAuditLogResponseDto } from '@/audit-log/dto/audit-log.dto';
-
-const gatedErrors = [
-  ApiResponse({
-    status: 400,
-    description: 'Bad Request',
-    type: BadRequestErrorDto,
-  }),
-  ApiResponse({
-    status: 401,
-    description: 'Unauthorized',
-    type: UnauthorizedErrorDto,
-  }),
-  ApiResponse({
-    status: 403,
-    description: 'Forbidden',
-    type: ForbiddenErrorDto,
-  }),
-  ApiResponse({ status: 500, type: InternalServerErrorDto }),
-];
 
 export const ApiListAuditLogDocs = () =>
   applyDecorators(

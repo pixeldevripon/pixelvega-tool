@@ -1,32 +1,15 @@
 import { applyDecorators } from '@nestjs/common';
 import { ApiOperation, ApiParam, ApiResponse } from '@nestjs/swagger';
-import {
-  BadRequestErrorDto,
-  InternalServerErrorDto,
-  NotFoundErrorDto,
-  UnauthorizedErrorDto,
-} from '@/common/dto/error-responses.dto';
+import { commonErrors, notFound } from '@/common/swagger/error-sets';
 import {
   MarkAllReadResponseDto,
   PaginatedNotificationsResponseDto,
   UnreadCountResponseDto,
 } from '@/notifications/dto/notification.dto';
 
-// No 403 set here: every route is self scoped, so there is no other person's
-// data to be forbidden from.
-const selfScopedErrors = [
-  ApiResponse({
-    status: 400,
-    description: 'Bad Request',
-    type: BadRequestErrorDto,
-  }),
-  ApiResponse({
-    status: 401,
-    description: 'Unauthorized',
-    type: UnauthorizedErrorDto,
-  }),
-  ApiResponse({ status: 500, type: InternalServerErrorDto }),
-];
+// commonErrors, not gatedErrors: every route here is self scoped, so there is
+// no other person's data to be forbidden from and 403 would never be returned.
+const selfScopedErrors = commonErrors;
 
 export const ApiListNotificationsDocs = () =>
   applyDecorators(
@@ -63,11 +46,7 @@ export const ApiMarkNotificationReadDocs = () =>
     ApiParam({ name: 'id', description: 'The notification id' }),
     ApiResponse({ status: 200, description: 'Marked read' }),
     ...selfScopedErrors,
-    ApiResponse({
-      status: 404,
-      description: 'Not found, or it belongs to someone else',
-      type: NotFoundErrorDto,
-    }),
+    notFound('Not found, or it belongs to someone else'),
   );
 
 export const ApiMarkAllNotificationsReadDocs = () =>
