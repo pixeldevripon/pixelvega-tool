@@ -79,7 +79,7 @@ safety net.
 
 - [x] `pnpm install` at the repo root
 - [x] `pnpm exec husky init` to activate the hooks (both are already written and executable)
-- [ ] Confirm a commit triggers lint-staged and a push triggers the full gate
+- [x] Confirm a commit triggers lint-staged and a push triggers the full gate
 - [ ] Confirm CI runs green on a throwaway branch before relying on it
 
 ### Backend hygiene

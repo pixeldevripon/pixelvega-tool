@@ -86,4 +86,18 @@ Nothing here changes application behaviour.
 
 ## Completed phases
 
-None yet.
+### Phase 1: make it verifiable — complete, 2026-08-20
+
+20 of 23 tasks done. Two frontend tasks (1.11 Vitest, 1.12 `.env.example`) deferred at the owner's
+request to keep the backend moving; they carry into phase 7.
+
+**Exit criteria met.** Backend `lint`, `typecheck`, `test`, and `build` all pass. 213 tests across 9
+suites, up from zero. A real commit triggers lint-staged, and the E2E database guard is itself tested.
+
+|                    | Before                                                 | After                                                    |
+| ------------------ | ------------------------------------------------------ | -------------------------------------------------------- |
+| Backend test files | 0                                                      | 9                                                        |
+| Backend tests      | 0                                                      | 213                                                      |
+| CI                 | none, and the one workflow present had never run       | lint, typecheck, test, build on both packages            |
+| Git hooks          | none                                                   | pre-commit and pre-push, both exercised                  |
+| E2E harness        | a starter spec expecting a route that no longer exists | real bootstrap, database guard, six pipeline smoke tests |
