@@ -113,7 +113,7 @@ async function bootstrap() {
   // SIGTERM rather than dropping connections.
   app.enableShutdownHooks();
 
-  await app.listen(process.env.PORT ?? 3000);
+  await app.listen(process.env.PORT ?? 5050);
 }
 
 void bootstrap();

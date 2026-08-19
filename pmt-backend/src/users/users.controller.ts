@@ -12,8 +12,8 @@ import {
 import { ApiCookieAuth, ApiTags } from '@nestjs/swagger';
 import type { Request } from 'express';
 import { Permission, Role } from '@prisma/client';
-import { RequirePermissions } from '@/auth/decorators/require-permissions.decorator';
-import { PermissionsService } from '@/auth/permissions.service';
+import { RequirePermissions } from '@/auth/permissions/require-permissions.decorator';
+import { PermissionsService } from '@/auth/permissions/permissions.service';
 import { CurrentUser } from '@/common/decorators/current-user.decorator';
 import { ROLE_DISPLAY, toEnumDisplay } from '@/common/utils/enum-display.util';
 import {

@@ -21,7 +21,6 @@ model User {
 
   sessions           Session[]
   accounts           Account[]
-  resetCodes         PasswordResetCode[]
   auditLogs          AuditLog[]
   employeeProfile    EmployeeProfile?
   clientProfile      ClientProfile?
@@ -148,14 +147,3 @@ model Verification {
 }
 
 
-model PasswordResetCode {
-  id        String    @id @default(uuid())
-  userId    String
-  user      User      @relation(fields: [userId], references: [id])
-  codeHash  String
-  expiresAt DateTime
-  usedAt    DateTime?
-  createdAt DateTime  @default(now())
-
-  @@index([userId])
-}

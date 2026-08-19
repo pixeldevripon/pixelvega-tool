@@ -1,78 +1,37 @@
 import { ApiProperty } from '@nestjs/swagger';
-import * as FieldLength from '@/common/constants/field-lengths';
-import {
-  IsEmail,
-  IsString,
-  Length,
-  MinLength,
-  MaxLength,
-} from 'class-validator';
-
-// ════════════════════════════════════════════════════════════════════════════
-// Response
-// ════════════════════════════════════════════════════════════════════════════
 
 /**
- * The reply to a reset code request.
+ * The auth surface is better-auth's, not this application's.
  *
- * Deliberately identical whether or not the email matched an account. Telling a
- * caller which addresses exist turns this endpoint into an account enumeration
- * oracle, so the message is fixed and the wording says so plainly.
+ * Sign-in, sign-out, forgot-password, reset-password and change-password are
+ * all served by better-auth at `/api/auth/*`, so their request and response
+ * bodies are its contract rather than ours and there are no DTOs for them here.
+ * `common/swagger/better-auth-paths.ts` documents those paths in `/api/docs`.
+ *
+ * What remains is the one shape this application adds on top.
  */
-export class ForgotPasswordResponseDto {
-  @ApiProperty({
-    example: 'If an account exists for this email, a reset code has been sent.',
-    description:
-      'Fixed text. Identical for a known and an unknown email, on purpose.',
-  })
-  message!: string;
-}
 
-export class VerifyResetCodeResponseDto {
-  @ApiProperty({
-    example: 'eyJhbGciOiJIUzI1NiIs...',
-    description:
-      'Short lived. Pass to /auth-flows/reset-password as resetToken.',
-  })
-  resetToken!: string;
-}
+/** A session, as `GET /api/auth/get-session` returns it. Documentation only. */
+export class SessionUserDto {
+  @ApiProperty({ example: 'FKlPeooYonpdtm6IW7eJkJJvA4sdr2Xg' })
+  id!: string;
 
-export class ResetPasswordResponseDto {
-  @ApiProperty({ example: 'Password has been reset.' })
-  message!: string;
-}
-
-// ════════════════════════════════════════════════════════════════════════════
-// Request
-// ════════════════════════════════════════════════════════════════════════════
-
-export class ForgotPasswordDto {
-  @ApiProperty({ example: 'admin@pixelvega.com' })
-  @IsEmail()
-  @MaxLength(FieldLength.EMAIL)
-  email!: string;
-}
-
-export class VerifyResetCodeDto {
-  @ApiProperty({ example: 'admin@pixelvega.com' })
-  @IsEmail()
-  @MaxLength(FieldLength.EMAIL)
+  @ApiProperty({ example: 'rezina@pixelvega.com' })
   email!: string;
 
-  @ApiProperty({ example: '123456', minLength: 6, maxLength: 6 })
-  @Length(6, 6)
-  code!: string;
-}
+  @ApiProperty({ example: 'Rezina Akter' })
+  name!: string;
 
-export class ResetPasswordDto {
+  @ApiProperty({ example: 'DEVELOPER' })
+  role!: string;
+
+  @ApiProperty({ example: 'ACTIVE' })
+  status!: string;
+
   @ApiProperty({
-    description: 'Token returned by /auth-flows/verify-reset-code',
+    example: false,
+    description:
+      'True until the invited user has chosen their own password. The dashboard forces a password change while this is set.',
   })
-  @IsString()
-  @MaxLength(FieldLength.SINGLE_LINE)
-  resetToken!: string;
-
-  @ApiProperty({ minLength: 8 })
-  @MinLength(8)
-  newPassword!: string;
+  mustResetPassword!: boolean;
 }

@@ -92,6 +92,34 @@ const REQUIRED: Record<string, Validator> = {
  * crashing the app.
  */
 const OPTIONAL: Record<string, Validator> = {
+  /**
+   * Where a password reset link points.
+   *
+   * Optional: it falls back to the first CORS_ORIGINS entry, which is the
+   * dashboard in every environment this runs in. Set it explicitly when the
+   * dashboard is not the first origin in that list.
+   */
+  APP_URL: anyValue,
+
+  /**
+   * Shared secret identifying a first party server rendered caller, which may
+   * then bypass the per IP throttle on routes that have not tightened their own
+   * limit, and forward the real visitor's IP.
+   *
+   * Optional. Unset means the bypass never triggers, so a deployment that
+   * forgets it is throttled rather than open.
+   */
+  INTERNAL_API_SECRET: secret(16),
+
+  /**
+   * Turns OFF better-auth's origin check, which is CSRF protection.
+   *
+   * Optional, and deliberately opt in by explicit value rather than inferred
+   * from NODE_ENV. It used to be disabled for everything that was not exactly
+   * "production", which meant staging ran with no origin check at all.
+   */
+  AUTH_DISABLE_ORIGIN_CHECK: anyValue,
+
   // Mail. Without these, invite and password reset emails are not delivered.
   SMTP_HOST: anyValue,
   SMTP_PORT: positiveInt,

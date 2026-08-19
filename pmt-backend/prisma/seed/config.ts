@@ -62,7 +62,6 @@ export const VOLUME = {
   // better-auth tables.
   sessions: 180,
   verifications: 140,
-  passwordResetCodes: 150,
 
   // Reference data.
   leaveTypes: 104,

@@ -12,10 +12,10 @@ import {
 import { FileInterceptor } from '@nestjs/platform-express';
 import { ApiCookieAuth, ApiTags } from '@nestjs/swagger';
 import { Permission, Role } from '@prisma/client';
-import { RequirePermissions } from '@/auth/decorators/require-permissions.decorator';
+import { RequirePermissions } from '@/auth/permissions/require-permissions.decorator';
 import { CurrentUser } from '@/common/decorators/current-user.decorator';
 import { UpdateProfileRequestDto } from '@/profiles/dto/profile.dto';
-import { imageUploadOptions } from '@/uploads/image-upload.options';
+import { imageUploadOptions } from '@/uploads/upload-options';
 import {
   ApiGetOwnProfileDocs,
   ApiGetUserProfileDocs,

@@ -55,8 +55,8 @@ root orchestrator:
 
 | Package        | What it is                                                      | Port |
 | -------------- | --------------------------------------------------------------- | ---- |
-| `pmt-backend`  | NestJS 11 API. Owns the database, auth, and every business rule | 3000 |
-| `pmt-frontend` | Next.js 16 dashboard. Pure API client (no database, no secrets) | 3001 |
+| `pmt-backend`  | NestJS 11 API. Owns the database, auth, and every business rule | 5050 |
+| `pmt-frontend` | Next.js 16 dashboard. Pure API client (no database, no secrets) | 3000 |
 
 Six roles: `SYSTEM_ADMIN · ADMIN · PROJECT_MANAGER · DEVELOPER · DESIGNER · CLIENT`.
 Domain: projects and staffing, time tracking, daily work reports, blockers, internal reviews,
@@ -82,7 +82,7 @@ their shape.
 
 ```bash
 pnpm install:all              # install root + both packages
-pnpm dev                      # backend :3000 and frontend :3001 together
+pnpm dev                      # backend :5050 and frontend :3000 together
 pnpm lint                     # eslint --fix, both packages
 pnpm typecheck                # tsc --noEmit, both packages
 pnpm test                     # backend Jest + frontend Vitest
@@ -104,20 +104,31 @@ Every module matches this, no exceptions:
 ```
 src/<module>/                        NOT src/modules/<module>/ (D1)
 ├── dto/<module>.dto.ts              ALL DTOs: Response, then Query, then Request, in that order
+├── spec/                            EVERY *.spec.ts for this module lives here
+│   ├── <module>.service.spec.ts     Prisma fully mocked
+│   └── <helper>.spec.ts
 ├── <module>.swagger.ts              one applyDecorators() function per endpoint
 ├── <module>.service.ts              all business logic
-├── <module>.service.spec.ts         co-located, Prisma fully mocked
 ├── <module>.controller.ts           thin routing only
-├── <module>.controller.spec.ts
 ├── <module>.module.ts
-└── <helper>.ts + <helper>.spec.ts   pure units, with a co-located spec
+└── <helper>.ts                      pure units
 ```
 
-**Subdirectories are allowed for organization.** The reference keeps most modules flat, and small
-modules should stay that way, but a module large enough that its file list is hard to scan is better
-grouped than flat. What matters is that a spec sits beside the file it tests, wherever that file
-lives, and that the grouping means something (`dto/`, `mappers/`, `jobs/`) rather than being a dumping
-ground.
+**The folder path mirrors the route path.** `projects/:projectId/documents` lives at
+`src/projects/documents/`, `projects/:projectId/internal-reviews` at `src/projects/reviews/internal/`.
+Someone reading the tree can see the API without opening a controller, and a new sub-resource has
+exactly one obvious home. Purely internal modules with no route of their own (`projects/scope`,
+`projects/activity`) sit beside their siblings.
+
+**Every spec goes in the module's own `spec/` folder.** Not beside the file it tests: a module with
+eight source files and eight specs is sixteen entries to scan, and half of them are noise when you are
+looking for the implementation. `spec/project.mapper.spec.ts` still names what it covers, so nothing
+is lost by moving it.
+
+**Subdirectories are allowed for organization generally.** The reference keeps most modules flat, and
+small modules should stay that way, but a module large enough that its file list is hard to scan is
+better grouped than flat, so long as the grouping means something (`dto/`, `spec/`, `jobs/`) rather
+than being a dumping ground.
 
 - **`@/` path alias for every internal import.** `@prisma/client` and other real packages are the
   exception. A new `../../` chain is a defect.

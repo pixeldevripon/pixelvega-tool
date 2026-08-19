@@ -22,6 +22,13 @@ model ProjectDocument {
   fileUrl       String?
   fileMimeType  String? // "application/pdf", "image/png", "application/zip", etc.
   fileSizeBytes Int?
+  // Cloudinary's own identifiers, needed to DELETE the asset later. Without
+  // them a removed document left its bytes in Cloudinary forever, with nothing
+  // left pointing at them: the url alone is not enough to destroy an asset,
+  // and Cloudinary partitions its namespace by resource type, so a video
+  // destroyed as an 'image' silently succeeds and deletes nothing.
+  filePublicId     String?
+  fileResourceType String?
 
   // TEXT format, e.g. credentials, quick notes
   textContent String?

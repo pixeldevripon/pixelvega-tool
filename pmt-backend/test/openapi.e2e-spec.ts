@@ -36,7 +36,7 @@ describe('OpenAPI document (e2e)', () => {
         ['get', 'post', 'patch', 'put', 'delete'].includes(k),
       ),
     );
-    expect(operations.length).toBeGreaterThanOrEqual(112);
+    expect(operations.length).toBeGreaterThanOrEqual(109);
   });
 
   it('gives every operation a summary', () => {
