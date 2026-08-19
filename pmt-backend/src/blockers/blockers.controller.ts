@@ -13,23 +13,21 @@ import {
   ApiResponse,
   ApiTags,
 } from '@nestjs/swagger';
-import { Role } from '@prisma/client';
-import { Roles } from '@/common/decorators/roles.decorator';
+import { Permission, Role } from '@prisma/client';
 import { CurrentUser } from '@/common/decorators/current-user.decorator';
 import { BlockerService } from './blocker.service';
 import { AddBlockerDto } from '@/blockers/dto/add-blocker.dto';
 import { UpdateBlockerDto } from '@/blockers/dto/update-blocker.dto';
 import { QueryBlockersDto } from '@/blockers/dto/query-blockers.dto';
+import { RequirePermissions } from '@/auth/decorators/require-permissions.decorator';
 
 // Deliberately not nested under projects/:projectId. A blocker can be
 // reported and updated from a single top level endpoint regardless of which
 // project it belongs to. The read scoped to one project (PM dashboard) lives
 // in ProjectBlockersController instead.
-const REPORT_ROLES = [Role.DEVELOPER, Role.DESIGNER, Role.PROJECT_MANAGER];
 // Same role set as REPORT_ROLES. DEVELOPER/DESIGNER only see blockers on
 // projects they're actively staffed on (enforced in BlockerService.findAll()
 // via a project membership filter); PROJECT_MANAGER can see every project.
-const READ_ROLES = [Role.DEVELOPER, Role.DESIGNER, Role.PROJECT_MANAGER];
 
 @ApiTags('Blockers')
 @ApiCookieAuth('better-auth.session_token')
@@ -48,7 +46,7 @@ export class BlockersController {
     status: 403,
     description: 'Not an active member of the target project',
   })
-  @Roles(REPORT_ROLES)
+  @RequirePermissions(Permission.REPORT_BLOCKER)
   @Post()
   addBlocker(
     @Body() dto: AddBlockerDto,
@@ -78,7 +76,7 @@ export class BlockersController {
     status: 409,
     description: 'Already resolved, or an invalid (backward) status move',
   })
-  @Roles(REPORT_ROLES)
+  @RequirePermissions(Permission.REPORT_BLOCKER)
   @Patch(':blockerId')
   updateBlocker(
     @Param('blockerId') blockerId: string,
@@ -102,7 +100,7 @@ export class BlockersController {
     status: 200,
     description: 'Paginated blockers with resolution metrics',
   })
-  @Roles(READ_ROLES)
+  @RequirePermissions(Permission.VIEW_BLOCKERS)
   @Get()
   findAll(
     @Query() query: QueryBlockersDto,

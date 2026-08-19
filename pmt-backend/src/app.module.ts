@@ -15,6 +15,8 @@ import { SlackModule } from '@/slack/slack.module';
 import { NotificationsModule } from '@/notifications/notifications.module';
 import { auth } from '@/auth/auth.instance';
 import { LoginStatusHook } from '@/auth/login-status.hook';
+import { PermissionsGuard } from '@/auth/guards/permissions.guard';
+import { PermissionsService } from '@/auth/permissions.service';
 
 @Module({
   imports: [
@@ -34,7 +36,17 @@ import { LoginStatusHook } from '@/auth/login-status.hook';
   ],
   providers: [
     LoginStatusHook,
+    // Exported so any module can inject it without importing AuthModule.
+    PermissionsService,
+    // APP_GUARD providers run in registration order (directive D2):
+    //   1. ThrottlerGuard    rate limit before any session lookup
+    //   2. AuthGuard         from @thallesp/nestjs-better-auth, registered by
+    //                        BetterAuthModule.forRoot() above
+    //   3. PermissionsGuard  @RequirePermissions / @RequireAnyPermission
+    // Do not reorder: PermissionsGuard reads request.user, which AuthGuard sets.
     { provide: APP_GUARD, useClass: ThrottlerGuard },
+    { provide: APP_GUARD, useClass: PermissionsGuard },
   ],
+  exports: [PermissionsService],
 })
 export class AppModule {}

@@ -12,7 +12,7 @@ import { QueryNotificationsDto } from '@/notifications/dto/query-notifications.d
 
 // Always self scoped. Unlike most of ProjectsModule, no staff role ever
 // sees anyone else's notifications, there is no company wide or
-// PM/Admin-sees-more variant here, so this controller has no @Roles()
+// PM/Admin-sees-more variant here, so this controller declares no permission
 // restriction at all, any authenticated user reads only their own rows.
 @ApiTags('Notifications')
 @ApiCookieAuth('better-auth.session_token')

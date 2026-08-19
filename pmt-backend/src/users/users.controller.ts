@@ -15,21 +15,25 @@ import {
   ApiResponse,
   ApiTags,
 } from '@nestjs/swagger';
-import { Roles } from '@/common/decorators/roles.decorator';
 import type { Request } from 'express';
-import { Role } from '@prisma/client';
+import { Permission, Role } from '@prisma/client';
+import { PermissionsService } from '@/auth/permissions.service';
 import { UsersService } from './users.service';
 import { InviteUserDto } from '@/users/dto/invite-user.dto';
 import { ChangePasswordDto } from '@/users/dto/change-password.dto';
 import { UpdateUserDto } from '@/users/dto/update-user.dto';
 import { CurrentUser } from '@/common/decorators/current-user.decorator';
 import { PaginationQueryDto } from '@/common/dto/pagination-query.dto';
+import { RequirePermissions } from '@/auth/decorators/require-permissions.decorator';
 
 @ApiTags('Users')
 @ApiCookieAuth('better-auth.session_token')
 @Controller('users')
 export class UsersController {
-  constructor(private readonly usersService: UsersService) {}
+  constructor(
+    private readonly usersService: UsersService,
+    private readonly permissionsService: PermissionsService,
+  ) {}
 
   @ApiOperation({
     summary: 'Invite a new user',
@@ -39,7 +43,7 @@ export class UsersController {
   @ApiResponse({ status: 201, description: 'User invited' })
   @ApiResponse({ status: 403, description: 'Caller is not ADMIN' })
   @ApiResponse({ status: 409, description: 'Email already in use' })
-  @Roles([Role.ADMIN])
+  @RequirePermissions(Permission.INVITE_USER)
   @Post('invite')
   async invite(
     @Body() dto: InviteUserDto,
@@ -68,6 +72,26 @@ export class UsersController {
   }
 
   @ApiOperation({
+    summary: "Get the caller's effective permissions",
+    description:
+      'The capability set this session holds, resolved from the caller role. ' +
+      'This is what a client gates its UI from: it must never derive a ' +
+      'capability from the role string itself, because the mapping lives here ' +
+      'and can change without the client knowing.',
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'The effective permission set, plus the role it came from',
+  })
+  @Get('me/permissions')
+  myPermissions(@CurrentUser() user: { id: string; role: Role }) {
+    return {
+      role: user.role,
+      permissions: this.permissionsService.getEffectivePermissions(user),
+    };
+  }
+
+  @ApiOperation({
     summary: 'List all users',
     description: 'Paginated, newest first.',
   })
@@ -76,7 +100,7 @@ export class UsersController {
     status: 403,
     description: 'Caller is not ADMIN or PROJECT_MANAGER',
   })
-  @Roles([Role.ADMIN, Role.PROJECT_MANAGER])
+  @RequirePermissions(Permission.VIEW_USERS)
   @Get()
   findAll(@Query() query: PaginationQueryDto) {
     return this.usersService.findAll(query);
@@ -89,7 +113,7 @@ export class UsersController {
     description: 'Caller is not ADMIN or PROJECT_MANAGER',
   })
   @ApiResponse({ status: 404, description: 'User not found' })
-  @Roles([Role.ADMIN, Role.PROJECT_MANAGER])
+  @RequirePermissions(Permission.VIEW_USERS)
   @Get(':id')
   findOne(@Param('id') id: string) {
     return this.usersService.findOne(id);
@@ -99,7 +123,7 @@ export class UsersController {
   @ApiResponse({ status: 200, description: 'Updated user' })
   @ApiResponse({ status: 403, description: 'Caller is not ADMIN' })
   @ApiResponse({ status: 404, description: 'User not found' })
-  @Roles([Role.ADMIN])
+  @RequirePermissions(Permission.UPDATE_USER)
   @Patch(':id')
   update(
     @Param('id') id: string,
@@ -113,7 +137,7 @@ export class UsersController {
   @ApiResponse({ status: 200, description: 'User deleted' })
   @ApiResponse({ status: 403, description: 'Caller is not ADMIN' })
   @ApiResponse({ status: 404, description: 'User not found' })
-  @Roles([Role.ADMIN])
+  @RequirePermissions(Permission.DELETE_USER)
   @Delete(':id')
   remove(
     @Param('id') id: string,

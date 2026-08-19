@@ -18,12 +18,12 @@ import {
   ApiResponse,
   ApiTags,
 } from '@nestjs/swagger';
-import { Roles } from '@/common/decorators/roles.decorator';
-import { Role } from '@prisma/client';
+import { Permission, Role } from '@prisma/client';
 import { ProfilesService } from './profiles.service';
 import { UpdateProfileDto } from '@/profiles/dto/update-profile.dto';
 import { imageUploadOptions } from '@/uploads/image-upload.options';
 import { CurrentUser } from '@/common/decorators/current-user.decorator';
+import { RequirePermissions } from '@/auth/decorators/require-permissions.decorator';
 
 @ApiTags('Profiles')
 @ApiCookieAuth('better-auth.session_token')
@@ -81,7 +81,7 @@ export class ProfilesController {
     description: 'Caller is not ADMIN or PROJECT_MANAGER',
   })
   @ApiResponse({ status: 404, description: 'User not found' })
-  @Roles([Role.ADMIN, Role.PROJECT_MANAGER])
+  @RequirePermissions(Permission.VIEW_USER_PROFILE)
   @Get(':userId')
   findOne(@Param('userId') userId: string) {
     return this.profilesService.findByUserId(userId);

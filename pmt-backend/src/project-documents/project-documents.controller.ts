@@ -20,8 +20,7 @@ import {
   ApiResponse,
   ApiTags,
 } from '@nestjs/swagger';
-import { Role } from '@prisma/client';
-import { Roles } from '@/common/decorators/roles.decorator';
+import { Permission, Role } from '@prisma/client';
 import { CurrentUser } from '@/common/decorators/current-user.decorator';
 import { documentUploadOptions } from '@/uploads/document-upload.options';
 import {
@@ -32,12 +31,12 @@ import { CreateProjectDocumentDto } from '@/project-documents/dto/create-project
 import { CreateProjectDocumentsBatchDto } from '@/project-documents/dto/create-project-documents-batch.dto';
 import { UpdateProjectDocumentDto } from '@/project-documents/dto/update-project-document.dto';
 import { QueryProjectDocumentsDto } from '@/project-documents/dto/query-project-documents.dto';
+import { RequirePermissions } from '@/auth/decorators/require-permissions.decorator';
 
 // Only Admin/System Admin/Project Manager ever upload, type, edit, or delete
 // a project document. Developer/Designer/Client are read only here. A
 // PROJECT_MANAGER caller must additionally be actively staffed as PM on
 // this specific project.
-const PROJECT_DOCUMENT_WRITE_ROLES = [Role.PROJECT_MANAGER];
 
 @ApiTags('Project Documents')
 @ApiCookieAuth('better-auth.session_token')
@@ -54,7 +53,7 @@ export class ProjectDocumentsController {
   })
   @ApiResponse({ status: 200, description: 'Paginated project documents' })
   @ApiResponse({ status: 404, description: 'Project not found' })
-  @Roles([Role.PROJECT_MANAGER, Role.DEVELOPER, Role.DESIGNER, Role.CLIENT])
+  @RequirePermissions(Permission.VIEW_PROJECT_DOCUMENTS)
   @Get()
   findAll(
     @Param('projectId') projectId: string,
@@ -76,7 +75,7 @@ export class ProjectDocumentsController {
   })
   @ApiResponse({ status: 200, description: 'The document' })
   @ApiResponse({ status: 404, description: 'Project or document not found' })
-  @Roles([Role.PROJECT_MANAGER, Role.DEVELOPER, Role.DESIGNER, Role.CLIENT])
+  @RequirePermissions(Permission.VIEW_PROJECT_DOCUMENTS)
   @Get(':id')
   findOne(
     @Param('projectId') projectId: string,
@@ -119,7 +118,7 @@ export class ProjectDocumentsController {
     description: 'Caller is not staffed as PM on this project',
   })
   @ApiResponse({ status: 404, description: 'Project not found' })
-  @Roles(PROJECT_DOCUMENT_WRITE_ROLES)
+  @RequirePermissions(Permission.MANAGE_PROJECT_DOCUMENTS)
   @Post()
   @UseInterceptors(FileInterceptor('file', documentUploadOptions))
   create(
@@ -162,7 +161,7 @@ export class ProjectDocumentsController {
     description: 'Caller is not staffed as PM on this project',
   })
   @ApiResponse({ status: 404, description: 'Project not found' })
-  @Roles(PROJECT_DOCUMENT_WRITE_ROLES)
+  @RequirePermissions(Permission.MANAGE_PROJECT_DOCUMENTS)
   @Post('batch')
   @UseInterceptors(
     FilesInterceptor('files', MAX_BATCH_UPLOAD_FILES, documentUploadOptions),
@@ -197,7 +196,7 @@ export class ProjectDocumentsController {
     description: 'Caller is not staffed as PM on this project',
   })
   @ApiResponse({ status: 404, description: 'Project or document not found' })
-  @Roles(PROJECT_DOCUMENT_WRITE_ROLES)
+  @RequirePermissions(Permission.MANAGE_PROJECT_DOCUMENTS)
   @Patch(':id')
   update(
     @Param('projectId') projectId: string,
@@ -225,7 +224,7 @@ export class ProjectDocumentsController {
     description: 'Caller is not staffed as PM on this project',
   })
   @ApiResponse({ status: 404, description: 'Project or document not found' })
-  @Roles(PROJECT_DOCUMENT_WRITE_ROLES)
+  @RequirePermissions(Permission.MANAGE_PROJECT_DOCUMENTS)
   @Delete(':id')
   remove(
     @Param('projectId') projectId: string,

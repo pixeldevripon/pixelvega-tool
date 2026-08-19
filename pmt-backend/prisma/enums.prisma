@@ -291,3 +291,91 @@ enum NotificationType {
   LEAVE_REQUEST_APPROVED
   LEAVE_REQUEST_REJECTED
 }
+
+// Every capability a route can be gated on (directive D2). One value per
+// capability, not per role: `ROLE_PERMISSIONS` in src/config/roles.config.ts is
+// the single map from a Role to the set it holds.
+//
+// The gate is COARSE. A permission answers "may this role ever do this".
+// Whether THIS caller may do it to THIS project is a separate question,
+// answered by an assertCanX() helper in the service, because it depends on
+// ProjectMember rows. Do not try to encode project scope here.
+enum Permission {
+  // Projects
+  CREATE_PROJECT
+  VIEW_ALL_PROJECTS
+  VIEW_OWN_PROJECTS
+  EDIT_PROJECT
+  CHANGE_PROJECT_STATUS
+  CHANGE_PROJECT_PRIORITY
+  MANAGE_PROJECT_TYPES
+  MANAGE_ESTIMATED_HOURS
+  ARCHIVE_PROJECT
+  CONNECT_PROJECT_SLACK
+  VIEW_PROJECT_ACTIVITY
+
+  // Staffing
+  VIEW_PROJECT_MEMBERS
+  MANAGE_PROJECT_MEMBERS
+
+  // Documents
+  VIEW_PROJECT_DOCUMENTS
+  MANAGE_PROJECT_DOCUMENTS
+
+  // Time tracking
+  TRACK_PROJECT_TIME
+  TRACK_MEETING_TIME
+  VIEW_TIME_ENTRIES
+
+  // Daily work reports
+  SUBMIT_WORK_REPORT
+  VIEW_WORK_REPORTS
+  REVIEW_WORK_REPORT
+
+  // Blockers
+  REPORT_BLOCKER
+  VIEW_BLOCKERS
+  MANAGE_BLOCKER_REASONS
+
+  // Internal review and client feedback
+  SUBMIT_INTERNAL_REVIEW
+  VIEW_INTERNAL_REVIEWS
+  SUBMIT_CLIENT_FEEDBACK
+  VIEW_CLIENT_FEEDBACK
+
+  // Additional requirements
+  CREATE_ADDITIONAL_REQUIREMENT
+  REVIEW_ADDITIONAL_REQUIREMENT
+  VIEW_ADDITIONAL_REQUIREMENTS
+
+  // Reporting
+  VIEW_PROJECT_REPORTS
+  VIEW_DEVELOPER_REPORTS
+
+  // Leave
+  REQUEST_LEAVE
+  VIEW_LEAVE_REQUESTS
+  REVIEW_LEAVE_REQUEST
+  VIEW_LEAVE_SUMMARY
+  MANAGE_LEAVE_TYPES
+  MANAGE_HOLIDAYS
+
+  // Users and profiles
+  VIEW_USERS
+  INVITE_USER
+  UPDATE_USER
+  DELETE_USER
+  VIEW_USER_PROFILE
+
+  // Audit
+  VIEW_AUDIT_LOG
+
+  // AI
+  VIEW_AI_TEMPLATES
+  MANAGE_AI_TEMPLATES
+  REQUEST_AI_SUMMARY
+  GENERATE_STATUS_REPORT
+  VIEW_STATUS_REPORTS
+  RUN_SCOPE_CHECK
+  VIEW_AI_JOB
+}

@@ -13,8 +13,7 @@ import {
   ApiResponse,
   ApiTags,
 } from '@nestjs/swagger';
-import { Role } from '@prisma/client';
-import { Roles } from '@/common/decorators/roles.decorator';
+import { Permission, Role } from '@prisma/client';
 import { CurrentUser } from '@/common/decorators/current-user.decorator';
 import { PaginationQueryDto } from '@/common/dto/pagination-query.dto';
 import { ProjectsService } from './projects.service';
@@ -27,12 +26,13 @@ import { UpdateEstimatedHoursDto } from '@/projects/dto/update-estimated-hours.d
 import { ConnectSlackChannelDto } from '@/projects/dto/connect-slack-channel.dto';
 import { QueryProjectsDto } from '@/projects/dto/query-projects.dto';
 import { QueryMyProjectsDto } from '@/projects/dto/query-my-projects.dto';
+import { RequirePermissions } from '@/auth/decorators/require-permissions.decorator';
+import { RequireAnyPermission } from '@/auth/decorators/require-any-permission.decorator';
 
 // Create, list all, and manage routes stay limited to staff (any
 // PROJECT_MANAGER, plus ADMIN/SYSTEM_ADMIN automatically). Single project
 // reads (findOne, findActivities, findMine) instead scope to the caller.
 // See their individual @Roles and the service layer checks they call.
-const PROJECT_STAFF_ROLES = [Role.PROJECT_MANAGER];
 
 @ApiTags('Projects')
 @ApiCookieAuth('better-auth.session_token')
@@ -46,7 +46,7 @@ export class ProjectsController {
       'Always created in PLANNING status. Requires at least one Project Type tag. If the caller is a PROJECT_MANAGER, they are automatically staffed as an active PM on the new project (ADMIN/SYSTEM_ADMIN are not, since they already have unscoped access).',
   })
   @ApiResponse({ status: 201, description: 'Project created' })
-  @Roles(PROJECT_STAFF_ROLES)
+  @RequirePermissions(Permission.CREATE_PROJECT)
   @Post()
   create(
     @Body() dto: CreateProjectDto,
@@ -61,7 +61,7 @@ export class ProjectsController {
       'Paginated, newest first. Filterable by status/priority/clientId/projectTypes (matches ANY of the given types). Archived projects are excluded by default, pass archived=true for a dedicated archive view (only archived projects, not a mix of both). search matches project name (case insensitive, contains), meant for finding one specific project quickly at scale.',
   })
   @ApiResponse({ status: 200, description: 'Paginated projects' })
-  @Roles(PROJECT_STAFF_ROLES)
+  @RequirePermissions(Permission.VIEW_ALL_PROJECTS)
   @Get()
   findAll(@Query() query: QueryProjectsDto) {
     return this.projectsService.findAll(query);
@@ -73,7 +73,7 @@ export class ProjectsController {
       "For CLIENT, projects where they're the client (reduced field set — status only, no internal fields, archived is ignored). For PROJECT_MANAGER/DEVELOPER/DESIGNER, projects where they have an active ProjectMember row, ordered by active-status-first (READY_FOR_WORK/IN_PROGRESS), then Priority, then Deadline, then Planned Start Date. Archived projects are excluded by default, pass archived=true for a dedicated archive view. For DEVELOPER/DESIGNER callers, the response also includes an overloaded boolean (true once active project count exceeds the recommended 3) — always omitted for CLIENT/PROJECT_MANAGER. NOTE: must be declared before GET /:id so 'mine' isn't swallowed as an :id value.",
   })
   @ApiResponse({ status: 200, description: 'Paginated, scoped to the caller' })
-  @Roles([Role.PROJECT_MANAGER, Role.DEVELOPER, Role.DESIGNER, Role.CLIENT])
+  @RequirePermissions(Permission.VIEW_OWN_PROJECTS)
   @Get('mine')
   findMine(
     @Query() query: QueryMyProjectsDto,
@@ -93,7 +93,7 @@ export class ProjectsController {
       'Paginated, scoped to the target user. May include overloaded: true/false for a DEVELOPER/DESIGNER target.',
   })
   @ApiResponse({ status: 404, description: 'User not found' })
-  @Roles(PROJECT_STAFF_ROLES)
+  @RequirePermissions(Permission.VIEW_ALL_PROJECTS)
   @Get('users/:userId')
   findForUser(
     @Param('userId') userId: string,
@@ -113,7 +113,10 @@ export class ProjectsController {
     description: 'DEVELOPER/DESIGNER not an active member of this project',
   })
   @ApiResponse({ status: 404, description: 'Project not found' })
-  @Roles([Role.PROJECT_MANAGER, Role.DEVELOPER, Role.DESIGNER, Role.CLIENT])
+  @RequireAnyPermission(
+    Permission.VIEW_ALL_PROJECTS,
+    Permission.VIEW_OWN_PROJECTS,
+  )
   @Get(':id')
   findOne(
     @Param('id') id: string,
@@ -132,7 +135,7 @@ export class ProjectsController {
     status: 403,
     description: 'DEVELOPER/DESIGNER not an active member of this project',
   })
-  @Roles([Role.PROJECT_MANAGER, Role.DEVELOPER, Role.DESIGNER])
+  @RequirePermissions(Permission.VIEW_PROJECT_ACTIVITY)
   @Get(':id/activities')
   findActivities(
     @Param('id') id: string,
@@ -153,7 +156,7 @@ export class ProjectsController {
     description: 'Not staffed as PM on this project',
   })
   @ApiResponse({ status: 404, description: 'Project not found' })
-  @Roles(PROJECT_STAFF_ROLES)
+  @RequirePermissions(Permission.EDIT_PROJECT)
   @Patch(':id')
   update(
     @Param('id') id: string,
@@ -175,7 +178,7 @@ export class ProjectsController {
     description: 'Not staffed as PM on this project',
   })
   @ApiResponse({ status: 404, description: 'Project not found' })
-  @Roles(PROJECT_STAFF_ROLES)
+  @RequirePermissions(Permission.CHANGE_PROJECT_PRIORITY)
   @Patch(':id/priority')
   updatePriority(
     @Param('id') id: string,
@@ -196,7 +199,7 @@ export class ProjectsController {
     description: 'Not staffed as PM on this project',
   })
   @ApiResponse({ status: 404, description: 'Project not found' })
-  @Roles(PROJECT_STAFF_ROLES)
+  @RequirePermissions(Permission.MANAGE_ESTIMATED_HOURS)
   @Patch(':id/estimated-hours')
   updateEstimatedHours(
     @Param('id') id: string,
@@ -231,7 +234,7 @@ export class ProjectsController {
     status: 409,
     description: 'Project already has a connected Slack channel',
   })
-  @Roles(PROJECT_STAFF_ROLES)
+  @RequirePermissions(Permission.CONNECT_PROJECT_SLACK)
   @Patch(':id/slack-channel')
   connectSlackChannel(
     @Param('id') id: string,
@@ -257,7 +260,7 @@ export class ProjectsController {
     description: 'Not staffed as PM on this project',
   })
   @ApiResponse({ status: 404, description: 'Project not found' })
-  @Roles(PROJECT_STAFF_ROLES)
+  @RequirePermissions(Permission.MANAGE_PROJECT_TYPES)
   @Patch(':id/types')
   updateTypes(
     @Param('id') id: string,
@@ -285,7 +288,7 @@ export class ProjectsController {
     description:
       'Status transition not allowed, or the project is archived (use restore instead)',
   })
-  @Roles([Role.PROJECT_MANAGER, Role.DEVELOPER, Role.DESIGNER])
+  @RequirePermissions(Permission.CHANGE_PROJECT_STATUS)
   @Patch(':id/status')
   updateStatus(
     @Param('id') id: string,
@@ -310,7 +313,7 @@ export class ProjectsController {
     status: 409,
     description: 'Project is not COMPLETED/CANCELLED, or already archived',
   })
-  @Roles([Role.ADMIN])
+  @RequirePermissions(Permission.ARCHIVE_PROJECT)
   @Patch(':id/archive')
   archive(
     @Param('id') id: string,
@@ -331,7 +334,7 @@ export class ProjectsController {
   })
   @ApiResponse({ status: 404, description: 'Project not found' })
   @ApiResponse({ status: 409, description: 'Project is not archived' })
-  @Roles([Role.ADMIN])
+  @RequirePermissions(Permission.ARCHIVE_PROJECT)
   @Patch(':id/restore')
   restore(
     @Param('id') id: string,

@@ -13,12 +13,12 @@ import {
   ApiResponse,
   ApiTags,
 } from '@nestjs/swagger';
-import { Roles } from '@/common/decorators/roles.decorator';
-import { Role } from '@prisma/client';
+import { Permission, Role } from '@prisma/client';
 import { LeaveTypesService } from './leave-types.service';
 import { CreateLeaveTypeDto } from '@/leave/dto/create-leave-type.dto';
 import { UpdateLeaveTypeDto } from '@/leave/dto/update-leave-type.dto';
 import { CurrentUser } from '@/common/decorators/current-user.decorator';
+import { RequirePermissions } from '@/auth/decorators/require-permissions.decorator';
 
 @ApiTags('Leave Types')
 @ApiCookieAuth('better-auth.session_token')
@@ -36,7 +36,7 @@ export class LeaveTypesController {
   @ApiOperation({ summary: 'Create a leave type. ADMIN only.' })
   @ApiResponse({ status: 201, description: 'Leave type created' })
   @ApiResponse({ status: 403, description: 'Caller is not ADMIN' })
-  @Roles([Role.ADMIN])
+  @RequirePermissions(Permission.MANAGE_LEAVE_TYPES)
   @Post()
   create(@Body() dto: CreateLeaveTypeDto, @CurrentUser() user: { id: string }) {
     return this.leaveTypesService.create(dto, user.id);
@@ -46,7 +46,7 @@ export class LeaveTypesController {
   @ApiResponse({ status: 200, description: 'Leave type updated' })
   @ApiResponse({ status: 403, description: 'Caller is not ADMIN' })
   @ApiResponse({ status: 404, description: 'Leave type not found' })
-  @Roles([Role.ADMIN])
+  @RequirePermissions(Permission.MANAGE_LEAVE_TYPES)
   @Patch(':id')
   update(
     @Param('id') id: string,
@@ -60,7 +60,7 @@ export class LeaveTypesController {
   @ApiResponse({ status: 200, description: 'Leave type deleted' })
   @ApiResponse({ status: 403, description: 'Caller is not ADMIN' })
   @ApiResponse({ status: 404, description: 'Leave type not found' })
-  @Roles([Role.ADMIN])
+  @RequirePermissions(Permission.MANAGE_LEAVE_TYPES)
   @Delete(':id')
   remove(@Param('id') id: string, @CurrentUser() user: { id: string }) {
     return this.leaveTypesService.remove(id, user.id);

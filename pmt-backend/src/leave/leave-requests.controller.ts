@@ -15,21 +15,14 @@ import {
   ApiResponse,
   ApiTags,
 } from '@nestjs/swagger';
-import { Roles } from '@/common/decorators/roles.decorator';
-import { Role } from '@prisma/client';
+import { Permission, Role } from '@prisma/client';
 import { LeaveRequestsService } from './leave-requests.service';
 import { CreateLeaveRequestDto } from '@/leave/dto/create-leave-request.dto';
 import { RejectLeaveRequestDto } from '@/leave/dto/reject-leave-request.dto';
 import { CurrentUser } from '@/common/decorators/current-user.decorator';
 import { QueryLeaveRequestsDto } from '@/leave/dto/query-leave-requests.dto';
 import { QueryLeaveSummaryDto } from '@/leave/dto/query-leave-summary.dto';
-
-const EMPLOYEE_ROLES = [
-  Role.ADMIN,
-  Role.PROJECT_MANAGER,
-  Role.DEVELOPER,
-  Role.DESIGNER,
-];
+import { RequirePermissions } from '@/auth/decorators/require-permissions.decorator';
 
 @ApiTags('Leave Requests')
 @ApiCookieAuth('better-auth.session_token')
@@ -47,7 +40,7 @@ export class LeaveRequestsController {
     status: 403,
     description: 'Caller is ADMIN or SYSTEM_ADMIN',
   })
-  @Roles(EMPLOYEE_ROLES)
+  @RequirePermissions(Permission.REQUEST_LEAVE)
   @Post()
   create(
     @Body() dto: CreateLeaveRequestDto,
@@ -58,7 +51,7 @@ export class LeaveRequestsController {
 
   @ApiOperation({ summary: "Get the caller's own leave requests" })
   @ApiResponse({ status: 200, description: "Caller's leave requests" })
-  @Roles(EMPLOYEE_ROLES)
+  @RequirePermissions(Permission.REQUEST_LEAVE)
   @Get('me')
   findOwn(@CurrentUser() user: { id: string }) {
     return this.leaveRequestsService.findOwn(user.id);
@@ -71,7 +64,7 @@ export class LeaveRequestsController {
     status: 200,
     description: "Caller's leave balance by leave type",
   })
-  @Roles(EMPLOYEE_ROLES)
+  @RequirePermissions(Permission.REQUEST_LEAVE)
   @Get('me/balance')
   ownBalance(@CurrentUser() user: { id: string }) {
     return this.leaveRequestsService.ownBalance(user.id);
@@ -91,7 +84,7 @@ export class LeaveRequestsController {
     description: 'Caller is not ADMIN or PROJECT_MANAGER',
   })
   @ApiResponse({ status: 404, description: 'User not found' })
-  @Roles([Role.ADMIN, Role.PROJECT_MANAGER])
+  @RequirePermissions(Permission.VIEW_LEAVE_REQUESTS)
   @Get(':userId/balance')
   balanceForUser(@Param('userId') userId: string) {
     return this.leaveRequestsService.balanceForUser(userId);
@@ -109,7 +102,7 @@ export class LeaveRequestsController {
     status: 409,
     description: 'Leave request is no longer pending',
   })
-  @Roles(EMPLOYEE_ROLES)
+  @RequirePermissions(Permission.REQUEST_LEAVE)
   @Patch(':id/cancel')
   cancel(@Param('id') id: string, @CurrentUser() user: { id: string }) {
     return this.leaveRequestsService.cancel(id, user.id);
@@ -125,7 +118,7 @@ export class LeaveRequestsController {
     status: 403,
     description: 'Caller is not ADMIN or PROJECT_MANAGER',
   })
-  @Roles([Role.ADMIN, Role.PROJECT_MANAGER])
+  @RequirePermissions(Permission.VIEW_LEAVE_REQUESTS)
   @Get()
   findAll(
     @CurrentUser() user: { role: Role },
@@ -144,7 +137,7 @@ export class LeaveRequestsController {
     description: 'Per user leave totals by leave type, plus a grand total',
   })
   @ApiResponse({ status: 403, description: 'Caller is not ADMIN' })
-  @Roles([Role.ADMIN])
+  @RequirePermissions(Permission.VIEW_LEAVE_SUMMARY)
   @Get('summary')
   getSummary(@Query() query: QueryLeaveSummaryDto) {
     return this.leaveRequestsService.getSummary(query);
@@ -157,7 +150,7 @@ export class LeaveRequestsController {
   })
   @ApiResponse({ status: 200, description: 'CSV file download' })
   @ApiResponse({ status: 403, description: 'Caller is not ADMIN' })
-  @Roles([Role.ADMIN])
+  @RequirePermissions(Permission.VIEW_LEAVE_SUMMARY)
   @Get('summary/export')
   async getSummaryCsv(
     @Query() query: QueryLeaveSummaryDto,
@@ -175,7 +168,7 @@ export class LeaveRequestsController {
   @ApiResponse({ status: 403, description: 'Caller is not ADMIN' })
   @ApiResponse({ status: 404, description: 'Leave request not found' })
   @ApiResponse({ status: 409, description: 'Leave request already reviewed' })
-  @Roles([Role.ADMIN])
+  @RequirePermissions(Permission.REVIEW_LEAVE_REQUEST)
   @Patch(':id/approve')
   approve(@Param('id') id: string, @CurrentUser() user: { id: string }) {
     return this.leaveRequestsService.approve(id, user.id);
@@ -186,7 +179,7 @@ export class LeaveRequestsController {
   @ApiResponse({ status: 403, description: 'Caller is not ADMIN' })
   @ApiResponse({ status: 404, description: 'Leave request not found' })
   @ApiResponse({ status: 409, description: 'Leave request already reviewed' })
-  @Roles([Role.ADMIN])
+  @RequirePermissions(Permission.REVIEW_LEAVE_REQUEST)
   @Patch(':id/reject')
   reject(
     @Param('id') id: string,

@@ -5,16 +5,15 @@ import {
   ApiResponse,
   ApiTags,
 } from '@nestjs/swagger';
-import { Role } from '@prisma/client';
-import { Roles } from '@/common/decorators/roles.decorator';
+import { Permission, Role } from '@prisma/client';
 import { CurrentUser } from '@/common/decorators/current-user.decorator';
 import { BlockerService } from './blocker.service';
 import { QueryProjectBlockersDto } from '@/blockers/dto/query-project-blockers.dto';
+import { RequirePermissions } from '@/auth/decorators/require-permissions.decorator';
 
 // The PM dashboard view of blockers, scoped to one project. The write side
 // (add/update) lives in BlockersController's top level routes instead, since
 // a blocker isn't reported through a project specific flow.
-const READ_ROLES = [Role.DEVELOPER, Role.DESIGNER, Role.PROJECT_MANAGER];
 
 @ApiTags('Blockers')
 @ApiCookieAuth('better-auth.session_token')
@@ -36,7 +35,7 @@ export class ProjectBlockersController {
     status: 403,
     description: 'DEVELOPER/DESIGNER not an active member of this project',
   })
-  @Roles(READ_ROLES)
+  @RequirePermissions(Permission.VIEW_BLOCKERS)
   @Get()
   findByProject(
     @Param('projectId') projectId: string,
@@ -66,7 +65,7 @@ export class ProjectBlockersController {
     status: 403,
     description: 'DEVELOPER/DESIGNER not an active member of this project',
   })
-  @Roles(READ_ROLES)
+  @RequirePermissions(Permission.VIEW_BLOCKERS)
   @Get('deadline-impact')
   getDeadlineImpactSummary(
     @Param('projectId') projectId: string,

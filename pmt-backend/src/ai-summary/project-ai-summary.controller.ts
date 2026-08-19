@@ -5,13 +5,11 @@ import {
   ApiResponse,
   ApiTags,
 } from '@nestjs/swagger';
-import { Role } from '@prisma/client';
-import { Roles } from '@/common/decorators/roles.decorator';
+import { Permission, Role } from '@prisma/client';
 import { CurrentUser } from '@/common/decorators/current-user.decorator';
 import { ProjectAiSummaryService } from './project-ai-summary.service';
 import { QueryProjectAiSummaryDto } from '@/ai-summary/dto/query-project-ai-summary.dto';
-
-const READ_ROLES = [Role.DEVELOPER, Role.DESIGNER, Role.PROJECT_MANAGER];
+import { RequirePermissions } from '@/auth/decorators/require-permissions.decorator';
 
 @ApiTags('AI Project Summary')
 @ApiCookieAuth('better-auth.session_token')
@@ -32,7 +30,7 @@ export class ProjectAiSummaryController {
     description: 'Not an active member of this project.',
   })
   @ApiResponse({ status: 404, description: 'Project not found.' })
-  @Roles(READ_ROLES)
+  @RequirePermissions(Permission.REQUEST_AI_SUMMARY)
   @Get('summary')
   getSummary(
     @Param('projectId') projectId: string,

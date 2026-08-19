@@ -13,18 +13,17 @@ import {
   ApiResponse,
   ApiTags,
 } from '@nestjs/swagger';
-import { Role } from '@prisma/client';
-import { Roles } from '@/common/decorators/roles.decorator';
+import { Permission, Role } from '@prisma/client';
 import { CurrentUser } from '@/common/decorators/current-user.decorator';
 import { ProjectTimeEntriesService } from './project-time-entries.service';
 import { TimeEntryNoteDto } from '@/time-tracking/dto/time-entry-note.dto';
 import { QueryTimeEntriesDto } from '@/time-tracking/dto/query-time-entries.dto';
+import { RequirePermissions } from '@/auth/decorators/require-permissions.decorator';
 
 // Only Developer/Designer track their own time. PROJECT_MANAGER is
 // deliberately excluded from start/pause/resume/stop (ADMIN/SYSTEM_ADMIN are
 // still reachable, unioned in automatically by Roles(), same as every other
 // route).
-const TIME_TRACKING_ROLES = [Role.DEVELOPER, Role.DESIGNER];
 
 @ApiTags('Time Tracking')
 @ApiCookieAuth('better-auth.session_token')
@@ -44,7 +43,7 @@ export class ProjectTimeEntriesController {
     description: 'Paginated time entries, plus totalMinutes/totalHours',
   })
   @ApiResponse({ status: 404, description: 'Project not found' })
-  @Roles([Role.PROJECT_MANAGER, Role.DEVELOPER, Role.DESIGNER])
+  @RequirePermissions(Permission.VIEW_TIME_ENTRIES)
   @Get()
   findAll(
     @Param('projectId') projectId: string,
@@ -69,7 +68,7 @@ export class ProjectTimeEntriesController {
     description: 'Per-day totals plus a grand total, oldest day first',
   })
   @ApiResponse({ status: 404, description: 'Project not found' })
-  @Roles([Role.PROJECT_MANAGER, Role.DEVELOPER, Role.DESIGNER])
+  @RequirePermissions(Permission.VIEW_TIME_ENTRIES)
   @Get('daily-summary')
   findDailySummary(
     @Param('projectId') projectId: string,
@@ -98,7 +97,7 @@ export class ProjectTimeEntriesController {
     status: 409,
     description: 'Caller already has a timer running elsewhere',
   })
-  @Roles(TIME_TRACKING_ROLES)
+  @RequirePermissions(Permission.TRACK_PROJECT_TIME)
   @Post('start')
   start(
     @Param('projectId') projectId: string,
@@ -127,7 +126,7 @@ export class ProjectTimeEntriesController {
     description:
       'Entry already exceeded the 9-hour continuous session cap and was auto-stopped instead of paused',
   })
-  @Roles(TIME_TRACKING_ROLES)
+  @RequirePermissions(Permission.TRACK_PROJECT_TIME)
   @Patch(':id/pause')
   pause(
     @Param('projectId') projectId: string,
@@ -155,7 +154,7 @@ export class ProjectTimeEntriesController {
     description:
       'This segment was already superseded by a later resume, or caller has a timer running elsewhere',
   })
-  @Roles(TIME_TRACKING_ROLES)
+  @RequirePermissions(Permission.TRACK_PROJECT_TIME)
   @Patch(':id/resume')
   resume(
     @Param('projectId') projectId: string,
@@ -178,7 +177,7 @@ export class ProjectTimeEntriesController {
   })
   @ApiResponse({ status: 403, description: "Not this entry's owner" })
   @ApiResponse({ status: 404, description: 'Project or time entry not found' })
-  @Roles(TIME_TRACKING_ROLES)
+  @RequirePermissions(Permission.TRACK_PROJECT_TIME)
   @Patch(':id/stop')
   stop(
     @Param('projectId') projectId: string,

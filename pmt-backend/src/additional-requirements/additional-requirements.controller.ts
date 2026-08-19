@@ -14,18 +14,17 @@ import {
   ApiResponse,
   ApiTags,
 } from '@nestjs/swagger';
-import { Role } from '@prisma/client';
-import { Roles } from '@/common/decorators/roles.decorator';
+import { Permission, Role } from '@prisma/client';
 import { CurrentUser } from '@/common/decorators/current-user.decorator';
 import { AdditionalRequirementsService } from './additional-requirements.service';
 import { CreateAdditionalRequirementDto } from '@/additional-requirements/dto/create-additional-requirement.dto';
 import { ReviewAdditionalRequirementDto } from '@/additional-requirements/dto/review-additional-requirement.dto';
 import { QueryAdditionalRequirementsDto } from '@/additional-requirements/dto/query-additional-requirements.dto';
+import { RequirePermissions } from '@/auth/decorators/require-permissions.decorator';
 
 // Requirements received outside the normal project scope. Not visible to a
 // client at all, unlike documents. Read access is any PM/ADMIN, or an
 // active DEVELOPER/DESIGNER member of this specific project.
-const READ_ROLES = [Role.PROJECT_MANAGER, Role.DEVELOPER, Role.DESIGNER];
 
 @ApiTags('Additional Requirements')
 @ApiCookieAuth('better-auth.session_token')
@@ -45,7 +44,7 @@ export class AdditionalRequirementsController {
     description: 'Paginated additional requirements',
   })
   @ApiResponse({ status: 404, description: 'Project not found' })
-  @Roles(READ_ROLES)
+  @RequirePermissions(Permission.VIEW_ADDITIONAL_REQUIREMENTS)
   @Get()
   findAll(
     @Param('projectId') projectId: string,
@@ -66,7 +65,7 @@ export class AdditionalRequirementsController {
     status: 404,
     description: 'Project or additional requirement not found',
   })
-  @Roles(READ_ROLES)
+  @RequirePermissions(Permission.VIEW_ADDITIONAL_REQUIREMENTS)
   @Get(':id')
   findOne(
     @Param('projectId') projectId: string,
@@ -92,7 +91,7 @@ export class AdditionalRequirementsController {
     description: 'Caller is not staffed as PM on this project',
   })
   @ApiResponse({ status: 404, description: 'Project not found' })
-  @Roles([Role.PROJECT_MANAGER])
+  @RequirePermissions(Permission.CREATE_ADDITIONAL_REQUIREMENT)
   @Post()
   create(
     @Param('projectId') projectId: string,
@@ -127,7 +126,7 @@ export class AdditionalRequirementsController {
     description: 'Project or additional requirement not found',
   })
   @ApiResponse({ status: 409, description: 'Already reviewed' })
-  @Roles([Role.PROJECT_MANAGER])
+  @RequirePermissions(Permission.REVIEW_ADDITIONAL_REQUIREMENT)
   @Patch(':id/review')
   review(
     @Param('projectId') projectId: string,
@@ -158,7 +157,7 @@ export class AdditionalRequirementsController {
     status: 404,
     description: 'Project or additional requirement not found',
   })
-  @Roles([Role.PROJECT_MANAGER])
+  @RequirePermissions(Permission.RUN_SCOPE_CHECK)
   @HttpCode(202)
   @Post(':id/check-scope')
   checkScope(

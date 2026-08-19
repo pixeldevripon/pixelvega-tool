@@ -14,16 +14,13 @@ import {
   ApiResponse,
   ApiTags,
 } from '@nestjs/swagger';
-import { Role } from '@prisma/client';
-import { Roles } from '@/common/decorators/roles.decorator';
+import { Permission, Role } from '@prisma/client';
 import { CurrentUser } from '@/common/decorators/current-user.decorator';
 import { AiTemplatesService } from './ai-templates.service';
 import { CreateAiTemplateDto } from '@/ai/dto/create-ai-template.dto';
 import { UpdateAiTemplateDto } from '@/ai/dto/update-ai-template.dto';
 import { QueryAiTemplatesDto } from '@/ai/dto/query-ai-templates.dto';
-
-const READ_ROLES = [Role.DEVELOPER, Role.DESIGNER, Role.PROJECT_MANAGER];
-const WRITE_ROLES = [Role.ADMIN];
+import { RequirePermissions } from '@/auth/decorators/require-permissions.decorator';
 
 @ApiTags('AI Templates')
 @ApiCookieAuth('better-auth.session_token')
@@ -36,7 +33,7 @@ export class AiTemplatesController {
     description: 'Any staff role. Optionally filter by kind.',
   })
   @ApiResponse({ status: 200, description: 'AI templates' })
-  @Roles(READ_ROLES)
+  @RequirePermissions(Permission.VIEW_AI_TEMPLATES)
   @Get()
   findAll(@Query() query: QueryAiTemplatesDto) {
     return this.aiTemplatesService.findAll(query);
@@ -49,7 +46,7 @@ export class AiTemplatesController {
   })
   @ApiResponse({ status: 201, description: 'AI template created' })
   @ApiResponse({ status: 403, description: 'Caller is not Admin' })
-  @Roles(WRITE_ROLES)
+  @RequirePermissions(Permission.MANAGE_AI_TEMPLATES)
   @Post()
   create(
     @Body() dto: CreateAiTemplateDto,
@@ -64,7 +61,7 @@ export class AiTemplatesController {
   @ApiResponse({ status: 200, description: 'AI template updated' })
   @ApiResponse({ status: 403, description: 'Caller is not Admin' })
   @ApiResponse({ status: 404, description: 'Template not found' })
-  @Roles(WRITE_ROLES)
+  @RequirePermissions(Permission.MANAGE_AI_TEMPLATES)
   @Patch(':id')
   update(@Param('id') id: string, @Body() dto: UpdateAiTemplateDto) {
     return this.aiTemplatesService.update(id, dto);
@@ -78,7 +75,7 @@ export class AiTemplatesController {
   @ApiResponse({ status: 200, description: 'AI template deleted' })
   @ApiResponse({ status: 403, description: 'Caller is not Admin' })
   @ApiResponse({ status: 404, description: 'Template not found' })
-  @Roles(WRITE_ROLES)
+  @RequirePermissions(Permission.MANAGE_AI_TEMPLATES)
   @Delete(':id')
   remove(@Param('id') id: string) {
     return this.aiTemplatesService.remove(id);

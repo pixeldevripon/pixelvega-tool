@@ -5,10 +5,10 @@ import {
   ApiResponse,
   ApiTags,
 } from '@nestjs/swagger';
-import { Role } from '@prisma/client';
-import { Roles } from '@/common/decorators/roles.decorator';
+import { Permission, Role } from '@prisma/client';
 import { CurrentUser } from '@/common/decorators/current-user.decorator';
 import { AiJobsService } from './ai-jobs.service';
+import { RequirePermissions } from '@/auth/decorators/require-permissions.decorator';
 
 // Generic across job types since a job is not necessarily project scoped
 // from the caller's point of view, a client is usually just polling one
@@ -29,7 +29,7 @@ export class AiJobsController {
   @ApiResponse({ status: 200, description: 'The job and its current status.' })
   @ApiResponse({ status: 403, description: 'Not allowed to view this job.' })
   @ApiResponse({ status: 404, description: 'Job not found.' })
-  @Roles([Role.PROJECT_MANAGER])
+  @RequirePermissions(Permission.VIEW_AI_JOB)
   @Get(':id')
   findOne(
     @Param('id') id: string,

@@ -5,10 +5,10 @@ import {
   ApiResponse,
   ApiTags,
 } from '@nestjs/swagger';
-import { Roles } from '@/common/decorators/roles.decorator';
-import { Role } from '@prisma/client';
+import { Permission, Role } from '@prisma/client';
 import { AuditLogService } from './audit-log.service';
 import { QueryAuditLogDto } from '@/audit-log/dto/query-audit-log.dto';
+import { RequirePermissions } from '@/auth/decorators/require-permissions.decorator';
 
 @ApiTags('Audit Logs')
 @ApiCookieAuth('better-auth.session_token')
@@ -23,7 +23,7 @@ export class AuditLogController {
   })
   @ApiResponse({ status: 200, description: 'Paginated audit log entries' })
   @ApiResponse({ status: 403, description: 'Caller is not ADMIN' })
-  @Roles([Role.ADMIN])
+  @RequirePermissions(Permission.VIEW_AUDIT_LOG)
   @Get()
   findAll(@Query() query: QueryAuditLogDto) {
     return this.auditLogService.findAll(query);

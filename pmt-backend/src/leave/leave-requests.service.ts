@@ -50,9 +50,10 @@ export class LeaveRequestsService {
   ) {}
 
   // ADMIN/SYSTEM_ADMIN never submit a leave request, they only approve or
-  // reject one. @Roles() always unions ADMIN/SYSTEM_ADMIN back into every
-  // route guard (see roles.decorator.ts), so this can only be enforced
-  // here, not by trimming the controller's role list.
+  // reject one. ADMIN holds every lower role's permissions by design (see
+  // ROLE_PERMISSIONS in src/config/roles.config.ts), so REQUEST_LEAVE is
+  // reachable by them at the route. The restriction is a business rule about
+  // WHO the request is for, not a capability, so it stays enforced here.
   async create(dto: CreateLeaveRequestDto, userId: string, actorRole: Role) {
     if (actorRole === Role.ADMIN || actorRole === Role.SYSTEM_ADMIN) {
       throw new ForbiddenException(

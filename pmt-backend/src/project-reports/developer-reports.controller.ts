@@ -5,16 +5,15 @@ import {
   ApiResponse,
   ApiTags,
 } from '@nestjs/swagger';
-import { Role } from '@prisma/client';
-import { Roles } from '@/common/decorators/roles.decorator';
+import { Permission, Role } from '@prisma/client';
 import { CurrentUser } from '@/common/decorators/current-user.decorator';
 import { DeveloperReportService } from './developer-report.service';
 import { QueryDeveloperReportDto } from '@/project-reports/dto/query-developer-report.dto';
+import { RequirePermissions } from '@/auth/decorators/require-permissions.decorator';
 
 // Not project-nested: one person's activity across every project they
 // touched in the range, the same reason TimeEntriesController's
 // project-summary/daily-summary endpoints aren't project-nested either.
-const REPORT_ROLES = [Role.DEVELOPER, Role.DESIGNER, Role.PROJECT_MANAGER];
 
 @ApiTags('Developer Reports')
 @ApiCookieAuth('better-auth.session_token')
@@ -38,7 +37,7 @@ export class DeveloperReportsController {
     description: 'Not allowed to view this user’s report.',
   })
   @ApiResponse({ status: 404, description: 'User not found.' })
-  @Roles(REPORT_ROLES)
+  @RequirePermissions(Permission.VIEW_DEVELOPER_REPORTS)
   @Get()
   getReport(
     @Query() query: QueryDeveloperReportDto,

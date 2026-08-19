@@ -5,22 +5,15 @@ import {
   ApiResponse,
   ApiTags,
 } from '@nestjs/swagger';
-import { Role } from '@prisma/client';
-import { Roles } from '@/common/decorators/roles.decorator';
+import { Permission, Role } from '@prisma/client';
 import { CurrentUser } from '@/common/decorators/current-user.decorator';
 import { PaginationQueryDto } from '@/common/dto/pagination-query.dto';
 import { ClientFeedbackService } from './client-feedback.service';
 import { CreateClientFeedbackDto } from '@/client-feedback/dto/create-client-feedback.dto';
+import { RequirePermissions } from '@/auth/decorators/require-permissions.decorator';
 
 // CLIENT can both read and submit here, unlike Internal Reviews (which
 // excludes CLIENT entirely) — this is the client-facing half of that pair.
-const READ_ROLES = [
-  Role.PROJECT_MANAGER,
-  Role.DEVELOPER,
-  Role.DESIGNER,
-  Role.CLIENT,
-];
-const WRITE_ROLES = [Role.PROJECT_MANAGER, Role.CLIENT];
 
 @ApiTags('Client Feedback')
 @ApiCookieAuth('better-auth.session_token')
@@ -35,7 +28,7 @@ export class ClientFeedbackController {
   })
   @ApiResponse({ status: 200, description: 'Paginated client feedback rounds' })
   @ApiResponse({ status: 404, description: 'Project not found' })
-  @Roles(READ_ROLES)
+  @RequirePermissions(Permission.VIEW_CLIENT_FEEDBACK)
   @Get()
   findAll(
     @Param('projectId') projectId: string,
@@ -71,7 +64,7 @@ export class ClientFeedbackController {
     description:
       'First round submitted while the project is not WAITING_FOR_FEEDBACK, or the project is already COMPLETED/CANCELLED',
   })
-  @Roles(WRITE_ROLES)
+  @RequirePermissions(Permission.SUBMIT_CLIENT_FEEDBACK)
   @Post()
   create(
     @Param('projectId') projectId: string,

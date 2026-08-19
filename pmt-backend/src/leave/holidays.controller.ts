@@ -13,12 +13,12 @@ import {
   ApiResponse,
   ApiTags,
 } from '@nestjs/swagger';
-import { Roles } from '@/common/decorators/roles.decorator';
-import { Role } from '@prisma/client';
+import { Permission, Role } from '@prisma/client';
 import { HolidaysService } from './holidays.service';
 import { CreateHolidayDto } from '@/leave/dto/create-holiday.dto';
 import { UpdateHolidayDto } from '@/leave/dto/update-holiday.dto';
 import { CurrentUser } from '@/common/decorators/current-user.decorator';
+import { RequirePermissions } from '@/auth/decorators/require-permissions.decorator';
 
 @ApiTags('Holidays')
 @ApiCookieAuth('better-auth.session_token')
@@ -36,7 +36,7 @@ export class HolidaysController {
   @ApiOperation({ summary: 'Create a company holiday. ADMIN only.' })
   @ApiResponse({ status: 201, description: 'Holiday created' })
   @ApiResponse({ status: 403, description: 'Caller is not ADMIN' })
-  @Roles([Role.ADMIN])
+  @RequirePermissions(Permission.MANAGE_HOLIDAYS)
   @Post()
   create(@Body() dto: CreateHolidayDto, @CurrentUser() user: { id: string }) {
     return this.holidaysService.create(dto, user.id);
@@ -46,7 +46,7 @@ export class HolidaysController {
   @ApiResponse({ status: 200, description: 'Holiday updated' })
   @ApiResponse({ status: 403, description: 'Caller is not ADMIN' })
   @ApiResponse({ status: 404, description: 'Holiday not found' })
-  @Roles([Role.ADMIN])
+  @RequirePermissions(Permission.MANAGE_HOLIDAYS)
   @Patch(':id')
   update(
     @Param('id') id: string,
@@ -60,7 +60,7 @@ export class HolidaysController {
   @ApiResponse({ status: 200, description: 'Holiday deleted' })
   @ApiResponse({ status: 403, description: 'Caller is not ADMIN' })
   @ApiResponse({ status: 404, description: 'Holiday not found' })
-  @Roles([Role.ADMIN])
+  @RequirePermissions(Permission.MANAGE_HOLIDAYS)
   @Delete(':id')
   remove(@Param('id') id: string, @CurrentUser() user: { id: string }) {
     return this.holidaysService.remove(id, user.id);

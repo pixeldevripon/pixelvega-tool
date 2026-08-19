@@ -13,19 +13,18 @@ import {
   ApiResponse,
   ApiTags,
 } from '@nestjs/swagger';
-import { Role } from '@prisma/client';
-import { Roles } from '@/common/decorators/roles.decorator';
+import { Permission, Role } from '@prisma/client';
 import { CurrentUser } from '@/common/decorators/current-user.decorator';
 import { ProjectMembersService } from './project-members.service';
 import { AddProjectMemberDto } from '@/project-members/dto/add-project-member.dto';
 import { QueryProjectMembersDto } from '@/project-members/dto/query-project-members.dto';
+import { RequirePermissions } from '@/auth/decorators/require-permissions.decorator';
 
 // Staffing (add/remove) stays limited to PM at the route level, but the
 // service additionally requires the PROJECT_MANAGER caller to already be
 // actively staffed as PM on this specific project (ADMIN/SYSTEM_ADMIN can
 // staff any project regardless). Listing members is scoped differently; see
 // findAll() below.
-const PROJECT_STAFF_ROLES = [Role.PROJECT_MANAGER];
 
 @ApiTags('Project Members')
 @ApiCookieAuth('better-auth.session_token')
@@ -44,7 +43,7 @@ export class ProjectMembersController {
     description: 'DEVELOPER/DESIGNER not an active member of this project',
   })
   @ApiResponse({ status: 404, description: 'Project not found' })
-  @Roles([Role.PROJECT_MANAGER, Role.DEVELOPER, Role.DESIGNER])
+  @RequirePermissions(Permission.VIEW_PROJECT_MEMBERS)
   @Get()
   findAll(
     @Param('projectId') projectId: string,
@@ -82,7 +81,7 @@ export class ProjectMembersController {
     status: 409,
     description: 'User already has an active membership in that role',
   })
-  @Roles(PROJECT_STAFF_ROLES)
+  @RequirePermissions(Permission.MANAGE_PROJECT_MEMBERS)
   @Post()
   add(
     @Param('projectId') projectId: string,
@@ -104,7 +103,7 @@ export class ProjectMembersController {
   })
   @ApiResponse({ status: 404, description: 'Project or member not found' })
   @ApiResponse({ status: 409, description: 'Member has already left' })
-  @Roles(PROJECT_STAFF_ROLES)
+  @RequirePermissions(Permission.MANAGE_PROJECT_MEMBERS)
   @Delete(':memberId')
   remove(
     @Param('projectId') projectId: string,
@@ -141,7 +140,7 @@ export class ProjectMembersController {
     status: 404,
     description: 'Project not found, or no active member with that id',
   })
-  @Roles(PROJECT_STAFF_ROLES)
+  @RequirePermissions(Permission.MANAGE_PROJECT_MEMBERS)
   @Post(':memberId/resync-slack')
   resyncSlack(
     @Param('projectId') projectId: string,

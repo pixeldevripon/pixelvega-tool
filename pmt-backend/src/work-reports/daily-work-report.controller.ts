@@ -13,8 +13,7 @@ import {
   ApiResponse,
   ApiTags,
 } from '@nestjs/swagger';
-import { Role } from '@prisma/client';
-import { Roles } from '@/common/decorators/roles.decorator';
+import { Permission, Role } from '@prisma/client';
 import { CurrentUser } from '@/common/decorators/current-user.decorator';
 import { DailyWorkReportService } from './daily-work-report.service';
 import { DailyProjectEntryService } from './daily-project-entry.service';
@@ -24,13 +23,11 @@ import { SubmitWrapUpDto } from '@/work-reports/dto/submit-wrap-up.dto';
 import { UpdateWrapUpDto } from '@/work-reports/dto/update-wrap-up.dto';
 import { ReviewEntryDto } from '@/work-reports/dto/review-entry.dto';
 import { QueryDailyWorkReportsDto } from '@/work-reports/dto/query-daily-work-reports.dto';
+import { RequirePermissions } from '@/auth/decorators/require-permissions.decorator';
 
-const REPORT_AUTHOR_ROLES = [Role.DEVELOPER, Role.DESIGNER];
-const REVIEWER_ROLES = [Role.PROJECT_MANAGER];
 // Covers a DEVELOPER/DESIGNER viewing their own reports, plus PM/Admin
 // looking up a specific team member. The actual gating lives in
 // findAllForUser().
-const LIST_ROLES = [Role.DEVELOPER, Role.DESIGNER, Role.PROJECT_MANAGER];
 
 @ApiTags('Daily Work Reports')
 @ApiCookieAuth('better-auth.session_token')
@@ -55,7 +52,7 @@ export class DailyWorkReportController {
     status: 409,
     description: 'A report already exists for today',
   })
-  @Roles(REPORT_AUTHOR_ROLES)
+  @RequirePermissions(Permission.SUBMIT_WORK_REPORT)
   @Post()
   submitPlan(@Body() dto: SubmitPlanDto, @CurrentUser() user: { id: string }) {
     return this.dailyWorkReportService.create(user.id, dto);
@@ -71,7 +68,7 @@ export class DailyWorkReportController {
     status: 409,
     description: 'Plan locked after wrap-up submitted',
   })
-  @Roles(REPORT_AUTHOR_ROLES)
+  @RequirePermissions(Permission.SUBMIT_WORK_REPORT)
   @Patch(':id/plan')
   updatePlan(
     @Param('id') id: string,
@@ -86,7 +83,7 @@ export class DailyWorkReportController {
     status: 200,
     description: "Today's report, or null if not started",
   })
-  @Roles(REPORT_AUTHOR_ROLES)
+  @RequirePermissions(Permission.SUBMIT_WORK_REPORT)
   @Get('today')
   getTodayReport(@CurrentUser() user: { id: string }) {
     return this.dailyWorkReportService.findByUserAndDate(user.id, new Date());
@@ -103,7 +100,7 @@ export class DailyWorkReportController {
     description:
       "Attempted to view another user's reports without PM/Admin access",
   })
-  @Roles(LIST_ROLES)
+  @RequirePermissions(Permission.VIEW_WORK_REPORTS)
   @Get()
   findAll(
     @Query() query: QueryDailyWorkReportsDto,
@@ -123,7 +120,7 @@ export class DailyWorkReportController {
   })
   @ApiResponse({ status: 201, description: 'Wrap-up submitted' })
   @ApiResponse({ status: 409, description: 'Plan not yet submitted' })
-  @Roles(REPORT_AUTHOR_ROLES)
+  @RequirePermissions(Permission.SUBMIT_WORK_REPORT)
   @Post(':id/wrap-up')
   submitWrapUp(
     @Param('id') id: string,
@@ -140,7 +137,7 @@ export class DailyWorkReportController {
   })
   @ApiResponse({ status: 200, description: 'Wrap-up updated' })
   @ApiResponse({ status: 409, description: 'Wrap-up locked after 2 hours' })
-  @Roles(REPORT_AUTHOR_ROLES)
+  @RequirePermissions(Permission.SUBMIT_WORK_REPORT)
   @Patch(':id/wrap-up')
   updateWrapUp(
     @Param('id') id: string,
@@ -161,7 +158,7 @@ export class DailyWorkReportController {
     status: 409,
     description: 'Wrap-up not yet submitted for this entry',
   })
-  @Roles(REVIEWER_ROLES)
+  @RequirePermissions(Permission.REVIEW_WORK_REPORT)
   @Patch(':reportId/entries/:entryId/review')
   reviewEntry(
     @Param('entryId') entryId: string,

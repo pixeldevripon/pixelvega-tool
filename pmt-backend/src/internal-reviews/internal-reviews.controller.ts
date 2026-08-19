@@ -5,16 +5,15 @@ import {
   ApiResponse,
   ApiTags,
 } from '@nestjs/swagger';
-import { Role } from '@prisma/client';
-import { Roles } from '@/common/decorators/roles.decorator';
+import { Permission, Role } from '@prisma/client';
 import { CurrentUser } from '@/common/decorators/current-user.decorator';
 import { PaginationQueryDto } from '@/common/dto/pagination-query.dto';
 import { InternalReviewsService } from './internal-reviews.service';
 import { CreateInternalReviewDto } from '@/internal-reviews/dto/create-internal-review.dto';
+import { RequirePermissions } from '@/auth/decorators/require-permissions.decorator';
 
 // Not visible to CLIENT at all, matching Additional Requirements. This is
 // an internal QA gate, not client facing.
-const READ_ROLES = [Role.PROJECT_MANAGER, Role.DEVELOPER, Role.DESIGNER];
 
 @ApiTags('Internal Reviews')
 @ApiCookieAuth('better-auth.session_token')
@@ -31,7 +30,7 @@ export class InternalReviewsController {
   })
   @ApiResponse({ status: 200, description: 'Paginated internal review rounds' })
   @ApiResponse({ status: 404, description: 'Project not found' })
-  @Roles(READ_ROLES)
+  @RequirePermissions(Permission.VIEW_INTERNAL_REVIEWS)
   @Get()
   findAll(
     @Param('projectId') projectId: string,
@@ -65,7 +64,7 @@ export class InternalReviewsController {
     status: 409,
     description: 'Project is not currently in internal review',
   })
-  @Roles([Role.PROJECT_MANAGER])
+  @RequirePermissions(Permission.SUBMIT_INTERNAL_REVIEW)
   @Post()
   create(
     @Param('projectId') projectId: string,

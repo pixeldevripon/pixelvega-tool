@@ -13,8 +13,7 @@ import {
   ApiResponse,
   ApiTags,
 } from '@nestjs/swagger';
-import { Role } from '@prisma/client';
-import { Roles } from '@/common/decorators/roles.decorator';
+import { Permission, Role } from '@prisma/client';
 import { CurrentUser } from '@/common/decorators/current-user.decorator';
 import { ProjectTimeEntriesService } from './project-time-entries.service';
 import { MeetingTimeEntriesService } from './meeting-time-entries.service';
@@ -23,6 +22,7 @@ import { QueryProjectSummaryDto } from '@/time-tracking/dto/query-project-summar
 import { QueryMeetingTimeEntriesDto } from '@/time-tracking/dto/query-meeting-time-entries.dto';
 import { QueryDailySummaryDto } from '@/time-tracking/dto/query-daily-summary.dto';
 import { TimeEntryNoteDto } from '@/time-tracking/dto/time-entry-note.dto';
+import { RequirePermissions } from '@/auth/decorators/require-permissions.decorator';
 
 // PROJECT_MANAGER is excluded from project time tracking (see
 // ProjectTimeEntriesController) but is included here, sitting in standups
@@ -31,12 +31,6 @@ import { TimeEntryNoteDto } from '@/time-tracking/dto/time-entry-note.dto';
 // Roles() would union it in anyway, this is a deliberate decision that
 // admins track their own meeting time the same way staff do. SYSTEM_ADMIN
 // is unioned in automatically, same as always.
-const MEETING_TIME_TRACKING_ROLES = [
-  Role.DEVELOPER,
-  Role.DESIGNER,
-  Role.PROJECT_MANAGER,
-  Role.ADMIN,
-];
 
 // Deliberately not nested under projects/:projectId. The rule that only one
 // timer of any kind (project or meeting) can be active is global, not
@@ -67,7 +61,7 @@ export class TimeEntriesController {
     status: 403,
     description: 'DEVELOPER/DESIGNER tried to check someone else',
   })
-  @Roles([Role.PROJECT_MANAGER, Role.DEVELOPER, Role.DESIGNER])
+  @RequirePermissions(Permission.VIEW_TIME_ENTRIES)
   @Get('active')
   findActive(
     @Query() query: QueryActiveTimeEntryDto,
@@ -94,7 +88,7 @@ export class TimeEntriesController {
     description: "Non-staff tried to view someone else's summary",
   })
   @ApiResponse({ status: 404, description: 'User not found' })
-  @Roles([Role.PROJECT_MANAGER, Role.DEVELOPER, Role.DESIGNER])
+  @RequirePermissions(Permission.VIEW_TIME_ENTRIES)
   @Get('project-summary')
   findProjectSummary(
     @Query() query: QueryProjectSummaryDto,
@@ -124,7 +118,7 @@ export class TimeEntriesController {
     description: "Non-staff tried to view someone else's summary",
   })
   @ApiResponse({ status: 404, description: 'User not found' })
-  @Roles(MEETING_TIME_TRACKING_ROLES)
+  @RequirePermissions(Permission.TRACK_MEETING_TIME)
   @Get('daily-summary')
   findDailySummary(
     @Query() query: QueryDailySummaryDto,
@@ -152,7 +146,7 @@ export class TimeEntriesController {
     status: 403,
     description: "Non-staff tried to list someone else's meeting entries",
   })
-  @Roles(MEETING_TIME_TRACKING_ROLES)
+  @RequirePermissions(Permission.TRACK_MEETING_TIME)
   @Get('meetings')
   findMeetings(
     @Query() query: QueryMeetingTimeEntriesDto,
@@ -171,7 +165,7 @@ export class TimeEntriesController {
     status: 409,
     description: 'Caller already has a timer running elsewhere',
   })
-  @Roles(MEETING_TIME_TRACKING_ROLES)
+  @RequirePermissions(Permission.TRACK_MEETING_TIME)
   @Post('meetings/start')
   startMeeting(
     @Body() dto: TimeEntryNoteDto,
@@ -194,7 +188,7 @@ export class TimeEntriesController {
     description:
       'Entry already exceeded a cutoff and was auto-stopped instead of paused, or is from a previous day and locked',
   })
-  @Roles(MEETING_TIME_TRACKING_ROLES)
+  @RequirePermissions(Permission.TRACK_MEETING_TIME)
   @Patch('meetings/:id/pause')
   pauseMeeting(
     @Param('id') id: string,
@@ -221,7 +215,7 @@ export class TimeEntriesController {
     description:
       'Already superseded by a later resume, locked from a previous day, or caller has a timer running elsewhere',
   })
-  @Roles(MEETING_TIME_TRACKING_ROLES)
+  @RequirePermissions(Permission.TRACK_MEETING_TIME)
   @Patch('meetings/:id/resume')
   resumeMeeting(
     @Param('id') id: string,
@@ -247,7 +241,7 @@ export class TimeEntriesController {
     status: 409,
     description: 'Entry is from a previous day and locked',
   })
-  @Roles(MEETING_TIME_TRACKING_ROLES)
+  @RequirePermissions(Permission.TRACK_MEETING_TIME)
   @Patch('meetings/:id/stop')
   stopMeeting(
     @Param('id') id: string,

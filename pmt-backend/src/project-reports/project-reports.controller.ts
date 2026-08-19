@@ -5,13 +5,11 @@ import {
   ApiResponse,
   ApiTags,
 } from '@nestjs/swagger';
-import { Role } from '@prisma/client';
-import { Roles } from '@/common/decorators/roles.decorator';
+import { Permission, Role } from '@prisma/client';
 import { CurrentUser } from '@/common/decorators/current-user.decorator';
 import { ProjectReportService } from './project-report.service';
 import { QueryProjectReportDto } from '@/project-reports/dto/query-project-report.dto';
-
-const READ_ROLES = [Role.DEVELOPER, Role.DESIGNER, Role.PROJECT_MANAGER];
+import { RequirePermissions } from '@/auth/decorators/require-permissions.decorator';
 
 @ApiTags('Project Reports')
 @ApiCookieAuth('better-auth.session_token')
@@ -33,7 +31,7 @@ export class ProjectReportsController {
     description: 'Not an active member of this project.',
   })
   @ApiResponse({ status: 404, description: 'Project not found.' })
-  @Roles(READ_ROLES)
+  @RequirePermissions(Permission.VIEW_PROJECT_REPORTS)
   @Get()
   getReport(
     @Param('projectId') projectId: string,
