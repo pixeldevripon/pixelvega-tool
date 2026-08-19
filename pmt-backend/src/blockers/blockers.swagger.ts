@@ -7,6 +7,11 @@ import {
   notFound,
   projectScopedErrors,
 } from '@/common/swagger/error-sets';
+import {
+  BlockerReasonResponseDto,
+  BlockerResponseDto,
+  PaginatedBlockersResponseDto,
+} from '@/blockers/dto/blocker.dto';
 
 /**
  * Documentation for the three controllers BlockersModule owns: blockers
@@ -26,7 +31,11 @@ export const ApiReportBlockerDocs = () =>
         'defaulting to the seeded "Unspecified" reason. The reporter must be actively ' +
         'staffed on the project, which an admin bypasses.',
     }),
-    ApiResponse({ status: 201, description: 'The reported blocker' }),
+    ApiResponse({
+      status: 201,
+      description: 'The reported blocker',
+      type: BlockerResponseDto,
+    }),
     ...projectScopedErrors,
   );
 
@@ -43,7 +52,11 @@ export const ApiUpdateBlockerDocs = () =>
         'the blocker was open. Editable by the original reporter or a PM on that project.',
     }),
     ApiParam({ name: 'blockerId', description: 'The blocker id' }),
-    ApiResponse({ status: 200, description: 'The updated blocker' }),
+    ApiResponse({
+      status: 200,
+      description: 'The updated blocker',
+      type: BlockerResponseDto,
+    }),
     ...gatedErrors,
     notFound('Blocker not found'),
     conflict('Already resolved, or the status move goes backwards'),
@@ -58,7 +71,11 @@ export const ApiListBlockersDocs = () =>
         'projects they are actively staffed on. resolutionTime, daysOpen and ' +
         'causedDeadlineExtension are computed on read, never stored.',
     }),
-    ApiResponse({ status: 200, description: 'Paginated blockers' }),
+    ApiResponse({
+      status: 200,
+      description: 'Paginated blockers',
+      type: PaginatedBlockersResponseDto,
+    }),
     ...gatedErrors,
   );
 
@@ -100,7 +117,11 @@ export const ApiListBlockerReasonsDocs = () =>
         'PM managed reference data. Everyone who can report a blocker reads it. ' +
         'Soft deleted reasons are excluded.',
     }),
-    ApiResponse({ status: 200, description: 'Every active reason' }),
+    ApiResponse({
+      status: 200,
+      description: 'Every active reason',
+      type: [BlockerReasonResponseDto],
+    }),
     ...commonErrors,
   );
 
@@ -113,7 +134,11 @@ export const ApiCreateBlockerReasonDocs = () =>
         'deleted reason frees its name for reuse. A duplicate answers 409 rather than ' +
         'a raw 500.',
     }),
-    ApiResponse({ status: 201, description: 'The created reason' }),
+    ApiResponse({
+      status: 201,
+      description: 'The created reason',
+      type: BlockerReasonResponseDto,
+    }),
     ...gatedErrors,
     conflict('A reason with that name already exists'),
   );
@@ -126,7 +151,11 @@ export const ApiUpdateBlockerReasonDocs = () =>
         'The seeded "Unspecified" reason is protected and cannot be renamed.',
     }),
     ApiParam({ name: 'id', description: 'The reason id' }),
-    ApiResponse({ status: 200, description: 'The updated reason' }),
+    ApiResponse({
+      status: 200,
+      description: 'The updated reason',
+      type: BlockerReasonResponseDto,
+    }),
     ...gatedErrors,
     notFound('Blocker reason not found'),
     conflict('That name is taken, or this reason is protected'),

@@ -3,12 +3,12 @@ import { ApiCookieAuth, ApiTags } from '@nestjs/swagger';
 import { Permission, Role } from '@prisma/client';
 import { CurrentUser } from '@/common/decorators/current-user.decorator';
 import { BlockerService } from './blocker.service';
-import { QueryProjectBlockersDto } from '@/blockers/dto/query-project-blockers.dto';
 import { RequirePermissions } from '@/auth/decorators/require-permissions.decorator';
 import {
   ApiBlockerDeadlineImpactDocs,
   ApiListProjectBlockersDocs,
 } from '@/blockers/blockers.swagger';
+import { QueryProjectBlockersDto } from '@/blockers/dto/blocker.dto';
 
 // The PM dashboard view of blockers, scoped to one project. The write side
 // (add/update) lives in BlockersController's top level routes instead, since

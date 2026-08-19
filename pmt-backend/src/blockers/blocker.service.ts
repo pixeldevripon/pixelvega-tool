@@ -19,26 +19,22 @@ import { SlackService } from '@/slack/slack.service';
 import { ProjectActivityService } from '@/project-activity/project-activity.service';
 import { NotificationsService } from '@/notifications/notifications.service';
 import { DEFAULT_BLOCKER_REASON_NAME } from './blocker-reasons.service';
-import { AddBlockerDto } from '@/blockers/dto/add-blocker.dto';
-import { UpdateBlockerDto } from '@/blockers/dto/update-blocker.dto';
-import { QueryBlockersDto } from '@/blockers/dto/query-blockers.dto';
-import { QueryProjectBlockersDto } from '@/blockers/dto/query-project-blockers.dto';
 import { ProjectScopeService } from '@/project-scope/project-scope.service';
+import {
+  BLOCKER_INCLUDE,
+  BlockerContext,
+  BlockerWithRelations,
+  toBlockerResponse,
+} from '@/blockers/blocker.mapper';
+import {
+  AddBlockerDto,
+  QueryBlockersDto,
+  QueryProjectBlockersDto,
+  UpdateBlockerDto,
+} from '@/blockers/dto/blocker.dto';
 
 const MS_PER_MINUTE = 60 * 1000;
 const MS_PER_DAY = 24 * 60 * 60 * 1000;
-
-const BLOCKER_INCLUDE = {
-  project: { select: { id: true, name: true, slackChannelId: true } },
-  reason: { select: { id: true, name: true } },
-  reportedBy: { select: { id: true, name: true, email: true } },
-  assignedTo: { select: { id: true, name: true, email: true } },
-  resolvedBy: { select: { id: true, name: true, email: true } },
-};
-
-type BlockerWithRelations = Prisma.BlockerGetPayload<{
-  include: typeof BLOCKER_INCLUDE;
-}>;
 
 function formatDateOnly(date: Date): string {
   return date.toISOString().slice(0, 10);
@@ -103,7 +99,10 @@ export class BlockerService {
       );
     });
 
-    return this.withMetrics(blocker);
+    return toBlockerResponse(
+      blocker,
+      await this.buildBlockerContext(blocker.projectId, actorId, actorRole),
+    );
   }
 
   async updateBlocker(
@@ -245,7 +244,10 @@ export class BlockerService {
       }
     }
 
-    return this.withMetrics(updated);
+    return toBlockerResponse(
+      updated,
+      await this.buildBlockerContext(updated.projectId, actorId, actorRole),
+    );
   }
 
   async findAll(query: QueryBlockersDto, actorId: string, actorRole: Role) {
@@ -282,7 +284,21 @@ export class BlockerService {
       pageSize,
     );
 
-    return { ...result, items: result.items.map((b) => this.withMetrics(b)) };
+    const contexts = new Map<string, BlockerContext>();
+    for (const item of result.items) {
+      if (!contexts.has(item.projectId)) {
+        contexts.set(
+          item.projectId,
+          await this.buildBlockerContext(item.projectId, actorId, actorRole),
+        );
+      }
+    }
+    return {
+      ...result,
+      items: result.items.map((item) =>
+        toBlockerResponse(item, contexts.get(item.projectId) as BlockerContext),
+      ),
+    };
   }
 
   // Any PROJECT_MANAGER (plus ADMIN/SYSTEM_ADMIN automatically) can view any
@@ -320,7 +336,21 @@ export class BlockerService {
       pageSize,
     );
 
-    return { ...result, items: result.items.map((b) => this.withMetrics(b)) };
+    const contexts = new Map<string, BlockerContext>();
+    for (const item of result.items) {
+      if (!contexts.has(item.projectId)) {
+        contexts.set(
+          item.projectId,
+          await this.buildBlockerContext(item.projectId, actorId, actorRole),
+        );
+      }
+    }
+    return {
+      ...result,
+      items: result.items.map((item) =>
+        toBlockerResponse(item, contexts.get(item.projectId) as BlockerContext),
+      ),
+    };
   }
 
   // Answers "how much did blockers cost this project." Computed fresh from
@@ -375,20 +405,6 @@ export class BlockerService {
   // resolutionTime (minutes) once resolved, daysOpen while still active, and
   // causedDeadlineExtension once resolved are all derived on read, never
   // stored, so they can't drift out of sync with the underlying dates.
-  private withMetrics(blocker: BlockerWithRelations) {
-    const resolutionTime = blocker.resolvedAt
-      ? Math.round(
-          (blocker.resolvedAt.getTime() - blocker.createdAt.getTime()) /
-            MS_PER_MINUTE,
-        )
-      : undefined;
-    const daysOpen = blocker.resolvedAt
-      ? undefined
-      : Math.floor((Date.now() - blocker.createdAt.getTime()) / MS_PER_DAY);
-    const causedDeadlineExtension = (blocker.deadlineExtensionDays ?? 0) > 0;
-
-    return { ...blocker, resolutionTime, daysOpen, causedDeadlineExtension };
-  }
 
   // Additive on top of the project's current deadline, never an absolute
   // override. A project with no deadline yet extends from today.
@@ -458,6 +474,21 @@ export class BlockerService {
     if (!reason) {
       throw new NotFoundException('Blocker reason not found');
     }
+  }
+
+  // A blocker list can span projects, so the context is cached per project id
+  // rather than recomputed per row: two queries per distinct project, not two
+  // per blocker.
+  private async buildBlockerContext(
+    projectId: string,
+    actorId: string,
+    actorRole: Role,
+  ): Promise<BlockerContext> {
+    const [managesProject, isProjectMember] = await Promise.all([
+      this.projectScope.managesProject(projectId, actorId, actorRole),
+      this.projectScope.isActiveMember(projectId, actorId),
+    ]);
+    return { managesProject, isProjectMember };
   }
 
   private async getProjectOrThrow(projectId: string) {

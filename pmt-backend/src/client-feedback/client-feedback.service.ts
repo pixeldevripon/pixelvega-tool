@@ -16,8 +16,9 @@ import { PrismaService } from '@/prisma/prisma.service';
 import { paginate } from '@/common/utils/pagination.util';
 import { ProjectActivityService } from '@/project-activity/project-activity.service';
 import { NotificationsService } from '@/notifications/notifications.service';
-import { CreateClientFeedbackDto } from '@/client-feedback/dto/create-client-feedback.dto';
 import { PaginationQueryDto } from '@/common/dto/pagination-query.dto';
+import { CreateClientFeedbackDto } from '@/client-feedback/dto/client-feedback.dto';
+import { toClientFeedbackResponse } from '@/client-feedback/client-feedback.mapper';
 
 const FEEDBACK_INCLUDE = {
   client: { select: { id: true, name: true, email: true } },
@@ -49,7 +50,7 @@ export class ClientFeedbackService {
     const { page = 1, pageSize = 20 } = query;
     const where = { projectId };
 
-    return paginate(
+    const result = await paginate(
       (args) =>
         this.prisma.clientFeedback.findMany({
           where,
@@ -61,6 +62,11 @@ export class ClientFeedbackService {
       page,
       pageSize,
     );
+
+    return {
+      ...result,
+      items: result.items.map(toClientFeedbackResponse),
+    };
   }
 
   // Only the first round for a project moves project.status (APPROVED ->
@@ -196,7 +202,7 @@ export class ClientFeedbackService {
       );
     }
 
-    return feedback;
+    return toClientFeedbackResponse(feedback);
   }
 
   private async getProjectOrThrow(projectId: string) {

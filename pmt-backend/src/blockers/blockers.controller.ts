@@ -11,15 +11,17 @@ import { ApiCookieAuth, ApiTags } from '@nestjs/swagger';
 import { Permission, Role } from '@prisma/client';
 import { CurrentUser } from '@/common/decorators/current-user.decorator';
 import { BlockerService } from './blocker.service';
-import { AddBlockerDto } from '@/blockers/dto/add-blocker.dto';
-import { UpdateBlockerDto } from '@/blockers/dto/update-blocker.dto';
-import { QueryBlockersDto } from '@/blockers/dto/query-blockers.dto';
 import { RequirePermissions } from '@/auth/decorators/require-permissions.decorator';
 import {
   ApiListBlockersDocs,
   ApiReportBlockerDocs,
   ApiUpdateBlockerDocs,
 } from '@/blockers/blockers.swagger';
+import {
+  AddBlockerDto,
+  QueryBlockersDto,
+  UpdateBlockerDto,
+} from '@/blockers/dto/blocker.dto';
 
 // Deliberately not nested under projects/:projectId. A blocker can be
 // reported and updated from a single top level endpoint regardless of which

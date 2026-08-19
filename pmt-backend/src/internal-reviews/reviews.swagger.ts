@@ -5,6 +5,8 @@ import {
   notFound,
   projectScopedErrors,
 } from '@/common/swagger/error-sets';
+import { InternalReviewResponseDto } from '@/internal-reviews/dto/internal-review.dto';
+import { ClientFeedbackResponseDto } from '@/client-feedback/dto/client-feedback.dto';
 
 /**
  * Documentation for the three review gates ReviewsModule owns: the internal
@@ -28,7 +30,11 @@ export const ApiListInternalReviewsDocs = () =>
         'back and forth survives. A CLIENT is excluded entirely, this is internal.',
     }),
     projectIdParam,
-    ApiResponse({ status: 200, description: 'Review rounds, oldest first' }),
+    ApiResponse({
+      status: 200,
+      description: 'Review rounds, oldest first',
+      type: [InternalReviewResponseDto],
+    }),
     ...projectScopedErrors,
   );
 
@@ -44,7 +50,11 @@ export const ApiSubmitInternalReviewDocs = () =>
         'the developer has something actionable.',
     }),
     projectIdParam,
-    ApiResponse({ status: 201, description: 'The recorded review' }),
+    ApiResponse({
+      status: 201,
+      description: 'The recorded review',
+      type: InternalReviewResponseDto,
+    }),
     ...projectScopedErrors,
     conflict('The project is not currently in internal review'),
   );
@@ -60,7 +70,11 @@ export const ApiListClientFeedbackDocs = () =>
         'own project only.',
     }),
     projectIdParam,
-    ApiResponse({ status: 200, description: 'Feedback rounds, oldest first' }),
+    ApiResponse({
+      status: 200,
+      description: 'Feedback rounds, oldest first',
+      type: [ClientFeedbackResponseDto],
+    }),
     ...projectScopedErrors,
   );
 
@@ -77,7 +91,11 @@ export const ApiSubmitClientFeedbackDocs = () =>
         'recordedById then names the PM, and is null for a direct client submission.',
     }),
     projectIdParam,
-    ApiResponse({ status: 201, description: 'The recorded feedback' }),
+    ApiResponse({
+      status: 201,
+      description: 'The recorded feedback',
+      type: ClientFeedbackResponseDto,
+    }),
     ...projectScopedErrors,
     conflict('Not waiting for feedback, or the project is already closed'),
   );

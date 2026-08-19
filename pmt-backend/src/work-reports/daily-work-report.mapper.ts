@@ -10,7 +10,6 @@ import {
   DAILY_WORK_REPORT_STATUS_DISPLAY,
   toEnumDisplay,
 } from '@/common/utils/enum-display.util';
-
 import {
   DailyProjectEntryResponseDto,
   DailyWorkReportResponseDto,

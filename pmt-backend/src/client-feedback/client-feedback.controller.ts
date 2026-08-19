@@ -4,12 +4,12 @@ import { Permission, Role } from '@prisma/client';
 import { CurrentUser } from '@/common/decorators/current-user.decorator';
 import { PaginationQueryDto } from '@/common/dto/pagination-query.dto';
 import { ClientFeedbackService } from './client-feedback.service';
-import { CreateClientFeedbackDto } from '@/client-feedback/dto/create-client-feedback.dto';
 import { RequirePermissions } from '@/auth/decorators/require-permissions.decorator';
 import {
   ApiListClientFeedbackDocs,
   ApiSubmitClientFeedbackDocs,
 } from '@/internal-reviews/reviews.swagger';
+import { CreateClientFeedbackDto } from '@/client-feedback/dto/client-feedback.dto';
 
 // CLIENT can both read and submit here, unlike Internal Reviews (which
 // excludes CLIENT entirely) — this is the client-facing half of that pair.
