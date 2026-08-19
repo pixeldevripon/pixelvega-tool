@@ -110,11 +110,14 @@ src/<module>/                        NOT src/modules/<module>/ (D1)
 ├── <module>.controller.ts           thin routing only
 ├── <module>.controller.spec.ts
 ├── <module>.module.ts
-└── <helper>.ts + <helper>.spec.ts   pure units, flat in the folder, never nested
+└── <helper>.ts + <helper>.spec.ts   pure units, with a co-located spec
 ```
 
-`dto/` is the only subdirectory. A module with several concerns keeps them as flat sibling files, the
-way `../island-tour-development/backend/src/tours/` and `src/bookings/` do.
+**Subdirectories are allowed for organization.** The reference keeps most modules flat, and small
+modules should stay that way, but a module large enough that its file list is hard to scan is better
+grouped than flat. What matters is that a spec sits beside the file it tests, wherever that file
+lives, and that the grouping means something (`dto/`, `mappers/`, `jobs/`) rather than being a dumping
+ground.
 
 - **`@/` path alias for every internal import.** `@prisma/client` and other real packages are the
   exception. A new `../../` chain is a defect.

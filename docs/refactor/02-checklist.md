@@ -275,7 +275,7 @@ One PR per module. Order: `users` and `profiles` first (smallest, proves the pat
 - [x] `private readonly logger = new Logger(X.name)` on every mutating service 9 added, each with a real log line rather than a dead field: the services that talk to a third party or run a queued job, plus the two admin actions `CLAUDE.md` names. The pure CRUD config services already write structured `auditLog` entries, which is the trail that matters for those, so they were left alone.
 - [x] `select:` or a shared `include` const on every query, never a raw row returned No raw row reaches a client any more: every module has a mapper that builds its response explicitly. Separately, all 14 `user.find*` lookups gained a `select`, because `User.password` holds a real hash and every unselected lookup was loading it into memory, including on the unauthenticated forgot-password route.
 - [x] Scope rules in named `assertCanX()` helpers, one per rule `ProjectScopeService` (`@Global`), replacing 12 private copies across 11 services: 7 byte-identical `assertManagesProject`, 4 `assertActiveMember`, and one genuine variant renamed `assertStaffedOnProject` because it enforces a different rule. 29 specs; the 695 existing tests pass unchanged, which is what proves behaviour was preserved
-- [ ] Pure units as flat sibling files with co-located specs, never a nested subdirectory
+- [x] Pure units carry a co-located spec. **Rule relaxed 2026-08-20:** subdirectories are fine for organizing a large module, so long as the spec sits beside the file it tests. Every module is currently flat and every mapper and util now has a spec.
 
 ### Response DTOs
 
