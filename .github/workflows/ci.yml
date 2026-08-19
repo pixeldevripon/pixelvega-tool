@@ -1,0 +1,87 @@
+name: CI
+
+# Lint, typecheck, test and build both packages on every push and PR.
+# Backend unit specs are fully mocked, so no Postgres or Redis service is
+# needed; Prisma still requires DATABASE_URL to be set for `prisma generate`.
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  PNPM_CONFIG_STRICT_DEP_BUILDS: "false"
+
+jobs:
+  backend:
+    name: Backend (lint · typecheck · test · build)
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: pmt-backend
+    env:
+      # Prisma needs a DATABASE_URL to generate the client, even with no real DB.
+      DATABASE_URL: postgresql://postgres:postgres@localhost:5432/pixelvega
+      NODE_ENV: test
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10.30.3
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: pnpm
+          cache-dependency-path: pmt-backend/pnpm-lock.yaml
+
+      - run: pnpm install --frozen-lockfile
+
+      - name: Generate Prisma client
+        run: npx prisma generate
+
+      - run: pnpm lint
+
+      - name: Typecheck
+        run: npx tsc --noEmit
+
+      - name: Unit tests
+        run: pnpm test --passWithNoTests
+
+      - run: pnpm build
+
+  frontend:
+    name: Frontend (lint · typecheck · test · build)
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: pmt-frontend
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10.30.3
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: pnpm
+          cache-dependency-path: pmt-frontend/pnpm-lock.yaml
+
+      - run: pnpm install --frozen-lockfile
+
+      - run: pnpm lint
+
+      - name: Typecheck
+        run: npx tsc --noEmit
+
+      # Remove --passWithNoTests once the Vitest suite exists (refactor phase 5).
+      - name: Unit tests
+        run: pnpm test --passWithNoTests
+
+      - run: pnpm build

@@ -57,12 +57,12 @@ report.[0-9]*.[0-9]*.[0-9]*.[0-9]*.json
 
 /generated/prisma
 
-# Postman spec export (local convenience file, re-generate from /api/docs-json)
+# Postman collections. Still ignored pending a decision on the real team email
+# addresses used as example values in them (no credentials, checked 2026-08-19).
+# See docs/refactor/02-checklist.md, phase 1.
 /postman
 
-
-# AI
-business-rules.md
-CLAUDE.md
-pixelvega-build-spec.md
-/docs
+# Agent and design docs are TRACKED, deliberately. They are shared team context:
+# a fresh clone, CI, and every agent that reads the repo all need them, and
+# per-machine copies drift the moment they are not in version control.
+# (Un-ignored in phase 1 of the refactor. Do not re-add CLAUDE.md or /docs here.)
