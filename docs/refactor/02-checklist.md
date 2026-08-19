@@ -265,11 +265,11 @@ One PR per module. Order: `users` and `profiles` first (smallest, proves the pat
 
 - [ ] `dto/<module>.dto.ts` with Response, then Query, then Request groups in that order
 - [ ] `@ApiProperty` with an `example` on every response field, `@ApiPropertyOptional` on optionals, required response fields marked `!`
-- [ ] `<module>.swagger.ts` with one `applyDecorators()` function per endpoint, and shared error sets composed once
-- [ ] Move all 305 inline `@ApiResponse` decorators out of the 27 controllers
-- [ ] Error responses typed from `@/common/dto/error-responses.dto` using `type:`, never `schema:`
-- [ ] Controller reduced to routing only: no Prisma, no business rules, no try/catch
-- [ ] Static routes declared above dynamic ones
+- [x] `<module>.swagger.ts` with one `applyDecorators()` function per endpoint, and shared error sets composed once
+- [x] Move all 305 inline `@ApiResponse` decorators out of the 27 controllers
+- [x] Error responses typed from `@/common/dto/error-responses.dto` using `type:`, never `schema:`
+- [x] Controller reduced to routing only: no Prisma, no business rules, no try/catch
+- [x] Static routes declared above dynamic ones
 - [ ] `private readonly logger = new Logger(X.name)` on every mutating service
 - [ ] `select:` or a shared `include` const on every query, never a raw row returned
 - [ ] Scope rules in named `assertCanX()` helpers, one per rule
@@ -283,11 +283,11 @@ One PR per module. Order: `users` and `profiles` first (smallest, proves the pat
 
 ### Module splits
 
-- [ ] Split `ProjectsModule`'s 13 controllers into `ProjectsModule`, `ProjectStaffingModule`, `ProjectDocumentsModule`, `TimeTrackingModule`, `WorkReportsModule`, `BlockersModule`, `ReviewsModule`
-- [ ] Keep `ProjectActivityService` reachable by all of them without splitting the activity log across DI instances
+- [x] Split `ProjectsModule`'s 13 controllers into `ProjectsModule`, `ProjectStaffingModule`, `ProjectDocumentsModule`, `TimeTrackingModule`, `WorkReportsModule`, `BlockersModule`, `ReviewsModule`
+- [x] Keep `ProjectActivityService` reachable by all of them without splitting the activity log across DI instances
 - [ ] Break `projects.service.ts` (1,109 lines) along the same seams
 - [ ] Keep `ALLOWED_STATUS_TRANSITIONS` and `compareForDashboard` as shared, individually tested units
-- [ ] Register every new module in `AppModule.imports`
+- [x] Register every new module in `AppModule.imports`
 - [ ] Move the AI and Slack calls still running in the request path onto BullMQ
 
 **Exit criteria.** Every module matches the template in [`../architecture/03-target-architecture.md`](../architecture/03-target-architecture.md). No service over 600 lines. No

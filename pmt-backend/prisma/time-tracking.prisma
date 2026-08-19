@@ -1,0 +1,68 @@
+// prisma/time-tracking.prisma
+//
+// Project and meeting time segments.
+
+// One row per running, paused, or stopped *segment*, not per whole work
+// session. This follows the same append only philosophy as
+// ProjectMember/ProjectActivity: pausing never mutates a row back into a
+// "startable" state, it closes the segment (endedAt/durationMinutes set,
+// status PAUSED) and resuming inserts a new row instead. sessionId groups a
+// start plus all its pause/resume segments into one logical session; the
+// first segment's sessionId equals its own id (generated in app code via
+// randomUUID() so it's known before insert). "Only one active timer per
+// person" is enforced in the service layer by checking for an existing row
+// with status = RUNNING for that userId, across all projects. This is a
+// global constraint, not one scoped to a project.
+model TimeEntry {
+  id        String          @id @default(uuid())
+  projectId String
+  project   Project         @relation(fields: [projectId], references: [id])
+  userId    String
+  user      User            @relation(fields: [userId], references: [id])
+  sessionId String
+  status    TimeEntryStatus @default(RUNNING)
+  notes     String?
+
+  startedAt       DateTime  @default(now())
+  endedAt         DateTime? // set when paused or stopped; null while RUNNING
+  durationMinutes Int? // this segment's own elapsed minutes; set once endedAt is set
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([projectId])
+  @@index([userId])
+  @@index([userId, status])
+  @@index([sessionId])
+}
+
+
+// A timer for time not spent on any project, office meetings for now
+// (standups, planning, client calls not billed to a project). A sibling
+// model to TimeEntry rather than a nullable projectId on it, since
+// TimeEntry.projectId being required is relied on all over
+// project-time-entries.service.ts. Shares the same segment shape and
+// TimeEntryStatus enum so the pause/resume append only logic mirrors
+// TimeEntry's nearly line for line. Meeting time never touches
+// Project.actualHours or any project scoped report, and "only one timer of
+// any kind at a time" is enforced in the service layer across both this
+// table and TimeEntry.
+model MeetingTimeEntry {
+  id     String          @id @default(uuid())
+  userId String
+  user   User            @relation(fields: [userId], references: [id])
+  sessionId String
+  status    TimeEntryStatus @default(RUNNING)
+  notes     String?
+
+  startedAt       DateTime  @default(now())
+  endedAt         DateTime? // set when paused or stopped; null while RUNNING
+  durationMinutes Int? // this segment's own elapsed minutes; set once endedAt is set
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([userId])
+  @@index([userId, status])
+  @@index([sessionId])
+}

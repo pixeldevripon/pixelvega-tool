@@ -1,0 +1,70 @@
+// prisma/leave.prisma
+//
+// Leave types, holidays, requests and per year balances.
+
+// Reference data, e.g. "Annual Leave", "Sick Leave". ADMIN manages, everyone reads.
+model LeaveType {
+  id                 String   @id @default(uuid())
+  name               String   @unique
+  defaultDaysPerYear Int
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
+
+  leaveRequests LeaveRequest[]
+  leaveBalances LeaveBalance[]
+}
+
+
+// Holidays that apply company wide. ADMIN manages, everyone reads.
+// A holiday can span one or more days. For a holiday that spans a single
+// day, startDate and endDate are the same date.
+model Holiday {
+  id        String   @id @default(uuid())
+  name      String
+  startDate DateTime
+  endDate   DateTime
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([name, startDate])
+}
+
+
+model LeaveRequest {
+  id           String      @id @default(uuid())
+  userId       String
+  user         User        @relation("LeaveRequestRequester", fields: [userId], references: [id])
+  leaveTypeId  String
+  leaveType    LeaveType   @relation(fields: [leaveTypeId], references: [id])
+  startDate    DateTime
+  endDate      DateTime
+  days         Int
+  reason       String?
+  status       LeaveStatus @default(PENDING)
+  reviewedById String?
+  reviewedBy   User?       @relation("LeaveRequestReviewer", fields: [reviewedById], references: [id])
+  reviewedAt   DateTime?
+  createdAt    DateTime    @default(now())
+  updatedAt    DateTime    @updatedAt
+
+  @@index([userId])
+  @@index([status])
+}
+
+
+// One row per (user, leaveType, year). Created lazily on first read/use.
+// There's no cron job, and nothing carries over from one year to the next.
+model LeaveBalance {
+  id            String    @id @default(uuid())
+  userId        String
+  user          User      @relation(fields: [userId], references: [id])
+  leaveTypeId   String
+  leaveType     LeaveType @relation(fields: [leaveTypeId], references: [id])
+  year          Int
+  allocatedDays Int
+  usedDays      Int       @default(0)
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  @@unique([userId, leaveTypeId, year])
+}

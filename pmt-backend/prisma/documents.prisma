@@ -1,0 +1,38 @@
+// prisma/documents.prisma
+//
+// Project documents: uploaded files and typed text.
+
+// Only Admin, System Admin, or Project Manager ever create, edit, or delete
+// these, enforced in ProjectDocumentsService, not just at the route level.
+// Soft delete via deletedAt, the same pattern as User: history is
+// preserved rather than removed. A FILE format document's underlying
+// upload is immutable once created; editing only covers metadata (title,
+// description, textContent), the same reason avatar upload is POST, not
+// PATCH: replacing a file is a new upload that isn't idempotent, not an edit.
+model ProjectDocument {
+  id          String                @id @default(uuid())
+  projectId   String
+  project     Project               @relation(fields: [projectId], references: [id])
+  description String?
+  type        ProjectDocumentType
+  format      ProjectDocumentFormat @default(FILE)
+  title       String
+
+  // FILE format
+  fileUrl       String?
+  fileMimeType  String? // "application/pdf", "image/png", "application/zip", etc.
+  fileSizeBytes Int?
+
+  // TEXT format, e.g. credentials, quick notes
+  textContent String?
+
+  uploadedById String
+  uploadedBy   User   @relation(fields: [uploadedById], references: [id])
+
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  deletedAt DateTime?
+
+  @@index([projectId])
+  @@index([type])
+}

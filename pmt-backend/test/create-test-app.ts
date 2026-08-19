@@ -1,6 +1,7 @@
 import { INestApplication, ValidationPipe } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
 import { AppModule } from '../src/app.module';
+import { AllExceptionsFilter } from '../src/common/filters/http-exception.filter';
 
 /**
  * Boots the real AppModule configured EXACTLY as src/main.ts configures it.
@@ -25,8 +26,15 @@ export async function createTestApp(): Promise<INestApplication> {
   // re-enabling the parser breaks every route under /api/auth.
   const app = moduleFixture.createNestApplication({ bodyParser: false });
 
+  app.useGlobalFilters(new AllExceptionsFilter());
+  app.useGlobalPipes(
+    new ValidationPipe({
+      whitelist: true,
+      forbidNonWhitelisted: true,
+      transform: true,
+    }),
+  );
   app.setGlobalPrefix('api');
-  app.useGlobalPipes(new ValidationPipe({ whitelist: true, transform: true }));
 
   await app.init();
   return app;

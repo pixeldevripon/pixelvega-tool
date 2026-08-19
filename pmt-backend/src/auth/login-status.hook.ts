@@ -2,8 +2,8 @@ import { Injectable } from '@nestjs/common';
 import { AfterHook, BeforeHook, Hook } from '@thallesp/nestjs-better-auth';
 import type { AuthHookContext } from '@thallesp/nestjs-better-auth';
 import { APIError } from 'better-auth';
-import { PrismaService } from '../prisma/prisma.service';
-import { AuditLogService } from '../modules/audit-log/audit-log.service';
+import { PrismaService } from '@/prisma/prisma.service';
+import { AuditLogService } from '@/audit-log/audit-log.service';
 
 @Injectable()
 @Hook()

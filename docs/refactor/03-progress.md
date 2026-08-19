@@ -84,6 +84,136 @@ Nothing here changes application behaviour.
 
 ---
 
+## Phase 2: backend foundations — complete, 2026-08-20
+
+All 33 items. Strict mode on with only 5 errors (all TS2564 on auth DTO fields,
+fixed with the reference's `!` convention). The `@/` alias and the `src/modules`
+flatten landed as one sweep: 470 import specifiers rewritten, zero deep relative
+paths remain. `env.validate.ts` covers all 20 variables. `AllExceptionsFilter`
+maps the four Prisma constraint codes. `main.ts` gained helmet, trust proxy, a
+fail-closed CORS allowlist, `forbidNonWhitelisted`, and shutdown hooks. The
+schema split into 12 domain files with `prisma migrate diff` reporting **no
+difference**.
+
+## Phase 3: backend test floor — substantially complete, 2026-08-20
+
+417 tests across 22 suites, up from 213. Every service with real branching
+business logic now has a co-located spec with Prisma fully mocked:
+
+| Service                                         | What it pins                                                        |
+| ----------------------------------------------- | ------------------------------------------------------------------- |
+| `ProjectsService`                               | status guards, archive as a flag, restore always to READY_FOR_WORK  |
+| `ProjectMembersService`                         | role matching, the (project, user, role) guard, the auto transition |
+| `ProjectTimeEntriesService`                     | the one active timer rule, keyed on user alone                      |
+| `MeetingTimeEntriesService`                     | the rule spans both tables                                          |
+| `DailyWorkReportService`                        | the two independent edit windows                                    |
+| `BlockerService`                                | RESOLVED permanently locked, forward only, additive extension       |
+| `InternalReviewsService`                        | the only path out of INTERNAL_REVIEW                                |
+| `ClientFeedbackService`                         | only the first round moves the project                              |
+| `AdditionalRequirementsService`                 | approving is additive                                               |
+| `ProjectDocumentsService`                       | the CLIENT DELIVERABLE restriction                                  |
+| `LeaveRequestsService` / `LeaveBalancesService` | approve increments, reject does not                                 |
+| `UsersService`                                  | every target specific protection rule                               |
+
+**Deliberately deferred:** controller specs, and specs for the 25 thin services
+(mail, slack, cloudinary, prisma, reference data CRUD, AI infrastructure).
+
+**Resequencing decision:** controller specs assert which decorators a route
+carries. Phase 4 rewrites every one of those decorators, so writing 27 controller
+specs now and rewriting them immediately after would be wasted work. They move to
+the end of phase 4, written once against the final decorators.
+
+## Phase 4: permission gate — complete, 2026-08-20
+
+All 19 items. A 52 value `Permission` enum, `ROLE_PERMISSIONS`, both decorators,
+`PermissionsService`, `PermissionsGuard` registered after `AuthGuard`, and
+`GET /users/me/permissions`. All 97 `@Roles` decorators migrated across 25
+controllers, and the wrapper that silently unioned the admins into every list is
+deleted.
+
+**Modelling correction, found while migrating.** The first draft modelled
+`PROJECT_MANAGER` as "DEVELOPER plus management". That is wrong: PMs are
+deliberately excluded from `TRACK_PROJECT_TIME` and `SUBMIT_WORK_REPORT` by the
+routes as they stand. Shipping the draft would have silently granted PMs time
+tracking. They are siblings, not a ladder, and the spec now asserts that in both
+directions. Only ADMIN and SYSTEM_ADMIN are strict supersets.
+
+### Follow up, 2026-08-20
+
+- **Permission coverage is now total.** Directive D2 was tightened to "every
+  operation in the codebase", so the 11 previously ungated self service and
+  reference routes gained permissions too, taking the enum to 60 values.
+  `route-permission-coverage.spec.ts` reads the controller sources and fails if
+  any route has neither a permission nor an explicit anonymous opt out, so this
+  cannot silently regress. The anonymous surface is pinned to exactly three
+  routes (the password reset flow).
+- **`postman/` deleted** at the owner's decision, and its ignore rule removed.
+- **Local Postgres 17** is now the development and test database
+  (`pixelvega_dev`, `pixelvega_test`). The Neon URLs are commented out in `.env`
+  rather than deleted. All 35 migrations applied, 31 tables, and the
+  `Permission` type confirmed present with 60 values.
+- **The E2E suite runs for the first time**, 6 tests green against a live
+  database. It needed the reference's ESM setup (`tsconfig.e2e.json`,
+  `extensionsToTreatAsEsm`, `--experimental-vm-modules`) because booting the
+  real `AppModule` pulls in ESM only packages, plus `--forceExit` because the
+  scheduler and the lazily connected Redis client outlive `app.close()`.
+
+**Two bugs the E2E boot caught that no unit test could:**
+
+| Bug                                                                                                                                                       | Why unit tests missed it                                                           |
+| --------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------- |
+| `PermissionsService` was provided in `AppModule`, so `UsersController` could not inject it. Nest resolves a controller's dependencies from its own module | Every spec constructs its subject directly, so DI wiring is never exercised        |
+| `PermissionsGuard` ran before better-auth's session guard, turning every unauthenticated request into a 403                                               | The guard spec passes a request object in directly, so guard ordering is invisible |
+
+Fixes: a `@Global() PermissionsModule` matching the existing `PrismaModule` and
+`AuditLogModule` convention, and the guard now answers 401 for a missing
+session, which is the correct status whichever order the guards run in. This is
+a deliberate deviation from the reference, which throws Forbidden there because
+it registers every guard in one module and can guarantee the ordering.
+
+**Process note on myself:** two of my edits silently failed to apply because the
+target text had already been reformatted, and I did not re-run typecheck after
+them. One shipped an undefined identifier into the guard, which only the E2E run
+surfaced. Every scripted edit now asserts its pattern matched.
+
+## Phase 5: backend module mirror — substantially complete, 2026-08-20
+
+**Done:**
+
+| Piece                  | Result                                                                                              |
+| ---------------------- | --------------------------------------------------------------------------------------------------- |
+| Swagger extraction     | **27 of 27 controllers.** All 421 inline doc decorators moved into 18 swagger files, one per module |
+| `ProjectsModule` split | 17 controllers in one module became **8 feature modules**, max 4 each                               |
+| Consolidated DTO files | `users`, `audit-log`, `notifications`, `profiles`                                                   |
+| Response DTOs          | Same four modules                                                                                   |
+| Shared error sets      | `src/common/swagger/error-sets.ts`                                                                  |
+
+**Two deliberate deviations from the reference, both recorded in commits:**
+
+1. **Shared swagger error sets.** The reference declares them per file; they were
+   byte identical in all of mine. A set copied 27 times is one that drifts. D1
+   mandates DRY as much as it mandates layout.
+2. **`@Global() ProjectActivityModule`.** This is what unlocked the split. Eight
+   modules write to one append only activity log, and registering the service per
+   module would have given each its own DI instance and split the log. That
+   constraint is precisely why all 17 controllers were stuck together.
+
+**A security regression caught in the same change that introduced it.** Rewriting
+the `users` request DTOs I replaced `IsIn(ASSIGNABLE_ROLES)` with
+`IsEnum(Role)`. `ASSIGNABLE_ROLES` excludes `SYSTEM_ADMIN`, and `UsersService`
+checks `dto.role === ADMIN` but never `SYSTEM_ADMIN`, so that validator was the
+only barrier between an ADMIN and granting someone the root role. Restored, plus
+a defence in depth check in both `update()` and `invite()` and five specs. **The
+gap exists in `main` today**: the DTO holds it shut and nothing else does.
+
+**Still owed for this phase:**
+
+- Consolidated DTO files and response DTOs for the remaining 23 modules. The
+  swagger files reference response shapes by description rather than by typed
+  class for those, so `/api/docs` documents what goes in but not yet what comes
+  back
+- Moving the AI and Slack calls still in the request path onto BullMQ
+
 ## Completed phases
 
 ### Phase 1: make it verifiable — complete, 2026-08-20
