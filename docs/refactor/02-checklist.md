@@ -304,17 +304,17 @@ endpoint. The suite green throughout.
 
 ### Inventory
 
-- [ ] List every `useMemo` in `pmt-frontend` that derives, sorts, filters, or aggregates
-- [ ] List every `.sort(`, `.filter(`, `.reduce(` under `components/`
-- [ ] List every label map, tone map, and permission boolean assembled from a role string
-- [ ] That list is this phase's backlog. Nothing is done until every entry has a backend home
+- [x] List every `useMemo` in `pmt-frontend` that derives, sorts, filters, or aggregates See [`04-phase-6-inventory.md`](./04-phase-6-inventory.md).
+- [x] List every `.sort(`, `.filter(`, `.reduce(` under `components/` 18 sorts, 16 aggregations. Same document.
+- [x] List every label map, tone map, and permission boolean assembled from a role string 39 `canX` booleans from 70 role comparisons, 5 `formatEnumLabel` copies, 2 tone functions.
+- [x] That list is this phase's backlog. Nothing is done until every entry has a backend home
 
 ### Move computation to response fields
 
-- [ ] Derived numbers as response columns: `remainingHours`, `daysOpen`, `resolutionTime`, totals, percentages
-- [ ] Aggregates and roll ups served, never assembled client side
+- [x] Derived numbers as response columns: `remainingHours`, `daysOpen`, `resolutionTime`, totals, percentages Plus `isOverdue`, `isTerminal`, `daysUntilDeadline`, `ageMinutes`, `durationLabel`, `fileSizeLabel`, `entryCount`, `isActive` and the three-way totals on every time figure.
+- [x] Aggregates and roll ups served, never assembled client side Every list carries filter-wide totals rather than page totals, which also fixes a footer that silently meant 'this page'.
 - [ ] The dashboard sort moves from JS after fetching to the query, so a page's contents are correct as well as ordered
-- [ ] Sorting, filtering, and grouping become query params wherever the frontend does them today
+- [x] Sorting, filtering, and grouping become query params wherever the frontend does them today `sortBy`/`sortOrder` on the users and projects lists, sorted before pagination. Filtering was already query params throughout.
 
 ### Display metadata
 
@@ -332,8 +332,8 @@ endpoint. The suite green throughout.
 ### Validation surface (D5)
 
 - [ ] A custom validator in `src/common/validators/` for every rule the built in decorators cannot express, each with a co-located spec
-- [ ] Numeric query params carry `@Type(() => Number)`
-- [ ] Boolean query params carry an explicit `@Transform`
+- [x] Numeric query params carry `@Type(() => Number)` Audited. Every numeric QUERY param has it; the four without are request bodies, which arrive as JSON already typed.
+- [x] Boolean query params carry an explicit `@Transform` **Found a real bug.** All six used `@Type(() => Boolean)`, and `Boolean('false')` is `true`, so `?archived=false` returned archived projects. Replaced with `@ToBoolean()`, 8 specs.
 - [ ] Enum fields use `@IsEnum` against the Prisma enum, never a string union
 - [ ] Length bounds on every free text field reaching the database, an email, a Slack message, or an AI prompt
 

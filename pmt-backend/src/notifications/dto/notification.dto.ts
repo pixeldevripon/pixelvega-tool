@@ -4,6 +4,7 @@ import { Type } from 'class-transformer';
 import { IsBoolean, IsOptional } from 'class-validator';
 import { PaginationQueryDto } from '@/common/dto/pagination-query.dto';
 import { EnumDisplayDto } from '@/common/dto/display.dto';
+import { ToBoolean } from '@/common/decorators/to-boolean.decorator';
 
 // ── Response DTOs ────────────────────────────────────────────────────────────
 
@@ -81,7 +82,7 @@ export class QueryNotificationsDto extends PaginationQueryDto {
     description: 'Only return unread notifications (readAt is null).',
   })
   @IsOptional()
-  @Type(() => Boolean)
+  @ToBoolean()
   @IsBoolean()
   unreadOnly?: boolean;
 }

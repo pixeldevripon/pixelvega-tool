@@ -308,6 +308,8 @@ export class ProjectsService {
       priority,
       clientId,
       projectTypes,
+      sortBy = 'createdAt',
+      sortOrder = 'desc',
       archived = false,
       search,
     } = query;
@@ -329,7 +331,7 @@ export class ProjectsService {
       (args) =>
         this.prisma.project.findMany({
           where,
-          orderBy: { createdAt: 'desc' },
+          orderBy: { [sortBy]: sortOrder },
           include: PROJECT_INCLUDE,
           ...args,
         }),

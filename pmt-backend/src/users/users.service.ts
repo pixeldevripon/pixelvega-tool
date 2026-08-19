@@ -16,6 +16,7 @@ import { generateTempPassword } from '@/common/utils/password.util';
 import { paginate } from '@/common/utils/pagination.util';
 import { PaginationQueryDto } from '@/common/dto/pagination-query.dto';
 import { toUserResponse } from '@/users/user.mapper';
+import { QueryUsersDto } from '@/users/dto/user.dto';
 import {
   ChangeOwnPasswordRequestDto,
   InviteUserRequestDto,
@@ -44,8 +45,13 @@ export class UsersService {
     private readonly auditLog: AuditLogService,
   ) {}
 
-  async findAll(query: PaginationQueryDto) {
-    const { page = 1, pageSize = 20 } = query;
+  async findAll(query: QueryUsersDto) {
+    const {
+      page = 1,
+      pageSize = 20,
+      sortBy = 'name',
+      sortOrder = 'asc',
+    } = query;
     const where = { deletedAt: null };
 
     const result = await paginate(
@@ -53,7 +59,7 @@ export class UsersService {
         this.prisma.user.findMany({
           where,
           select: USER_SELECT,
-          orderBy: { createdAt: 'desc' },
+          orderBy: { [sortBy]: sortOrder },
           ...args,
         }),
       () => this.prisma.user.count({ where }),

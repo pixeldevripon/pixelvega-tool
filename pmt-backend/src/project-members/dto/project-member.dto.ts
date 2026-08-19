@@ -11,6 +11,7 @@ import { ProjectRole } from '@prisma/client';
 
 import { PaginationQueryDto } from '@/common/dto/pagination-query.dto';
 import { EnumDisplayDto } from '@/common/dto/display.dto';
+import { ToBoolean } from '@/common/decorators/to-boolean.decorator';
 
 const PROJECT_ROLES = Object.values(ProjectRole);
 
@@ -167,7 +168,7 @@ export class QueryProjectMembersDto extends PaginationQueryDto {
       'Include members who have left (leftAt set). Off by default, which returns only active members.',
   })
   @IsOptional()
-  @Type(() => Boolean)
+  @ToBoolean()
   @IsBoolean()
   includeLeft?: boolean = false;
 }

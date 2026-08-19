@@ -21,6 +21,9 @@ import {
 
 import { PaginationQueryDto } from '@/common/dto/pagination-query.dto';
 import { EnumDisplayDto } from '@/common/dto/display.dto';
+import { SORT_ORDERS } from '@/common/dto/sort-query.dto';
+import type { SortOrder } from '@/common/dto/sort-query.dto';
+import { ToBoolean } from '@/common/decorators/to-boolean.decorator';
 
 const STATUSES = Object.values(ProjectStatus);
 const PRIORITIES = Object.values(ProjectPriority);
@@ -360,7 +363,31 @@ export class ProjectActivityResponseDto {
 // Query
 // ════════════════════════════════════════════════════════════════════════════
 
+/** The columns a project list may be ordered by. */
+export const PROJECT_SORT_FIELDS = [
+  'name',
+  'deadline',
+  'plannedStartDate',
+  'createdAt',
+  'updatedAt',
+] as const;
+export type ProjectSortField = (typeof PROJECT_SORT_FIELDS)[number];
+
 export class QueryProjectsDto extends PaginationQueryDto {
+  @ApiPropertyOptional({
+    enum: PROJECT_SORT_FIELDS,
+    default: 'createdAt',
+    description:
+      'Sorted before pagination, so page one really does hold the first rows. Note this is the flat list; the dashboard has its own fixed ordering and ignores this.',
+  })
+  @IsOptional()
+  @IsIn(PROJECT_SORT_FIELDS)
+  sortBy?: ProjectSortField = 'createdAt';
+
+  @ApiPropertyOptional({ enum: SORT_ORDERS, default: 'desc' })
+  @IsOptional()
+  @IsIn(SORT_ORDERS)
+  sortOrder?: SortOrder = 'desc';
   @ApiPropertyOptional({ enum: STATUSES })
   @IsOptional()
   @IsIn(STATUSES)
@@ -400,7 +427,7 @@ export class QueryProjectsDto extends PaginationQueryDto {
       'Off by default, which returns only non archived projects. Set to true to view only archived projects, a dedicated archive view rather than a mix of both.',
   })
   @IsOptional()
-  @Type(() => Boolean)
+  @ToBoolean()
   @IsBoolean()
   archived?: boolean = false;
 
@@ -422,7 +449,7 @@ export class QueryMyProjectsDto extends PaginationQueryDto {
       'Off by default, which returns only non archived projects. Set to true to view only archived projects, a dedicated archive view rather than a mix of both. Ignored for a CLIENT caller.',
   })
   @IsOptional()
-  @Type(() => Boolean)
+  @ToBoolean()
   @IsBoolean()
   archived?: boolean = false;
 }

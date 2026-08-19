@@ -11,6 +11,7 @@ import { ProjectDocumentType } from '@prisma/client';
 
 import { PaginationQueryDto } from '@/common/dto/pagination-query.dto';
 import { EnumDisplayDto } from '@/common/dto/display.dto';
+import { ToBoolean } from '@/common/decorators/to-boolean.decorator';
 
 const PROJECT_DOCUMENT_TYPES = Object.values(ProjectDocumentType);
 
@@ -192,7 +193,7 @@ export class QueryProjectDocumentsDto extends PaginationQueryDto {
       'Off by default: returns only the newest document per (type, title) group, so uploading a revised PRD under the same title stops older PRDs from cluttering the list. Set true to return every document, including superseded ones.',
   })
   @IsOptional()
-  @Type(() => Boolean)
+  @ToBoolean()
   @IsBoolean()
   includeHistory?: boolean = false;
 }

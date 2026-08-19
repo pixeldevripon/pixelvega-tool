@@ -16,6 +16,7 @@ import { Role } from '@prisma/client';
 
 import { PaginationQueryDto } from '@/common/dto/pagination-query.dto';
 import { EnumDisplayDto } from '@/common/dto/display.dto';
+import { ToBoolean } from '@/common/decorators/to-boolean.decorator';
 
 const LEAVE_TAKING_ROLES = [
   Role.PROJECT_MANAGER,
@@ -336,7 +337,7 @@ export class QueryLeaveSummaryDto {
       'Adds a requests array under each user with the exact startDate, endDate, leaveType, and reason for every leave request behind their totals, oldest first.',
   })
   @IsOptional()
-  @Type(() => Boolean)
+  @ToBoolean()
   @IsBoolean()
   includeDetails?: boolean = false;
 }
