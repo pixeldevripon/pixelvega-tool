@@ -290,7 +290,7 @@ One PR per module. Order: `users` and `profiles` first (smallest, proves the pat
 - [x] Break `projects.service.ts` (1,109 lines) along the same seams
 - [x] Keep `ALLOWED_STATUS_TRANSITIONS` and `compareForDashboard` as shared, individually tested units
 - [x] Register every new module in `AppModule.imports`
-- [ ] Move the AI and Slack calls still running in the request path onto BullMQ
+- [~] Move the AI and Slack calls still running in the request path onto BullMQ **Partly, and the rest deliberately not.** The Slack calls were already fire and forget (9 `.catch()` sites, each with a comment saying a Slack outage must not fail the action). `connectSlack` blocks on purpose: the user asked to connect and needs the answer. That leaves the AI summary, which is queued **only if the product accepts a 202 and polling**; see the decision in `03-progress.md`. Its timeout is fixed either way.
 
 **Exit criteria.** Every module matches the template in [`../architecture/03-target-architecture.md`](../architecture/03-target-architecture.md). No service over 600 lines. No
 module with more than four controllers. `/api/docs` shows request and response schemas for every

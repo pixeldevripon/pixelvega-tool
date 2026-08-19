@@ -26,6 +26,9 @@ export interface GenerateStructuredResult<T> {
   outputTokens: number;
 }
 
+/** Two minutes. See the constructor for why this is not the SDK default. */
+const CLAUDE_REQUEST_TIMEOUT_MS = 2 * 60 * 1000;
+
 // Thin wrapper around @anthropic-ai/sdk, mirrors how SlackService/CloudinaryService
 // wrap their own third party clients. The Anthropic client is built inside this
 // constructor, not at the top of the file, to avoid the module load order trap this
@@ -36,7 +39,20 @@ export class ClaudeService {
   private readonly client: Anthropic;
 
   constructor() {
-    this.client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
+    this.client = new Anthropic({
+      apiKey: process.env.ANTHROPIC_API_KEY,
+      // The SDK defaults to a ten minute timeout. That is fine for a queued
+      // job and wrong for anything a user is waiting on: no reverse proxy
+      // holds a connection that long, so the caller gets a 502 while the
+      // server keeps working on a result nobody will receive. Two minutes is
+      // longer than any prompt here has taken and short enough to fail before
+      // the proxy does.
+      timeout: CLAUDE_REQUEST_TIMEOUT_MS,
+      // One retry, not the default two. A retry on a slow request multiplies
+      // the wait by the timeout above, and the queued jobs have their own
+      // retry policy on top.
+      maxRetries: 1,
+    });
   }
 
   async generateText(params: GenerateTextParams): Promise<GenerateTextResult> {

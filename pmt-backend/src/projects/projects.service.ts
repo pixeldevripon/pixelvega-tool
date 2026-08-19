@@ -1010,7 +1010,7 @@ export class ProjectsService {
       );
       if (!accessible) {
         throw new BadRequestException(
-          'Could not access a Slack channel with that id — make sure the bot has been added to it and it is not archived',
+          'Could not access a Slack channel with that id. Make sure the bot has been added to it and it is not archived',
         );
       }
       slackChannelId = dto.slackChannelId;
