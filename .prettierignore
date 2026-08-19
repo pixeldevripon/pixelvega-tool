@@ -1,0 +1,13 @@
+# Vendored, upstream-owned content. These are pinned by hash in
+# skills-lock.json, so reformatting them makes this checkout diverge from
+# upstream and turns every future skill update into a noisy diff.
+.claude/skills/
+.agents/skills/
+.claude/commands/
+
+# Generated or external
+node_modules/
+.next/
+dist/
+pnpm-lock.yaml
+*.tsbuildinfo

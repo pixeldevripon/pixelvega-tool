@@ -1,0 +1,47 @@
+# Dependencies
+node_modules/
+.pnp
+.pnp.js
+
+# Build outputs
+dist/
+build/
+.next/
+out/
+
+# Environment files - never commit real secrets; only *.example files are tracked
+.env
+.env.*
+!.env.example
+!.env.*.example
+
+# Prisma
+**/src/generated/
+*.db
+*.db-journal
+
+# Logs
+logs/
+*.log
+npm-debug.log*
+pnpm-debug.log*
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Editor
+.idea/
+*.swp
+*.swo
+
+# Testing
+coverage/
+playwright-report/
+test-results/
+
+# TypeScript
+*.tsbuildinfo
+
+# Claude Code local-only state (agent definitions, skills and CLAUDE.md ARE tracked)
+.claude/settings.local.json

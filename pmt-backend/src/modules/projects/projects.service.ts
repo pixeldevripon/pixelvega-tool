@@ -36,7 +36,10 @@ import { RECOMMENDED_MAX_ACTIVE_PROJECTS } from './workload.constants';
 
 // Sequence validation only. Who is allowed to trigger a given transition is
 // checked separately, in assertCanChangeStatus() below.
-const ALLOWED_STATUS_TRANSITIONS: Record<ProjectStatus, ProjectStatus[]> = {
+export const ALLOWED_STATUS_TRANSITIONS: Record<
+  ProjectStatus,
+  ProjectStatus[]
+> = {
   PLANNING: ['SCHEDULED', 'READY_FOR_WORK', 'CANCELLED'],
   SCHEDULED: ['READY_FOR_WORK', 'CANCELLED'],
   READY_FOR_WORK: ['IN_PROGRESS', 'ON_HOLD', 'CANCELLED'],
@@ -87,12 +90,12 @@ const CLIENT_PROJECT_SELECT = {
 
 // Projects with an active status ("Ready For Work", "In Progress") sort
 // first on a staff member's dashboard; everything else sorts after.
-const DASHBOARD_ACTIVE_STATUSES: ProjectStatus[] = [
+export const DASHBOARD_ACTIVE_STATUSES: ProjectStatus[] = [
   ProjectStatus.READY_FOR_WORK,
   ProjectStatus.IN_PROGRESS,
 ];
 
-const PRIORITY_RANK: Record<ProjectPriority, number> = {
+export const PRIORITY_RANK: Record<ProjectPriority, number> = {
   CRITICAL: 0,
   URGENT: 1,
   HIGH: 2,
@@ -102,7 +105,7 @@ const PRIORITY_RANK: Record<ProjectPriority, number> = {
 
 // remainingHours is computed here, never stored, so it can't drift out of
 // sync with estimatedHours/actualHours the way a persisted column could.
-function withRemainingHours<
+export function withRemainingHours<
   T extends { estimatedHours: number | null; actualHours: number },
 >(project: T): T & { remainingHours: number | null } {
   return {
@@ -114,7 +117,7 @@ function withRemainingHours<
   };
 }
 
-function compareNullableDates(a: Date | null, b: Date | null): number {
+export function compareNullableDates(a: Date | null, b: Date | null): number {
   if (a === null && b === null) return 0;
   if (a === null) return 1; // nulls sort last
   if (b === null) return -1;
@@ -123,7 +126,7 @@ function compareNullableDates(a: Date | null, b: Date | null): number {
 
 // Sort order: active status first, then Priority, then Deadline, then
 // Planned Start Date, all ascending (most urgent/soonest first).
-function compareForDashboard(
+export function compareForDashboard(
   a: ProjectWithRelations,
   b: ProjectWithRelations,
 ): number {

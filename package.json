@@ -1,0 +1,40 @@
+{
+  "name": "pixelvega-tool",
+  "version": "0.0.1",
+  "private": true,
+  "description": "PixelVega PMT - NestJS API (pmt-backend) + Next.js dashboard (pmt-frontend)",
+  "scripts": {
+    "dev": "concurrently --names \"BACKEND,FRONTEND\" --prefix-colors \"cyan,magenta\" \"pnpm dev:backend\" \"pnpm dev:frontend\"",
+    "dev:backend": "cd pmt-backend && pnpm start:dev",
+    "dev:frontend": "cd pmt-frontend && pnpm dev",
+    "install:all": "pnpm install && cd pmt-backend && pnpm install && cd ../pmt-frontend && pnpm install",
+    "build": "pnpm build:backend && pnpm build:frontend",
+    "build:backend": "cd pmt-backend && pnpm build",
+    "build:frontend": "cd pmt-frontend && pnpm build",
+    "start:backend": "cd pmt-backend && pnpm start:prod",
+    "start:frontend": "cd pmt-frontend && pnpm start",
+    "lint": "concurrently \"pnpm lint:backend\" \"pnpm lint:frontend\"",
+    "lint:backend": "cd pmt-backend && pnpm lint",
+    "lint:frontend": "cd pmt-frontend && pnpm lint",
+    "typecheck": "concurrently \"pnpm typecheck:backend\" \"pnpm typecheck:frontend\"",
+    "typecheck:backend": "cd pmt-backend && npx tsc --noEmit",
+    "typecheck:frontend": "cd pmt-frontend && npx tsc --noEmit",
+    "test": "concurrently \"pnpm test:backend\" \"pnpm test:frontend\"",
+    "test:backend": "cd pmt-backend && pnpm test",
+    "test:frontend": "cd pmt-frontend && pnpm test",
+    "test:e2e:backend": "cd pmt-backend && pnpm test:e2e",
+    "test:e2e:frontend": "cd pmt-frontend && pnpm test:e2e",
+    "prisma:generate": "cd pmt-backend && npx prisma generate",
+    "prisma:migrate": "cd pmt-backend && npx prisma migrate dev",
+    "prisma:migrate:deploy": "cd pmt-backend && npx prisma migrate deploy",
+    "prisma:studio": "cd pmt-backend && npx prisma studio",
+    "seed": "cd pmt-backend && pnpm seed",
+    "prepare": "husky"
+  },
+  "devDependencies": {
+    "concurrently": "^9.1.2",
+    "husky": "^9.1.7",
+    "lint-staged": "^17.0.8",
+    "prettier": "^3.4.2"
+  }
+}

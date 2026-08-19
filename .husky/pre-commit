@@ -1,0 +1,13 @@
+#!/usr/bin/env sh
+# ──────────────────────────────────────────────────────────────────────────────
+# Pre-commit guard: fast, staged-files-only ESLint --fix via lint-staged.
+#
+# lint-staged finds the closest .lintstagedrc.json to each staged file
+# (pmt-backend/ or pmt-frontend/) and runs `eslint --fix` from that package's
+# directory, so each project's own flat config and local eslint binary are used.
+# Auto-fixes are re-staged. Heavy checks (typecheck, tests, build) run on
+# pre-push, not here.
+#
+# Skip in a genuine emergency:  git commit --no-verify
+# ──────────────────────────────────────────────────────────────────────────────
+pnpm exec lint-staged
