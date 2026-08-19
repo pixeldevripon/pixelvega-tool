@@ -1,15 +1,11 @@
 import { Controller, Get, Param, Query } from '@nestjs/common';
-import {
-  ApiCookieAuth,
-  ApiOperation,
-  ApiResponse,
-  ApiTags,
-} from '@nestjs/swagger';
+import { ApiCookieAuth, ApiTags } from '@nestjs/swagger';
 import { Permission, Role } from '@prisma/client';
 import { CurrentUser } from '@/common/decorators/current-user.decorator';
 import { DailyWorkReportService } from './daily-work-report.service';
 import { QueryProjectDailyEntriesDto } from '@/work-reports/dto/query-project-daily-entries.dto';
 import { RequirePermissions } from '@/auth/decorators/require-permissions.decorator';
+import { ApiListProjectWorkReportsDocs } from '@/work-reports/work-reports.swagger';
 
 // Deliberately a separate controller from DailyWorkReportController. This
 // route is nested under a project (projects/:projectId/daily-work-reports),
@@ -24,17 +20,7 @@ export class ProjectDailyWorkReportsController {
     private readonly dailyWorkReportService: DailyWorkReportService,
   ) {}
 
-  @ApiOperation({
-    summary: "List a project's daily plan/wrap-up entries",
-    description:
-      "All of one project's daily entries across every developer and every day. PROJECT_MANAGER/ADMIN/SYSTEM_ADMIN see everything; DEVELOPER/DESIGNER must be an active member of this project. Filter to one team member with userId, or narrow to a date range with startDate/endDate (both inclusive).",
-  })
-  @ApiResponse({ status: 200, description: 'Paginated project daily entries' })
-  @ApiResponse({
-    status: 403,
-    description: 'Not an active member of this project',
-  })
-  @ApiResponse({ status: 404, description: 'Project not found' })
+  @ApiListProjectWorkReportsDocs()
   @RequirePermissions(Permission.VIEW_WORK_REPORTS)
   @Get()
   findByProject(

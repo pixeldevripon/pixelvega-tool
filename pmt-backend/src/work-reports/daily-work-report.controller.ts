@@ -7,12 +7,7 @@ import {
   Post,
   Query,
 } from '@nestjs/common';
-import {
-  ApiCookieAuth,
-  ApiOperation,
-  ApiResponse,
-  ApiTags,
-} from '@nestjs/swagger';
+import { ApiCookieAuth, ApiTags } from '@nestjs/swagger';
 import { Permission, Role } from '@prisma/client';
 import { CurrentUser } from '@/common/decorators/current-user.decorator';
 import { DailyWorkReportService } from './daily-work-report.service';
@@ -24,6 +19,15 @@ import { UpdateWrapUpDto } from '@/work-reports/dto/update-wrap-up.dto';
 import { ReviewEntryDto } from '@/work-reports/dto/review-entry.dto';
 import { QueryDailyWorkReportsDto } from '@/work-reports/dto/query-daily-work-reports.dto';
 import { RequirePermissions } from '@/auth/decorators/require-permissions.decorator';
+import {
+  ApiGetTodayReportDocs,
+  ApiListWorkReportsDocs,
+  ApiReviewWorkReportEntryDocs,
+  ApiSubmitPlanDocs,
+  ApiSubmitWrapUpDocs,
+  ApiUpdatePlanDocs,
+  ApiUpdateWrapUpDocs,
+} from '@/work-reports/work-reports.swagger';
 
 // Covers a DEVELOPER/DESIGNER viewing their own reports, plus PM/Admin
 // looking up a specific team member. The actual gating lives in
@@ -38,36 +42,14 @@ export class DailyWorkReportController {
     private readonly dailyProjectEntryService: DailyProjectEntryService,
   ) {}
 
-  @ApiOperation({
-    summary: "Submit today's plan",
-    description:
-      'Creates the daily work report for today with one entry per project. One per user per day — a second submission on the same day returns 409.',
-  })
-  @ApiResponse({ status: 201, description: 'Plan submitted' })
-  @ApiResponse({
-    status: 403,
-    description: 'Not an active member of one of the listed projects',
-  })
-  @ApiResponse({
-    status: 409,
-    description: 'A report already exists for today',
-  })
+  @ApiSubmitPlanDocs()
   @RequirePermissions(Permission.SUBMIT_WORK_REPORT)
   @Post()
   submitPlan(@Body() dto: SubmitPlanDto, @CurrentUser() user: { id: string }) {
     return this.dailyWorkReportService.create(user.id, dto);
   }
 
-  @ApiOperation({
-    summary: 'Update the plan',
-    description:
-      'Editable anytime until wrap-up is submitted — no time limit. Locked (409) once wrap-up has been submitted.',
-  })
-  @ApiResponse({ status: 200, description: 'Plan updated' })
-  @ApiResponse({
-    status: 409,
-    description: 'Plan locked after wrap-up submitted',
-  })
+  @ApiUpdatePlanDocs()
   @RequirePermissions(Permission.SUBMIT_WORK_REPORT)
   @Patch(':id/plan')
   updatePlan(
@@ -78,28 +60,14 @@ export class DailyWorkReportController {
     return this.dailyWorkReportService.updatePlan(id, user.id, dto);
   }
 
-  @ApiOperation({ summary: "Get today's report" })
-  @ApiResponse({
-    status: 200,
-    description: "Today's report, or null if not started",
-  })
+  @ApiGetTodayReportDocs()
   @RequirePermissions(Permission.SUBMIT_WORK_REPORT)
   @Get('today')
   getTodayReport(@CurrentUser() user: { id: string }) {
     return this.dailyWorkReportService.findByUserAndDate(user.id, new Date());
   }
 
-  @ApiOperation({
-    summary: 'List daily work reports',
-    description:
-      "Defaults to the caller's own reports, across all their projects. DEVELOPER/DESIGNER may only view their own (403 if userId is set to someone else); PROJECT_MANAGER/ADMIN/SYSTEM_ADMIN may pass userId to view any team member. Omit startDate/endDate for all time, or set a range (both inclusive). Use type=PLAN or type=WRAP_UP to see only one kind of entry per report.",
-  })
-  @ApiResponse({ status: 200, description: 'Paginated daily work reports' })
-  @ApiResponse({
-    status: 403,
-    description:
-      "Attempted to view another user's reports without PM/Admin access",
-  })
+  @ApiListWorkReportsDocs()
   @RequirePermissions(Permission.VIEW_WORK_REPORTS)
   @Get()
   findAll(
@@ -113,13 +81,7 @@ export class DailyWorkReportController {
     );
   }
 
-  @ApiOperation({
-    summary: 'Submit wrap-up',
-    description:
-      'Plan is mandatory first — 409 if the plan was never submitted for this report. Can include projects not in the original plan.',
-  })
-  @ApiResponse({ status: 201, description: 'Wrap-up submitted' })
-  @ApiResponse({ status: 409, description: 'Plan not yet submitted' })
+  @ApiSubmitWrapUpDocs()
   @RequirePermissions(Permission.SUBMIT_WORK_REPORT)
   @Post(':id/wrap-up')
   submitWrapUp(
@@ -130,13 +92,7 @@ export class DailyWorkReportController {
     return this.dailyWorkReportService.submitWrapUp(id, user.id, dto);
   }
 
-  @ApiOperation({
-    summary: 'Update the wrap-up',
-    description:
-      'Editable for 2 hours after wrap-up submission. Locked (409) after that window.',
-  })
-  @ApiResponse({ status: 200, description: 'Wrap-up updated' })
-  @ApiResponse({ status: 409, description: 'Wrap-up locked after 2 hours' })
+  @ApiUpdateWrapUpDocs()
   @RequirePermissions(Permission.SUBMIT_WORK_REPORT)
   @Patch(':id/wrap-up')
   updateWrapUp(
@@ -147,17 +103,7 @@ export class DailyWorkReportController {
     return this.dailyWorkReportService.updateWrapUp(id, user.id, dto);
   }
 
-  @ApiOperation({
-    summary: "Review a project entry's wrap-up",
-    description:
-      'Project Manager of that project (or Admin/System Admin) only. The entry must already have a submitted wrap-up.',
-  })
-  @ApiResponse({ status: 200, description: 'Entry reviewed' })
-  @ApiResponse({ status: 403, description: 'Not the manager of this project' })
-  @ApiResponse({
-    status: 409,
-    description: 'Wrap-up not yet submitted for this entry',
-  })
+  @ApiReviewWorkReportEntryDocs()
   @RequirePermissions(Permission.REVIEW_WORK_REPORT)
   @Patch(':reportId/entries/:entryId/review')
   reviewEntry(
