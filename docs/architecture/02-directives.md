@@ -11,31 +11,37 @@ The shapes these produce are in [`03-target-architecture.md`](./03-target-archit
 
 ---
 
-## D1. The backend mirrors `island-tour-development/backend`
+## D1. One module shape, everywhere
 
-Not "is inspired by". **Mirrors.** Folder structure, file naming, module anatomy, guard order, DTO
-conventions, Swagger conventions, service conventions, spec placement, and code style all match the
-reference. When a question comes up, the answer is whatever that repo does, and the answer is found by
+Folder structure, file naming, module anatomy, guard order, DTO conventions, Swagger conventions,
+service conventions, spec placement and code style are identical in every module. When a question
+comes up, the answer is what the nearest complete module already does, and the answer is found by
 reading it rather than by reasoning from first principles.
 
-The most visible consequence: **modules live at `src/<module>/`, not `src/modules/<module>/`.** The
-reference has no `modules/` wrapper directory, so neither does this repo.
+`pmt-backend/src/projects/members/` is the worked example. `pmt-backend/CLAUDE.md` is the written one,
+and it is the enforceable contract.
 
-| Today                                              | Target                                |
-| -------------------------------------------------- | ------------------------------------- |
-| `src/modules/projects/projects.service.ts`         | `src/projects/projects.service.ts`    |
-| `src/modules/projects/blockers/blocker.service.ts` | `src/blockers/blockers.service.ts`    |
-| `src/modules/leave/leave-requests.service.ts`      | `src/leave/leave-requests.service.ts` |
-| `src/modules/uploads/cloudinary.service.ts`        | `src/uploads/cloudinary.service.ts`   |
+Two consequences are the most visible:
 
-A module keeps its own sub concern files flat inside its folder rather than nesting a subdirectory per
-feature, matching `src/tours/` (which holds `tours.*`, `tours-children.*`, `quality-score.ts`,
-`overnight.ts`, `card-teaser.ts`, and their specs side by side) and `src/bookings/`. Only `dto/` is a
-subdirectory.
+**Modules live at `src/<module>/`, never `src/modules/<module>/`.** There is no wrapper directory.
 
-Where a genuine PixelVega concept has no counterpart in the reference, the _shape_ is mirrored and the
-_content_ is ours. Never invent a reference feature that PixelVega has no product need for, and never
-invent a PixelVega layout the reference does not use.
+**The folder path mirrors the route path.** Someone reading the tree sees the API without opening a
+controller, and a new sub-resource has exactly one obvious home.
+
+| Route                                         | Folder                                  |
+| --------------------------------------------- | --------------------------------------- |
+| `projects/:projectId/documents`               | `src/projects/documents/`               |
+| `projects/:projectId/internal-reviews`        | `src/projects/reviews/internal/`        |
+| `projects/:projectId/additional-requirements` | `src/projects/requirements/additional/` |
+
+Inside a module, `dto/` holds the one DTO file and `spec/` holds every spec. Group further by feature
+once the file list stops being scannable; a grouping must mean something rather than be a dumping
+ground.
+
+> **Historical note.** This directive originally read "mirror `island-tour-development/backend`", and
+> the migration took its patterns from that repository. It is **not** part of this project and will
+> not be present. Everything worth keeping from it is written down here and in `pmt-backend/CLAUDE.md`,
+> so nothing in this repo depends on being able to read it.
 
 ## D2. Authorization is a granular permission gate
 

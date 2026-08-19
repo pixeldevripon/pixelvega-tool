@@ -16,18 +16,54 @@ Guidance for Claude Code when working in this repository. Package-level detail l
 
 ---
 
+## The development loop
+
+**A hard rule. Every task, every branch, however small.** The stages that get skipped on small
+changes are exactly the ones that would have caught the bug in them.
+
+```
+instruction → spec → implementation plan → checklist → execution → test
+  → security review (agent) → code review (agent) → fix → re-check → pass
+  → commit → PR
+```
+
+| Stage               | What it means here                                                                                                 |
+| ------------------- | ------------------------------------------------------------------------------------------------------------------ |
+| **Spec**            | What will be TRUE when done, not what will be typed. Include what is out of scope                                  |
+| **Checklist**       | Tick `docs/refactor/02-checklist.md` from evidence, in the same PR. A stale checklist is worse than none           |
+| **Test**            | Assert the value a mock was called WITH. A test that passes with the implementation deleted is not a test          |
+| **Security review** | `security-reviewer`. Always for auth, permissions, ownership scoping, uploads, Slack, AI, or an anonymous route    |
+| **Code review**     | `code-reviewer`, plus `frontend-code-reviewer` for UI. Give it the diff AND the spec, so it reviews against intent |
+| **Re-check**        | Re-run the gate AND the reviewers on the fixes. A fix is where the next bug goes in                                |
+| **Pass**            | `lint · typecheck · test · test:e2e · build`. All five                                                             |
+
+The reviewers are not a formality. If they find nothing on a non trivial change, say so explicitly:
+silence reads as "not run". Run independent agents in parallel. Never report a stage complete that
+was skipped; say which and why.
+
+Agents live in `.claude/agents/`, and there are seven: `code-reviewer`, `frontend-code-reviewer`,
+`security-reviewer`, `unit-test-writer`, `e2e-test-writer`, `performance-reviewer`,
+`migration-reviewer`. See the table under **Subagents** below.
+
+**Their definitions are registered when a session STARTS.** If the launcher reports a type as unknown,
+the session predates it: fall back to a general-purpose agent carrying the same adversarial brief, and
+say in the report that the named agent was unavailable. The review stage is never skipped for that
+reason.
+
+---
+
 ## The five directives
 
 Binding constraints on everything in this repo. Full text in `docs/architecture/02-directives.md`.
 
-**D1. The backend mirrors `../island-tour-development/backend`.** Not "is inspired by". Mirrors.
-Folder structure, file naming, module anatomy, guard order, DTO and Swagger conventions, service
-conventions, spec placement, code style. When a question comes up, the answer is whatever that repo
-does, and you find it by **reading that repo**, not by reasoning from first principles. Modules live
-at `src/<module>/`, never `src/modules/<module>/`, because the reference has no `modules/` wrapper.
+**D1. One module shape, everywhere.** Folder structure, file naming, module anatomy, guard order,
+DTO and Swagger conventions, service conventions, spec placement and code style are the same in every
+module, no exceptions. The shape is written out under **Backend rules** below and in
+`pmt-backend/CLAUDE.md`; `src/projects/members/` is the worked example to copy. Modules live at
+`src/<module>/`, never `src/modules/<module>/`, and the folder path mirrors the route path.
 
 **D2. Authorization is a granular permission gate.** `@RequirePermissions(Permission.X)` on endpoints,
-not `@Roles()`. Guard order is `ThrottlerGuard → AuthGuard → RolesGuard → PermissionsGuard`. The
+not `@Roles()`. Guard order is `TrustedOriginThrottlerGuard → AuthGuard → PermissionsGuard`. The
 permission answers "may this role ever do this"; whether _this_ caller may do it to _this_ project
 stays an `assertCanX()` helper in the service.
 
@@ -62,19 +98,21 @@ Six roles: `SYSTEM_ADMIN · ADMIN · PROJECT_MANAGER · DEVELOPER · DESIGNER ·
 Domain: projects and staffing, time tracking, daily work reports, blockers, internal reviews,
 client feedback, additional requirements, leave, audit logging, Slack integration, AI summaries.
 
-### Reference implementations
+### Canonical modules
 
-Two sibling repos are the pattern source for this migration. When a convention here is ambiguous,
-**read the reference rather than guessing**, and cite the file you copied from:
+When a convention is ambiguous, copy the nearest complete module in THIS repo rather than reasoning
+from first principles or inventing a variant:
 
-| Repo                                   | Use it for                                                                                                         |
-| -------------------------------------- | ------------------------------------------------------------------------------------------------------------------ |
-| `../island-tour-development/backend`   | NestJS module shape, swagger files, response DTOs, guards, global filter, env validation, spec style               |
-| `../tripwheel-x-islandtours-dashboard` | Next.js dashboard: `lib/api/fetch.ts`, query hooks, component decomposition, data-table, design-token ESLint rules |
+| Copy this                            | For                                                                                                |
+| ------------------------------------ | -------------------------------------------------------------------------------------------------- |
+| `pmt-backend/src/projects/members/`  | The full module shape: one `dto/` file, a mapper with capabilities, `spec/`, swagger               |
+| `pmt-backend/src/projects/blockers/` | A module with sub-features (`reasons/`) and its own top level route alongside a project scoped one |
+| `pmt-backend/src/common/utils/`      | A pure unit with a co-located spec                                                                 |
 
-`../island-tour-development/backend/src/categories/` and
-`../tripwheel-x-islandtours-dashboard/components/categories/` are the two canonical modules. Copy
-their shape.
+A migration originally took its patterns from a sibling repository. That repository is **not** part
+of this project and will not be present: everything worth keeping from it is written down here and in
+`pmt-backend/CLAUDE.md`. If a rule seems to have no explanation, the explanation is in the comment
+next to the code it governs, not in another repository.
 
 ---
 
@@ -96,6 +134,10 @@ Per-package commands are in each package's `CLAUDE.md`. Use `pnpm` everywhere, n
 ---
 
 ## Backend rules
+
+> **`pmt-backend/CLAUDE.md` is the authority and loads automatically the moment anything in that
+> package is touched.** It is committed, so it travels with every branch, PR and clone. What follows
+> is the repo-wide summary; where the two ever disagree, the package file is newer and wins.
 
 ### Module shape
 
@@ -157,7 +199,7 @@ than being a dumping ground.
 ### Authorization
 
 ```
-ThrottlerGuard → AuthGuard → RolesGuard → PermissionsGuard
+TrustedOriginThrottlerGuard → AuthGuard → PermissionsGuard
 ```
 
 - Every route is protected by default. `@Public()` opts out, and each one needs a reason.
@@ -168,9 +210,10 @@ ThrottlerGuard → AuthGuard → RolesGuard → PermissionsGuard
 - `@Roles()` survives only where a rule is about identity rather than capability: the SYSTEM_ADMIN root
   account protections in `UsersService`.
 - Use `Role` and `Permission` enum members from `@prisma/client`, never string literals.
-- **The permission gate is coarse; project scoping stays in the service.** A permission answers "may
-  this role ever do this". Whether this caller may do it to this project is an `assertCanX()` helper,
-  one per rule, because it depends on `ProjectMember` rows.
+- **The permission gate is coarse; project scoping is `ProjectScopeService`.** A permission answers
+  "may this role ever do this". Whether this caller may do it to THIS project depends on
+  `ProjectMember` rows, and lives in that one service. It was previously twelve private copies across
+  eleven services; never add a thirteenth.
 - Ownership rules that deliberately survive admin (time-entry pause/resume/stop, leave-request cancel)
   must stay that way.
 - CLIENT reads use the reduced projection, and that projection is a response DTO class, not a hand
@@ -197,6 +240,26 @@ ThrottlerGuard → AuthGuard → RolesGuard → PermissionsGuard
    `src/env.validate.ts` so a missing value fails at boot rather than at first use.
 
 ---
+
+### Non negotiables added by the phase 6 and 7 refactors
+
+Each of these closed a real defect. Full reasoning in `pmt-backend/CLAUDE.md`.
+
+- **Auth belongs to better-auth.** Sign-in, forgot, reset and change password are served at
+  `/api/auth/*`. There is no auth controller and there must not be one. `disableSignUp`,
+  `input: false` on `user.additionalFields`, and better-auth's own `rateLimit.customRules` each
+  closed a vulnerability: do not remove them.
+- **Every enum in a response is `{ value, label, tone }`**, every resource carries `capabilities`,
+  and every derived number is a response field (D4).
+- **`@ToBoolean()` for boolean query params, never `@Type(() => Boolean)`**, which reads `'false'`
+  as `true`.
+- **Length bounds from `common/constants/field-lengths.ts`** on every free text field.
+- **One uploader.** `CloudinaryService` with `resource_type: 'auto'`, and store `publicId` AND
+  `resourceType` or the asset can never be deleted.
+- **One email shell.** `emailShell()`, escaped, always with a `text` part.
+- Ports: backend **5050**, frontend **3000**.
+
+When adding or changing a module, invoke the **`pmt-backend-module`** skill for the walkthrough.
 
 ## Frontend rules
 
