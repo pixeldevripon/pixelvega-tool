@@ -17,10 +17,16 @@ import { paginate } from '@/common/utils/pagination.util';
 import { ProjectActivityService } from '@/project-activity/project-activity.service';
 import { AiJobsService } from '@/ai/ai-jobs.service';
 import { NotificationsService } from '@/notifications/notifications.service';
-import { CreateAdditionalRequirementDto } from '@/additional-requirements/dto/create-additional-requirement.dto';
-import { ReviewAdditionalRequirementDto } from '@/additional-requirements/dto/review-additional-requirement.dto';
-import { QueryAdditionalRequirementsDto } from '@/additional-requirements/dto/query-additional-requirements.dto';
 import { ProjectScopeService } from '@/project-scope/project-scope.service';
+import {
+  AdditionalRequirementContext,
+  toAdditionalRequirementResponse,
+} from '@/additional-requirements/additional-requirement.mapper';
+import {
+  CreateAdditionalRequirementDto,
+  QueryAdditionalRequirementsDto,
+  ReviewAdditionalRequirementDto,
+} from '@/additional-requirements/dto/additional-requirement.dto';
 
 const MS_PER_DAY = 24 * 60 * 60 * 1000;
 
@@ -51,7 +57,13 @@ export class AdditionalRequirementsService {
     const { page = 1, pageSize = 20, status } = query;
     const where = { projectId, ...(status && { status }) };
 
-    return paginate(
+    const context = await this.buildRequirementContext(
+      projectId,
+      actorId,
+      actorRole,
+    );
+
+    const result = await paginate(
       (args) =>
         this.prisma.additionalRequirement.findMany({
           where,
@@ -63,6 +75,27 @@ export class AdditionalRequirementsService {
       page,
       pageSize,
     );
+
+    return {
+      ...result,
+      items: result.items.map((item) =>
+        toAdditionalRequirementResponse(item, context),
+      ),
+    };
+  }
+
+  private async buildRequirementContext(
+    projectId: string,
+    actorId: string,
+    actorRole: Role,
+  ): Promise<AdditionalRequirementContext> {
+    return {
+      managesProject: await this.projectScope.managesProject(
+        projectId,
+        actorId,
+        actorRole,
+      ),
+    };
   }
 
   async findOne(
@@ -74,7 +107,10 @@ export class AdditionalRequirementsService {
     await this.getProjectOrThrow(projectId);
     await this.assertCanRead(projectId, actorId, actorRole);
 
-    return this.getRequirementOrThrow(projectId, id);
+    return toAdditionalRequirementResponse(
+      await this.getRequirementOrThrow(projectId, id),
+      await this.buildRequirementContext(projectId, actorId, actorRole),
+    );
   }
 
   async create(
@@ -115,7 +151,12 @@ export class AdditionalRequirementsService {
       { additionalRequirementId: requirement.id },
     );
 
-    return requirement;
+    // Only a manager reviews, and a freshly logged requirement is unreviewed,
+    // so the creator sees canReview only if they also manage the project.
+    return toAdditionalRequirementResponse(
+      requirement,
+      await this.buildRequirementContext(projectId, actorId, actorRole),
+    );
   }
 
   // Approving is additive on top of the project's current
@@ -222,7 +263,10 @@ export class AdditionalRequirementsService {
       );
     }
 
-    return updated;
+    return toAdditionalRequirementResponse(updated, {
+      // Reaching a review at all required managing the project.
+      managesProject: true,
+    });
   }
 
   // On demand only, never automatic, AdditionalRequirementsService.create()

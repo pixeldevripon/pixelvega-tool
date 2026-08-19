@@ -7,6 +7,10 @@ import {
 } from '@/common/swagger/error-sets';
 import { InternalReviewResponseDto } from '@/internal-reviews/dto/internal-review.dto';
 import { ClientFeedbackResponseDto } from '@/client-feedback/dto/client-feedback.dto';
+import {
+  AdditionalRequirementResponseDto,
+  PaginatedAdditionalRequirementsResponseDto,
+} from '@/additional-requirements/dto/additional-requirement.dto';
 
 /**
  * Documentation for the three review gates ReviewsModule owns: the internal
@@ -111,7 +115,11 @@ export const ApiListAdditionalRequirementsDocs = () =>
         'email, a marketplace message, a phone call. Not client visible at all.',
     }),
     projectIdParam,
-    ApiResponse({ status: 200, description: 'Paginated requirements' }),
+    ApiResponse({
+      status: 200,
+      description: 'Paginated requirements',
+      type: PaginatedAdditionalRequirementsResponseDto,
+    }),
     ...projectScopedErrors,
   );
 
@@ -120,7 +128,11 @@ export const ApiGetAdditionalRequirementDocs = () =>
     ApiOperation({ summary: 'Get one additional requirement' }),
     projectIdParam,
     ApiParam({ name: 'id', description: 'The requirement id' }),
-    ApiResponse({ status: 200, description: 'The requirement' }),
+    ApiResponse({
+      status: 200,
+      description: 'The requirement',
+      type: AdditionalRequirementResponseDto,
+    }),
     ...projectScopedErrors,
     notFound('Additional requirement not found'),
   );
@@ -133,7 +145,11 @@ export const ApiCreateAdditionalRequirementDocs = () =>
         'Created PENDING_REVIEW. Every requirement needs an explicit PM decision.',
     }),
     projectIdParam,
-    ApiResponse({ status: 201, description: 'The logged requirement' }),
+    ApiResponse({
+      status: 201,
+      description: 'The logged requirement',
+      type: AdditionalRequirementResponseDto,
+    }),
     ...projectScopedErrors,
   );
 
@@ -150,7 +166,11 @@ export const ApiReviewAdditionalRequirementDocs = () =>
     }),
     projectIdParam,
     ApiParam({ name: 'id', description: 'The requirement id' }),
-    ApiResponse({ status: 200, description: 'The reviewed requirement' }),
+    ApiResponse({
+      status: 200,
+      description: 'The reviewed requirement',
+      type: AdditionalRequirementResponseDto,
+    }),
     ...projectScopedErrors,
     notFound('Additional requirement not found'),
     conflict('Already reviewed'),
