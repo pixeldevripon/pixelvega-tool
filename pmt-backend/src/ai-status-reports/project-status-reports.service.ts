@@ -7,8 +7,9 @@ import { AiJobType, Prisma, ProjectRole, Role } from '@prisma/client';
 import { PrismaService } from '@/prisma/prisma.service';
 import { AiJobsService } from '@/ai/ai-jobs.service';
 import { ProjectReportService } from '@/project-reports/project-report.service';
-import { CreateStatusReportDto } from '@/ai-status-reports/dto/create-status-report.dto';
 import { ProjectScopeService } from '@/project-scope/project-scope.service';
+import { CreateStatusReportDto } from '@/ai-status-reports/dto/project-status-report.dto';
+import { toStatusReportResponse } from '@/ai-status-reports/project-status-report.mapper';
 
 const MS_PER_DAY = 24 * 60 * 60 * 1000;
 const DEFAULT_PERIOD_DAYS = 7;
@@ -69,10 +70,11 @@ export class ProjectStatusReportsService {
     await this.getProjectOrThrow(projectId);
     await this.assertCanRead(projectId, actorId, actorRole);
 
-    return this.prisma.projectStatusReport.findMany({
+    const reports = await this.prisma.projectStatusReport.findMany({
       where: { projectId },
       orderBy: { createdAt: 'desc' },
     });
+    return reports.map(toStatusReportResponse);
   }
 
   private async resolvePeriod(projectId: string, dto: CreateStatusReportDto) {

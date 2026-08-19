@@ -3,14 +3,16 @@ import { ApiCookieAuth, ApiTags } from '@nestjs/swagger';
 import { AllowAnonymous } from '@thallesp/nestjs-better-auth';
 import { Throttle } from '@nestjs/throttler';
 import { AuthService } from './auth.service';
-import { ForgotPasswordDto } from '@/auth/dto/forgot-password.dto';
-import { VerifyResetCodeDto } from '@/auth/dto/verify-reset-code.dto';
-import { ResetPasswordDto } from '@/auth/dto/reset-password.dto';
 import {
   ApiForgotPasswordDocs,
   ApiResetPasswordDocs,
   ApiVerifyResetCodeDocs,
 } from '@/auth/auth-flows.swagger';
+import {
+  ForgotPasswordDto,
+  ResetPasswordDto,
+  VerifyResetCodeDto,
+} from '@/auth/dto/auth.dto';
 
 @ApiTags('Auth Flows')
 @Controller('auth-flows')

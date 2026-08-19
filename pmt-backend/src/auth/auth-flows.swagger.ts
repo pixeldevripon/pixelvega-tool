@@ -6,6 +6,11 @@ import {
   UnauthorizedErrorDto,
 } from '@/common/dto/error-responses.dto';
 import { throttled } from '@/common/swagger/error-sets';
+import {
+  ForgotPasswordResponseDto,
+  ResetPasswordResponseDto,
+  VerifyResetCodeResponseDto,
+} from '@/auth/dto/auth.dto';
 
 /**
  * The custom forgot and reset password journey.
@@ -40,6 +45,7 @@ export const ApiForgotPasswordDocs = () =>
     ApiResponse({
       status: 200,
       description: 'Accepted, whether or not the account exists',
+      type: ForgotPasswordResponseDto,
     }),
     ...publicErrors,
   );
@@ -52,7 +58,11 @@ export const ApiVerifyResetCodeDocs = () =>
         'Exchanges a valid code for a short lived resetToken. The code is single use: ' +
         'a second attempt with the same one fails. Rate limited to 5 per 60 seconds.',
     }),
-    ApiResponse({ status: 200, description: 'The resetToken' }),
+    ApiResponse({
+      status: 200,
+      description: 'The resetToken',
+      type: VerifyResetCodeResponseDto,
+    }),
     ApiResponse({
       status: 401,
       description: 'Invalid or expired code',
@@ -70,7 +80,11 @@ export const ApiResetPasswordDocs = () =>
         'user.password_reset audit row with the user as both actor and target. The ' +
         'token expires ten minutes after it was issued.',
     }),
-    ApiResponse({ status: 200, description: 'Password reset' }),
+    ApiResponse({
+      status: 200,
+      description: 'Password reset',
+      type: ResetPasswordResponseDto,
+    }),
     ApiResponse({
       status: 401,
       description: 'Invalid or expired token',

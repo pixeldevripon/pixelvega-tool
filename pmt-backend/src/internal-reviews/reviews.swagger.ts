@@ -11,6 +11,7 @@ import {
   AdditionalRequirementResponseDto,
   PaginatedAdditionalRequirementsResponseDto,
 } from '@/additional-requirements/dto/additional-requirement.dto';
+import { QueuedJobResponseDto } from '@/ai/dto/ai.dto';
 
 /**
  * Documentation for the three review gates ReviewsModule owns: the internal
@@ -189,7 +190,11 @@ export const ApiCheckRequirementScopeDocs = () =>
     }),
     projectIdParam,
     ApiParam({ name: 'id', description: 'The requirement id' }),
-    ApiResponse({ status: 202, description: 'The queued job id' }),
+    ApiResponse({
+      status: 202,
+      description: 'The queued job id',
+      type: QueuedJobResponseDto,
+    }),
     ...projectScopedErrors,
     notFound('Additional requirement not found'),
   );

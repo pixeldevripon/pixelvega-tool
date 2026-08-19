@@ -3,12 +3,12 @@ import { ApiCookieAuth, ApiTags } from '@nestjs/swagger';
 import { Permission, Role } from '@prisma/client';
 import { CurrentUser } from '@/common/decorators/current-user.decorator';
 import { ProjectStatusReportsService } from './project-status-reports.service';
-import { CreateStatusReportDto } from '@/ai-status-reports/dto/create-status-report.dto';
 import { RequirePermissions } from '@/auth/decorators/require-permissions.decorator';
 import {
   ApiGenerateStatusReportDocs,
   ApiListStatusReportsDocs,
 } from '@/ai-status-reports/project-status-reports.swagger';
+import { CreateStatusReportDto } from '@/ai-status-reports/dto/project-status-report.dto';
 
 @ApiTags('AI Status Reports')
 @ApiCookieAuth('better-auth.session_token')

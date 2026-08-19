@@ -1,9 +1,13 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { AiTemplate, AiTemplateKind } from '@prisma/client';
 import { PrismaService } from '@/prisma/prisma.service';
-import { CreateAiTemplateDto } from '@/ai/dto/create-ai-template.dto';
-import { UpdateAiTemplateDto } from '@/ai/dto/update-ai-template.dto';
-import { QueryAiTemplatesDto } from '@/ai/dto/query-ai-templates.dto';
+import { toAiTemplateResponse } from '@/ai/ai.mapper';
+import { AiTemplateResponseDto } from '@/ai/dto/ai.dto';
+import {
+  CreateAiTemplateDto,
+  QueryAiTemplatesDto,
+  UpdateAiTemplateDto,
+} from '@/ai/dto/ai.dto';
 
 // Reference data, read everyone (any staff role), write Admin/System Admin
 // only, the same pattern LeaveType/Holiday already use. content is a
@@ -14,11 +18,12 @@ import { QueryAiTemplatesDto } from '@/ai/dto/query-ai-templates.dto';
 export class AiTemplatesService {
   constructor(private readonly prisma: PrismaService) {}
 
-  findAll(query: QueryAiTemplatesDto): Promise<AiTemplate[]> {
-    return this.prisma.aiTemplate.findMany({
+  async findAll(query: QueryAiTemplatesDto): Promise<AiTemplateResponseDto[]> {
+    const templates = await this.prisma.aiTemplate.findMany({
       where: query.kind ? { kind: query.kind } : undefined,
       orderBy: { createdAt: 'asc' },
     });
+    return templates.map(toAiTemplateResponse);
   }
 
   // Read by ProjectAiSummaryService (Phase 4) and, later, the status report
@@ -32,36 +37,46 @@ export class AiTemplatesService {
     });
   }
 
-  async create(dto: CreateAiTemplateDto, actorId: string): Promise<AiTemplate> {
+  async create(
+    dto: CreateAiTemplateDto,
+    actorId: string,
+  ): Promise<AiTemplateResponseDto> {
     if (dto.isDefault) {
       return this.prisma.$transaction(async (tx) => {
         await tx.aiTemplate.updateMany({
           where: { kind: dto.kind, isDefault: true },
           data: { isDefault: false },
         });
-        return tx.aiTemplate.create({
-          data: {
-            kind: dto.kind,
-            name: dto.name,
-            content: dto.content,
-            isDefault: true,
-            createdById: actorId,
-          },
-        });
+        return toAiTemplateResponse(
+          await tx.aiTemplate.create({
+            data: {
+              kind: dto.kind,
+              name: dto.name,
+              content: dto.content,
+              isDefault: true,
+              createdById: actorId,
+            },
+          }),
+        );
       });
     }
-    return this.prisma.aiTemplate.create({
-      data: {
-        kind: dto.kind,
-        name: dto.name,
-        content: dto.content,
-        isDefault: false,
-        createdById: actorId,
-      },
-    });
+    return toAiTemplateResponse(
+      await this.prisma.aiTemplate.create({
+        data: {
+          kind: dto.kind,
+          name: dto.name,
+          content: dto.content,
+          isDefault: false,
+          createdById: actorId,
+        },
+      }),
+    );
   }
 
-  async update(id: string, dto: UpdateAiTemplateDto): Promise<AiTemplate> {
+  async update(
+    id: string,
+    dto: UpdateAiTemplateDto,
+  ): Promise<AiTemplateResponseDto> {
     const template = await this.getOrThrow(id);
 
     if (dto.isDefault) {
@@ -70,25 +85,29 @@ export class AiTemplatesService {
           where: { kind: template.kind, isDefault: true, id: { not: id } },
           data: { isDefault: false },
         });
-        return tx.aiTemplate.update({
-          where: { id },
-          data: {
-            name: dto.name,
-            content: dto.content,
-            isDefault: true,
-          },
-        });
+        return toAiTemplateResponse(
+          await tx.aiTemplate.update({
+            where: { id },
+            data: {
+              name: dto.name,
+              content: dto.content,
+              isDefault: true,
+            },
+          }),
+        );
       });
     }
 
-    return this.prisma.aiTemplate.update({
-      where: { id },
-      data: {
-        name: dto.name,
-        content: dto.content,
-        ...(dto.isDefault === false && { isDefault: false }),
-      },
-    });
+    return toAiTemplateResponse(
+      await this.prisma.aiTemplate.update({
+        where: { id },
+        data: {
+          name: dto.name,
+          content: dto.content,
+          ...(dto.isDefault === false && { isDefault: false }),
+        },
+      }),
+    );
   }
 
   // Hard delete, this model has no deletedAt field, unlike BlockerReason.
@@ -96,9 +115,11 @@ export class AiTemplatesService {
   // that leaves the kind with no default until a new one is created, a real
   // gap worth knowing about rather than a reason to add a check nobody asked
   // for yet.
-  async remove(id: string): Promise<AiTemplate> {
+  async remove(id: string): Promise<AiTemplateResponseDto> {
     await this.getOrThrow(id);
-    return this.prisma.aiTemplate.delete({ where: { id } });
+    return toAiTemplateResponse(
+      await this.prisma.aiTemplate.delete({ where: { id } }),
+    );
   }
 
   private async getOrThrow(id: string): Promise<AiTemplate> {

@@ -7,6 +7,8 @@ import { InjectQueue } from '@nestjs/bullmq';
 import { Queue } from 'bullmq';
 import { AiJob, AiJobType, Prisma, ProjectRole, Role } from '@prisma/client';
 import { PrismaService } from '@/prisma/prisma.service';
+import { toAiJobResponse } from '@/ai/ai.mapper';
+import { AiJobResponseDto } from '@/ai/dto/ai.dto';
 
 export interface EnqueueAiJobOptions {
   projectId?: string;
@@ -42,13 +44,13 @@ export class AiJobsService {
     id: string,
     actorId: string,
     actorRole: Role,
-  ): Promise<AiJob> {
+  ): Promise<AiJobResponseDto> {
     const job = await this.prisma.aiJob.findUnique({ where: { id } });
     if (!job) {
       throw new NotFoundException('Job not found');
     }
     await this.assertCanView(job, actorId, actorRole);
-    return job;
+    return toAiJobResponse(job);
   }
 
   // Both real job types today (CHECK_SCOPE, GENERATE_STATUS_REPORT) require

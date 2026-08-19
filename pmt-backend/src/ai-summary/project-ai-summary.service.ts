@@ -9,7 +9,7 @@ import {
   endOfRangeExclusive,
   toDateOnly,
 } from '@/project-reports/working-day.util';
-import { QueryProjectAiSummaryDto } from '@/ai-summary/dto/query-project-ai-summary.dto';
+import { QueryProjectAiSummaryDto } from '@/ai-summary/dto/project-ai-summary.dto';
 
 const MODEL = 'claude-haiku-4-5';
 

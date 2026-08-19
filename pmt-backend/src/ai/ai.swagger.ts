@@ -6,6 +6,7 @@ import {
   gatedErrors,
   notFound,
 } from '@/common/swagger/error-sets';
+import { AiTemplateResponseDto } from '@/ai/dto/ai.dto';
 
 /** Documentation for the AI template reference data AiModule owns. */
 
@@ -19,7 +20,11 @@ export const ApiListAiTemplatesDocs = () =>
         'the default, enforced by a partial unique index. The scope checker uses no ' +
         'template at all, because its output is a strict structured schema rather than prose.',
     }),
-    ApiResponse({ status: 200, description: 'Every template' }),
+    ApiResponse({
+      status: 200,
+      description: 'Every template',
+      type: [AiTemplateResponseDto],
+    }),
     ...commonErrors,
   );
 
@@ -30,7 +35,11 @@ export const ApiCreateAiTemplateDocs = () =>
       description:
         'Marking one default clears the flag on the previous default for that kind.',
     }),
-    ApiResponse({ status: 201, description: 'The created template' }),
+    ApiResponse({
+      status: 201,
+      description: 'The created template',
+      type: AiTemplateResponseDto,
+    }),
     ...gatedErrors,
     conflict('Another template of this kind is already the default'),
   );
@@ -39,7 +48,11 @@ export const ApiUpdateAiTemplateDocs = () =>
   applyDecorators(
     ApiOperation({ summary: 'Update an AI template' }),
     ApiParam({ name: 'id', description: 'The template id' }),
-    ApiResponse({ status: 200, description: 'The updated template' }),
+    ApiResponse({
+      status: 200,
+      description: 'The updated template',
+      type: AiTemplateResponseDto,
+    }),
     ...gatedErrors,
     notFound('Template not found'),
   );
@@ -52,7 +65,11 @@ export const ApiDeleteAiTemplateDocs = () =>
         'The default template for a kind cannot be deleted while it is the default.',
     }),
     ApiParam({ name: 'id', description: 'The template id' }),
-    ApiResponse({ status: 200, description: 'Deleted' }),
+    ApiResponse({
+      status: 200,
+      description: 'Deleted',
+      type: AiTemplateResponseDto,
+    }),
     ...gatedErrors,
     notFound('Template not found'),
     conflict('This template is the default for its kind'),

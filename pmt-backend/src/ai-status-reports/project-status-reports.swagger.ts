@@ -1,6 +1,10 @@
 import { applyDecorators } from '@nestjs/common';
 import { ApiOperation, ApiParam, ApiResponse } from '@nestjs/swagger';
 import { projectScopedErrors } from '@/common/swagger/error-sets';
+import {
+  QueuedStatusReportResponseDto,
+  StatusReportResponseDto,
+} from '@/ai-status-reports/dto/project-status-report.dto';
 
 const projectIdParam = ApiParam({
   name: 'projectId',
@@ -20,7 +24,11 @@ export const ApiGenerateStatusReportDocs = () =>
         'generation appends a new row; nothing is overwritten.',
     }),
     projectIdParam,
-    ApiResponse({ status: 202, description: 'The queued job id' }),
+    ApiResponse({
+      status: 202,
+      description: 'The queued job id',
+      type: QueuedStatusReportResponseDto,
+    }),
     ...projectScopedErrors,
   );
 
@@ -32,6 +40,10 @@ export const ApiListStatusReportsDocs = () =>
         'Append only, so every previously generated report stays readable.',
     }),
     projectIdParam,
-    ApiResponse({ status: 200, description: 'Paginated status reports' }),
+    ApiResponse({
+      status: 200,
+      description: 'Paginated status reports',
+      type: [StatusReportResponseDto],
+    }),
     ...projectScopedErrors,
   );
