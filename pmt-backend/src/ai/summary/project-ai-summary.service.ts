@@ -4,11 +4,11 @@ import { PrismaService } from '@/prisma/prisma.service';
 import { ClaudeService } from '@/ai/claude/claude.service';
 import { AiTemplatesService } from '@/ai/templates/ai-templates.service';
 import { buildDocumentContent } from '@/ai/claude/document-content.util';
-import { ProjectReportService } from '@/project-reports/project/project-report.service';
+import { ProjectReportService } from '@/projects/reports/project/project-report.service';
 import {
   endOfRangeExclusive,
   toDateOnly,
-} from '@/project-reports/working-day/working-day.util';
+} from '@/projects/reports/working-day/working-day.util';
 import { QueryProjectAiSummaryDto } from '@/ai/summary/dto/project-ai-summary.dto';
 
 const MODEL = 'claude-haiku-4-5';

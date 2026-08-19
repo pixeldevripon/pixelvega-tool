@@ -114,6 +114,12 @@ src/<module>/                        NOT src/modules/<module>/ (D1)
 └── <helper>.ts                      pure units
 ```
 
+**The folder path mirrors the route path.** `projects/:projectId/documents` lives at
+`src/projects/documents/`, `projects/:projectId/internal-reviews` at `src/projects/reviews/internal/`.
+Someone reading the tree can see the API without opening a controller, and a new sub-resource has
+exactly one obvious home. Purely internal modules with no route of their own (`projects/scope`,
+`projects/activity`) sit beside their siblings.
+
 **Every spec goes in the module's own `spec/` folder.** Not beside the file it tests: a module with
 eight source files and eight specs is sixteen entries to scan, and half of them are noise when you are
 looking for the implementation. `spec/project.mapper.spec.ts` still names what it covers, so nothing

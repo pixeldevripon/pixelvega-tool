@@ -51,32 +51,32 @@ jest.mock('@/auth/instance/auth.instance', () => ({ auth: { api: {} } }));
 
 import 'reflect-metadata';
 import { Permission as P } from '@prisma/client';
-import { AdditionalRequirementsController } from '@/additional-requirements/additional-requirements.controller';
+import { AdditionalRequirementsController } from '@/projects/requirements/additional/additional-requirements.controller';
 import { AiJobsController } from '@/ai/jobs/ai-jobs.controller';
 import { AiTemplatesController } from '@/ai/templates/ai-templates.controller';
 import { ProjectStatusReportsController } from '@/ai/status-report/project-status-reports.controller';
 import { ProjectAiSummaryController } from '@/ai/summary/project-ai-summary.controller';
 import { AuditLogController } from '@/audit-log/audit-log.controller';
-import { BlockerReasonsController } from '@/blockers/reasons/blocker-reasons.controller';
-import { BlockersController } from '@/blockers/blockers/blockers.controller';
-import { ProjectBlockersController } from '@/blockers/blockers/project-blockers.controller';
-import { ClientFeedbackController } from '@/client-feedback/client-feedback.controller';
-import { InternalReviewsController } from '@/internal-reviews/internal-reviews.controller';
+import { BlockerReasonsController } from '@/projects/blockers/reasons/blocker-reasons.controller';
+import { BlockersController } from '@/projects/blockers/blockers.controller';
+import { ProjectBlockersController } from '@/projects/blockers/project-blockers.controller';
+import { ClientFeedbackController } from '@/projects/reviews/client/client-feedback.controller';
+import { InternalReviewsController } from '@/projects/reviews/internal/internal-reviews.controller';
 import { HolidaysController } from '@/leave/holidays/holidays.controller';
 import { LeaveRequestsController } from '@/leave/requests/leave-requests.controller';
 import { LeaveTypesController } from '@/leave/types/leave-types.controller';
 import { NotificationsController } from '@/notifications/notifications.controller';
 import { ProfilesController } from '@/profiles/profiles.controller';
-import { ProjectDocumentsController } from '@/project-documents/project-documents.controller';
-import { ProjectMembersController } from '@/project-members/project-members.controller';
-import { DeveloperReportsController } from '@/project-reports/developer/developer-reports.controller';
-import { ProjectReportsController } from '@/project-reports/project/project-reports.controller';
+import { ProjectDocumentsController } from '@/projects/documents/project-documents.controller';
+import { ProjectMembersController } from '@/projects/members/project-members.controller';
+import { DeveloperReportsController } from '@/projects/reports/developer/developer-reports.controller';
+import { ProjectReportsController } from '@/projects/reports/project/project-reports.controller';
 import { ProjectsController } from '@/projects/projects.controller';
-import { ProjectTimeEntriesController } from '@/time-tracking/project/project-time-entries.controller';
-import { TimeEntriesController } from '@/time-tracking/meeting/time-entries.controller';
+import { ProjectTimeEntriesController } from '@/projects/time-entries/project/project-time-entries.controller';
+import { TimeEntriesController } from '@/projects/time-entries/meeting/time-entries.controller';
 import { UsersController } from '@/users/users.controller';
-import { DailyWorkReportController } from '@/work-reports/daily/daily-work-report.controller';
-import { ProjectDailyWorkReportsController } from '@/work-reports/entries/project-daily-work-reports.controller';
+import { DailyWorkReportController } from '@/projects/daily-work-reports/daily-work-report.controller';
+import { ProjectDailyWorkReportsController } from '@/projects/daily-work-reports/project-daily-work-reports.controller';
 import {
   collectRouteGating,
   type RouteGating,

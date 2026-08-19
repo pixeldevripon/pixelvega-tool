@@ -6,8 +6,8 @@ import {
 import { AiJobType, Prisma, ProjectRole, Role } from '@prisma/client';
 import { PrismaService } from '@/prisma/prisma.service';
 import { AiJobsService } from '@/ai/jobs/ai-jobs.service';
-import { ProjectReportService } from '@/project-reports/project/project-report.service';
-import { ProjectScopeService } from '@/project-scope/project-scope.service';
+import { ProjectReportService } from '@/projects/reports/project/project-report.service';
+import { ProjectScopeService } from '@/projects/scope/project-scope.service';
 import { CreateStatusReportDto } from '@/ai/status-report/dto/project-status-report.dto';
 import { toStatusReportResponse } from '@/ai/status-report/project-status-report.mapper';
 

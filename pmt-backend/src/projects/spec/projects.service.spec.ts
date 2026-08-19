@@ -22,8 +22,8 @@ import { NotificationsService } from '@/notifications/notifications.service';
 import { PrismaService } from '@/prisma/prisma.service';
 import { SlackService } from '@/slack/slack.service';
 import { SlackUserResolverService } from '@/slack/slack-user-resolver.service';
-import { ProjectActivityService } from '@/project-activity/project-activity.service';
-import { ProjectScopeService } from '@/project-scope/project-scope.service';
+import { ProjectActivityService } from '@/projects/activity/project-activity.service';
+import { ProjectScopeService } from '@/projects/scope/project-scope.service';
 import { PermissionsService } from '@/auth/permissions/permissions.service';
 import { ProjectsService } from '../projects.service';
 
