@@ -11,7 +11,6 @@ import {
   toEnumDisplay,
 } from '@/common/utils/enum-display.util';
 import { formatFileSize } from '@/common/utils/file-size.util';
-
 import {
   ProjectDocumentDetailResponseDto,
   ProjectDocumentResponseDto,

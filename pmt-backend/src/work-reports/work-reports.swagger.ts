@@ -7,6 +7,12 @@ import {
   notFound,
   projectScopedErrors,
 } from '@/common/swagger/error-sets';
+import {
+  DailyProjectEntryResponseDto,
+  DailyWorkReportResponseDto,
+  PaginatedDailyWorkReportsResponseDto,
+  PaginatedProjectDailyEntriesResponseDto,
+} from '@/work-reports/dto/daily-work-report.dto';
 
 /**
  * Documentation for both controllers WorkReportsModule owns.
@@ -31,7 +37,11 @@ export const ApiSubmitPlanDocs = () =>
         'means the day rolls over at 6am local, so submitting between midnight and 6am ' +
         'is dated the previous day.',
     }),
-    ApiResponse({ status: 201, description: 'The report, now PLAN_SUBMITTED' }),
+    ApiResponse({
+      status: 201,
+      description: 'The report, now PLAN_SUBMITTED',
+      type: DailyWorkReportResponseDto,
+    }),
     ...gatedErrors,
     conflict('A report already exists for today'),
   );
@@ -46,7 +56,11 @@ export const ApiUpdatePlanDocs = () =>
         'separate from the wrap up window below.',
     }),
     reportIdParam,
-    ApiResponse({ status: 200, description: 'The updated report' }),
+    ApiResponse({
+      status: 200,
+      description: 'The updated report',
+      type: DailyWorkReportResponseDto,
+    }),
     ...commonErrors,
     notFound('Report not found'),
     conflict('Locked, because the wrap up has been submitted'),
@@ -59,7 +73,11 @@ export const ApiGetTodayReportDocs = () =>
       description:
         'Answers whether a plan is already in, and what state it is in.',
     }),
-    ApiResponse({ status: 200, description: "Today's report, or null" }),
+    ApiResponse({
+      status: 200,
+      description: "Today's report, or null",
+      type: DailyWorkReportResponseDto,
+    }),
     ...commonErrors,
   );
 
@@ -74,7 +92,11 @@ export const ApiListWorkReportsDocs = () =>
         'or the other.',
     }),
     ApiQuery({ name: 'type', required: false, enum: ['PLAN', 'WRAP_UP'] }),
-    ApiResponse({ status: 200, description: 'Paginated reports' }),
+    ApiResponse({
+      status: 200,
+      description: 'Paginated reports',
+      type: PaginatedDailyWorkReportsResponseDto,
+    }),
     ...gatedErrors,
   );
 
@@ -88,7 +110,11 @@ export const ApiSubmitWrapUpDocs = () =>
         'unplanned or urgent work; such an entry simply has a null plan.',
     }),
     reportIdParam,
-    ApiResponse({ status: 201, description: 'The report, now COMPLETED' }),
+    ApiResponse({
+      status: 201,
+      description: 'The report, now COMPLETED',
+      type: DailyWorkReportResponseDto,
+    }),
     ...commonErrors,
     notFound('Report not found'),
     conflict('The plan has not been submitted yet'),
@@ -103,7 +129,11 @@ export const ApiUpdateWrapUpDocs = () =>
         'unlike the plan window, which is state based and has no clock.',
     }),
     reportIdParam,
-    ApiResponse({ status: 200, description: 'The updated report' }),
+    ApiResponse({
+      status: 200,
+      description: 'The updated report',
+      type: DailyWorkReportResponseDto,
+    }),
     ...commonErrors,
     notFound('Report not found'),
     conflict('The two hour edit window has closed'),
@@ -123,7 +153,11 @@ export const ApiReviewWorkReportEntryDocs = () =>
       name: 'entryId',
       description: 'The project entry id within it',
     }),
-    ApiResponse({ status: 200, description: 'The reviewed entry' }),
+    ApiResponse({
+      status: 200,
+      description: 'The reviewed entry',
+      type: DailyProjectEntryResponseDto,
+    }),
     ...gatedErrors,
     notFound('Report or entry not found'),
     conflict('The report is not complete yet'),
@@ -138,6 +172,10 @@ export const ApiListProjectWorkReportsDocs = () =>
         'project list.',
     }),
     ApiParam({ name: 'projectId', description: 'The project id' }),
-    ApiResponse({ status: 200, description: 'Paginated entries' }),
+    ApiResponse({
+      status: 200,
+      description: 'Paginated entries',
+      type: PaginatedProjectDailyEntriesResponseDto,
+    }),
     ...projectScopedErrors,
   );

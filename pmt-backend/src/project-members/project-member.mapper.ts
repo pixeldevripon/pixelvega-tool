@@ -5,7 +5,6 @@ import {
   ROLE_DISPLAY,
   toEnumDisplay,
 } from '@/common/utils/enum-display.util';
-
 import { ProjectMemberResponseDto } from './dto/project-member.dto';
 
 /** Exactly what `MEMBER_INCLUDE` in the service produces. */

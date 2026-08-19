@@ -12,12 +12,6 @@ import { Permission, Role } from '@prisma/client';
 import { CurrentUser } from '@/common/decorators/current-user.decorator';
 import { DailyWorkReportService } from './daily-work-report.service';
 import { DailyProjectEntryService } from './daily-project-entry.service';
-import { SubmitPlanDto } from '@/work-reports/dto/submit-plan.dto';
-import { UpdatePlanDto } from '@/work-reports/dto/update-plan.dto';
-import { SubmitWrapUpDto } from '@/work-reports/dto/submit-wrap-up.dto';
-import { UpdateWrapUpDto } from '@/work-reports/dto/update-wrap-up.dto';
-import { ReviewEntryDto } from '@/work-reports/dto/review-entry.dto';
-import { QueryDailyWorkReportsDto } from '@/work-reports/dto/query-daily-work-reports.dto';
 import { RequirePermissions } from '@/auth/decorators/require-permissions.decorator';
 import {
   ApiGetTodayReportDocs,
@@ -28,6 +22,14 @@ import {
   ApiUpdatePlanDocs,
   ApiUpdateWrapUpDocs,
 } from '@/work-reports/work-reports.swagger';
+import {
+  QueryDailyWorkReportsDto,
+  ReviewEntryDto,
+  SubmitPlanDto,
+  SubmitWrapUpDto,
+  UpdatePlanDto,
+  UpdateWrapUpDto,
+} from '@/work-reports/dto/daily-work-report.dto';
 
 // Covers a DEVELOPER/DESIGNER viewing their own reports, plus PM/Admin
 // looking up a specific team member. The actual gating lives in

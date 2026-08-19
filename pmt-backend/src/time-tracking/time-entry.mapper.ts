@@ -11,7 +11,6 @@ import {
   TIME_ENTRY_STATUS_DISPLAY,
   toEnumDisplay,
 } from '@/common/utils/enum-display.util';
-
 import {
   DailyTimeTotalDto,
   MeetingTimeEntryResponseDto,
