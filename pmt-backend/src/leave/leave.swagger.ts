@@ -19,6 +19,7 @@ import {
   LeaveTypeResponseDto,
   PaginatedLeaveRequestsResponseDto,
 } from '@/leave/dto/leave.dto';
+import { MessageResponseDto } from '@/users/dto/user.dto';
 
 /**
  * Documentation for all three controllers LeaveModule owns: leave requests,
@@ -152,7 +153,15 @@ export const ApiLeaveSummaryCsvDocs = () =>
         'Content-Disposition filename.',
     }),
     ApiProduces('text/csv'),
-    ApiResponse({ status: 200, description: 'A CSV file' }),
+    ApiResponse({
+      status: 200,
+      description: 'A CSV file',
+      // Not a DTO: this route sets text/csv and streams a string. Declaring a
+      // schema here would tell a client to parse JSON out of a spreadsheet.
+      content: {
+        'text/csv': { schema: { type: 'string', format: 'binary' } },
+      },
+    }),
     ...gatedErrors,
   );
 
@@ -245,7 +254,11 @@ export const ApiDeleteLeaveTypeDocs = () =>
   applyDecorators(
     ApiOperation({ summary: 'Delete a leave type' }),
     idParam('id', 'The leave type id'),
-    ApiResponse({ status: 200, description: 'Deleted' }),
+    ApiResponse({
+      status: 200,
+      description: 'Deleted',
+      type: MessageResponseDto,
+    }),
     ...gatedErrors,
     notFound('Leave type not found'),
     conflict('Still referenced by existing leave requests or balances'),
@@ -302,7 +315,11 @@ export const ApiDeleteHolidayDocs = () =>
   applyDecorators(
     ApiOperation({ summary: 'Delete a company holiday' }),
     idParam('id', 'The holiday id'),
-    ApiResponse({ status: 200, description: 'Deleted' }),
+    ApiResponse({
+      status: 200,
+      description: 'Deleted',
+      type: MessageResponseDto,
+    }),
     ...gatedErrors,
     notFound('Holiday not found'),
   );

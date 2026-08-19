@@ -110,5 +110,92 @@ describe('OpenAPI document (e2e)', () => {
       };
       expect(op?.responses?.['200']?.content).toBeDefined();
     });
+
+    /**
+     * The contract check (phase 6). Every success response must carry a schema,
+     * not merely a description.
+     *
+     * This is what stops the API drifting back into "documents what goes in but
+     * not what comes back". A hand written frontend type can only be checked
+     * against a document that actually describes the response, and a reviewer
+     * can only spot a breaking change in a field they can see.
+     */
+    it('gives EVERY success response a schema, not just a description', () => {
+      const untyped: string[] = [];
+      for (const [path, item] of Object.entries(document.paths)) {
+        for (const [method, op] of Object.entries(
+          item as Record<
+            string,
+            { responses?: Record<string, { content?: object }> }
+          >,
+        )) {
+          if (!['get', 'post', 'patch', 'put', 'delete'].includes(method)) {
+            continue;
+          }
+          for (const [status, response] of Object.entries(
+            op?.responses ?? {},
+          )) {
+            if (!status.startsWith('2')) continue;
+            // 204 has no body by definition, and the better-auth routes are
+            // mounted by the library rather than declared here.
+            if (status === '204') continue;
+            if (path.startsWith('/api/auth')) continue;
+            if (!response?.content) {
+              untyped.push(`${method.toUpperCase()} ${path} -> ${status}`);
+            }
+          }
+        }
+      }
+      expect(untyped).toEqual([]);
+    });
+
+    it('resolves every enum field to the shared display object', () => {
+      // ADR 0001 is only true if it reaches the document: a status typed as a
+      // bare string here means some response still hands a client a raw enum.
+      const schemas = document.components?.schemas ?? {};
+      expect(Object.keys(schemas)).toContain('EnumDisplayDto');
+
+      const display = schemas.EnumDisplayDto as {
+        properties?: Record<string, { enum?: string[] }>;
+      };
+      expect(Object.keys(display.properties ?? {}).sort()).toEqual([
+        'label',
+        'tone',
+        'value',
+      ]);
+      // The tone vocabulary is closed, and the document is where a client
+      // learns that.
+      expect(display.properties?.tone?.enum).toEqual([
+        'default',
+        'primary',
+        'success',
+        'warning',
+        'danger',
+      ]);
+    });
+
+    it('types the status on a project as the display object, not a string', () => {
+      const project = document.components?.schemas?.ProjectResponseDto as {
+        properties?: Record<string, { $ref?: string; allOf?: unknown }>;
+      };
+      const status = project.properties?.status;
+      expect(JSON.stringify(status)).toContain('EnumDisplayDto');
+    });
+
+    it('publishes the capability flags a client gates its UI from', () => {
+      const schemas = document.components?.schemas ?? {};
+      expect(Object.keys(schemas)).toContain('ProjectCapabilitiesDto');
+      const caps = schemas.ProjectCapabilitiesDto as {
+        properties?: Record<string, unknown>;
+      };
+      expect(Object.keys(caps.properties ?? {})).toEqual(
+        expect.arrayContaining([
+          'canEdit',
+          'canChangeStatus',
+          'canArchive',
+          'canRestore',
+        ]),
+      );
+    });
   });
 });

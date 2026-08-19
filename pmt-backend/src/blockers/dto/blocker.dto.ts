@@ -195,6 +195,42 @@ export class BlockerResponseDto {
   capabilities!: BlockerCapabilitiesDto;
 }
 
+/**
+ * What blockers cost this project.
+ *
+ * Computed fresh from existing rows on every request rather than stored, so it
+ * cannot drift away from the blockers it summarises.
+ */
+export class BlockerDeadlineImpactDto {
+  @ApiProperty({
+    example: 4,
+    description: 'Blockers resolved on this project.',
+  })
+  resolvedCount!: number;
+
+  @ApiProperty({
+    example: 5760,
+    description:
+      'Exact minutes spent blocked, summed across all resolved blockers.',
+  })
+  totalResolutionMinutes!: number;
+
+  @ApiProperty({ example: '96h' })
+  totalResolutionLabel!: string;
+
+  @ApiProperty({
+    example: 6,
+    description: "Days added to the project's deadline by blockers.",
+  })
+  totalDeadlineExtensionDays!: number;
+
+  @ApiProperty({
+    example: 2,
+    description: 'How many of the resolved blockers moved the deadline at all.',
+  })
+  blockersWithExtension!: number;
+}
+
 export class PaginatedBlockersResponseDto {
   @ApiProperty({ type: [BlockerResponseDto] })
   items!: BlockerResponseDto[];

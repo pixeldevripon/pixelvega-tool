@@ -12,6 +12,8 @@ import {
   BlockerResponseDto,
   PaginatedBlockersResponseDto,
 } from '@/blockers/dto/blocker.dto';
+import { BlockerDeadlineImpactDto } from '@/blockers/dto/blocker.dto';
+import { MessageResponseDto } from '@/users/dto/user.dto';
 
 /**
  * Documentation for the three controllers BlockersModule owns: blockers
@@ -90,6 +92,7 @@ export const ApiListProjectBlockersDocs = () =>
     ApiResponse({
       status: 200,
       description: 'Paginated blockers for this project',
+      type: PaginatedBlockersResponseDto,
     }),
     ...projectScopedErrors,
   );
@@ -103,7 +106,11 @@ export const ApiBlockerDeadlineImpactDocs = () =>
         'blockers on this project.',
     }),
     ApiParam({ name: 'projectId', description: 'The project id' }),
-    ApiResponse({ status: 200, description: 'The impact summary' }),
+    ApiResponse({
+      status: 200,
+      description: 'The impact summary',
+      type: BlockerDeadlineImpactDto,
+    }),
     ...projectScopedErrors,
   );
 
@@ -170,7 +177,11 @@ export const ApiDeleteBlockerReasonDocs = () =>
         'seeded "Unspecified" reason is protected and cannot be deleted.',
     }),
     ApiParam({ name: 'id', description: 'The reason id' }),
-    ApiResponse({ status: 200, description: 'Deleted' }),
+    ApiResponse({
+      status: 200,
+      description: 'Deleted',
+      type: MessageResponseDto,
+    }),
     ...gatedErrors,
     notFound('Blocker reason not found'),
     conflict('This reason is protected'),

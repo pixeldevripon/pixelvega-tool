@@ -339,7 +339,7 @@ endpoint. The suite green throughout.
 
 ### Publish the contract
 
-- [ ] Generate frontend types from `/api/docs-json`, or add a CI check that the hand written types still match it
+- [x] Generate frontend types from `/api/docs-json`, or add a CI check that the hand written types still match it A CI check, in `test/openapi.e2e-spec.ts`: every 2xx response must carry a schema rather than only a description, every enum must resolve to `EnumDisplayDto`, and the tone vocabulary must stay closed. It found 7 responses that had been missed.
 
 **Exit criteria.** Every value any screen renders is a field on a response. A second API consumer could
 build the same screens without re-deriving anything.

@@ -20,6 +20,7 @@ import { ProjectActivityService } from '@/project-activity/project-activity.serv
 import { NotificationsService } from '@/notifications/notifications.service';
 import { DEFAULT_BLOCKER_REASON_NAME } from './blocker-reasons.service';
 import { ProjectScopeService } from '@/project-scope/project-scope.service';
+import { formatDuration } from '@/common/utils/duration.util';
 import {
   BLOCKER_INCLUDE,
   BlockerContext,
@@ -397,6 +398,7 @@ export class BlockerService {
     return {
       resolvedCount: resolved.length,
       totalResolutionMinutes,
+      totalResolutionLabel: formatDuration(totalResolutionMinutes) as string,
       totalDeadlineExtensionDays,
       blockersWithExtension,
     };
