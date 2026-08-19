@@ -1,6 +1,9 @@
 import { BlockerSeverity, BlockerStatus } from '@prisma/client';
 
-import { BlockerWithRelations, toBlockerResponse } from '../blocker.mapper';
+import {
+  BlockerWithRelations,
+  toBlockerResponse,
+} from '@/blockers/blocker.mapper';
 
 const CREATED = new Date('2026-08-12T09:00:00.000Z');
 const NOW = new Date('2026-08-12T12:00:00.000Z');

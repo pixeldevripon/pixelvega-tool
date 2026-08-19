@@ -10,7 +10,7 @@
 
 import { Test, TestingModule } from '@nestjs/testing';
 import { PrismaService } from '@/prisma/prisma.service';
-import { LeaveBalancesService } from '../leave-balances.service';
+import { LeaveBalancesService } from '@/leave/requests/leave-balances.service';
 
 const USER_ID = 'dev-1';
 const TYPE_ID = 'annual';

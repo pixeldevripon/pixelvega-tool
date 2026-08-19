@@ -21,10 +21,10 @@ import { ReviewsModule } from '@/internal-reviews/reviews.module';
 import { ReportingModule } from '@/project-reports/reporting.module';
 import { SlackModule } from '@/slack/slack.module';
 import { NotificationsModule } from '@/notifications/notifications.module';
-import { auth } from '@/auth/auth.instance';
-import { LoginStatusHook } from '@/auth/login-status.hook';
-import { PermissionsModule } from '@/auth/permissions.module';
-import { PermissionsGuard } from '@/auth/guards/permissions.guard';
+import { auth } from '@/auth/instance/auth.instance';
+import { LoginStatusHook } from '@/auth/instance/login-status.hook';
+import { PermissionsModule } from '@/auth/permissions/permissions.module';
+import { PermissionsGuard } from '@/auth/permissions/permissions.guard';
 
 @Module({
   imports: [

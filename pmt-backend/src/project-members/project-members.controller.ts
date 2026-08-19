@@ -15,7 +15,7 @@ import {
   AddProjectMemberDto,
   QueryProjectMembersDto,
 } from '@/project-members/dto/project-member.dto';
-import { RequirePermissions } from '@/auth/decorators/require-permissions.decorator';
+import { RequirePermissions } from '@/auth/permissions/require-permissions.decorator';
 import {
   ApiAddProjectMemberDocs,
   ApiListProjectMembersDocs,

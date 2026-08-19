@@ -24,7 +24,7 @@ import { SlackService } from '@/slack/slack.service';
 import { SlackUserResolverService } from '@/slack/slack-user-resolver.service';
 import { ProjectActivityService } from '@/project-activity/project-activity.service';
 import { ProjectScopeService } from '@/project-scope/project-scope.service';
-import { PermissionsService } from '@/auth/permissions.service';
+import { PermissionsService } from '@/auth/permissions/permissions.service';
 import { ProjectsService } from '../projects.service';
 
 const PROJECT_ID = 'project-1';

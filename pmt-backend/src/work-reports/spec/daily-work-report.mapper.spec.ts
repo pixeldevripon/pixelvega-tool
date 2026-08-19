@@ -7,7 +7,7 @@ import {
   canEditWrapUp,
   canSubmitWrapUp,
   toDailyWorkReportResponse,
-} from '../daily-work-report.mapper';
+} from '@/work-reports/daily-work-report.mapper';
 
 const AUTHOR = 'u1';
 const SOMEONE_ELSE = 'u2';

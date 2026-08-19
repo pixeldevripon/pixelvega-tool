@@ -14,7 +14,7 @@
 // collaborator, so it is mocked like every other one. jest.mock is hoisted, so
 // neither module is ever evaluated.
 jest.mock('better-auth/node', () => ({ fromNodeHeaders: jest.fn() }));
-jest.mock('@/auth/auth.instance', () => ({
+jest.mock('@/auth/instance/auth.instance', () => ({
   auth: { api: { signUpEmail: jest.fn().mockResolvedValue({}) } },
 }));
 

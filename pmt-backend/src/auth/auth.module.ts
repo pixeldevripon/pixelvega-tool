@@ -2,12 +2,12 @@ import { Module, OnModuleDestroy } from '@nestjs/common';
 import { APP_GUARD } from '@nestjs/core';
 import { ThrottlerModule } from '@nestjs/throttler';
 
-import { authPrismaClient } from '@/auth/auth.instance';
+import { authPrismaClient } from '@/auth/instance/auth.instance';
 import {
   hasOwnThrottleOverride,
   isTrustedInternalOrigin,
-} from '@/auth/internal-origin.util';
-import { TrustedOriginThrottlerGuard } from '@/auth/trusted-origin-throttler.guard';
+} from '@/auth/throttle/internal-origin.util';
+import { TrustedOriginThrottlerGuard } from '@/auth/throttle/trusted-origin-throttler.guard';
 
 /**
  * The auth module owns better-auth's lifecycle, the throttle, and the guard

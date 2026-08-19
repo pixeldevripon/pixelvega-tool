@@ -12,7 +12,7 @@ import { ApiCookieAuth, ApiTags } from '@nestjs/swagger';
 import { Permission, Role } from '@prisma/client';
 import { CurrentUser } from '@/common/decorators/current-user.decorator';
 import { AdditionalRequirementsService } from './additional-requirements.service';
-import { RequirePermissions } from '@/auth/decorators/require-permissions.decorator';
+import { RequirePermissions } from '@/auth/permissions/require-permissions.decorator';
 import {
   ApiCheckRequirementScopeDocs,
   ApiCreateAdditionalRequirementDocs,

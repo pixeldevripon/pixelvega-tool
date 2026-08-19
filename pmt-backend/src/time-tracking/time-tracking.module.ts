@@ -1,8 +1,8 @@
 import { Module } from '@nestjs/common';
-import { ProjectTimeEntriesController } from './project-time-entries.controller';
-import { ProjectTimeEntriesService } from './project-time-entries.service';
-import { TimeEntriesController } from './time-entries.controller';
-import { MeetingTimeEntriesService } from './meeting-time-entries.service';
+import { ProjectTimeEntriesController } from '@/time-tracking/project/project-time-entries.controller';
+import { ProjectTimeEntriesService } from '@/time-tracking/project/project-time-entries.service';
+import { TimeEntriesController } from '@/time-tracking/meeting/time-entries.controller';
+import { MeetingTimeEntriesService } from '@/time-tracking/meeting/meeting-time-entries.service';
 
 /**
  * Project and meeting time segments.

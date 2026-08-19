@@ -20,7 +20,7 @@ import {
   MAX_BATCH_UPLOAD_FILES,
   ProjectDocumentsService,
 } from './project-documents.service';
-import { RequirePermissions } from '@/auth/decorators/require-permissions.decorator';
+import { RequirePermissions } from '@/auth/permissions/require-permissions.decorator';
 import {
   ApiCreateProjectDocumentDocs,
   ApiCreateProjectDocumentsBatchDocs,

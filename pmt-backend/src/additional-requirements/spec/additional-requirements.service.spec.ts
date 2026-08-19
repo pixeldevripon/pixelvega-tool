@@ -15,7 +15,7 @@ import {
 } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
 import { AdditionalRequirementStatus, Role } from '@prisma/client';
-import { AiJobsService } from '@/ai/ai-jobs.service';
+import { AiJobsService } from '@/ai/jobs/ai-jobs.service';
 import { NotificationsService } from '@/notifications/notifications.service';
 import { PrismaService } from '@/prisma/prisma.service';
 import { ProjectActivityService } from '@/project-activity/project-activity.service';

@@ -12,8 +12,8 @@ import {
   endOfUtcDay,
   getAutoStopCutoff,
   isPreviousUtcDay,
-} from '../time-entry-date.util';
-import { MAX_CONTINUOUS_SESSION_MINUTES } from '../time-tracking.constants';
+} from '@/time-tracking/time-entry-date.util';
+import { MAX_CONTINUOUS_SESSION_MINUTES } from '@/time-tracking/time-tracking.constants';
 
 const d = (iso: string) => new Date(iso);
 

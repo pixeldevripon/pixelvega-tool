@@ -24,7 +24,7 @@ import { NotificationsService } from '@/notifications/notifications.service';
 import { PaginationQueryDto } from '@/common/dto/pagination-query.dto';
 import { ProjectActivityService } from '@/project-activity/project-activity.service';
 import { ProjectScopeService } from '@/project-scope/project-scope.service';
-import { PermissionsService } from '@/auth/permissions.service';
+import { PermissionsService } from '@/auth/permissions/permissions.service';
 import {
   ProjectContext,
   toClientProjectResponse,

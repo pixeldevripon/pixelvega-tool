@@ -12,7 +12,7 @@ import { PrismaService } from '@/prisma/prisma.service';
 import { MailService } from '@/mail/mail.service';
 import { ProfilesService } from '@/profiles/profiles.service';
 import { AuditLogService } from '@/audit-log/audit-log.service';
-import { auth } from '@/auth/auth.instance';
+import { auth } from '@/auth/instance/auth.instance';
 import { generateTempPassword } from '@/common/utils/password.util';
 import { paginate } from '@/common/utils/pagination.util';
 import { PaginationQueryDto } from '@/common/dto/pagination-query.dto';

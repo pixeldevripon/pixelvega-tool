@@ -15,7 +15,7 @@ import { Role, TimeEntryStatus } from '@prisma/client';
 import { PrismaService } from '@/prisma/prisma.service';
 import { ProjectActivityService } from '@/project-activity/project-activity.service';
 import { ProjectScopeService } from '@/project-scope/project-scope.service';
-import { ProjectTimeEntriesService } from '../project-time-entries.service';
+import { ProjectTimeEntriesService } from '@/time-tracking/project/project-time-entries.service';
 
 function createMockPrismaService() {
   return {

@@ -1,7 +1,7 @@
 import { Controller, Get, Param, Patch, Query } from '@nestjs/common';
 import { ApiCookieAuth, ApiTags } from '@nestjs/swagger';
 import { Permission } from '@prisma/client';
-import { RequirePermissions } from '@/auth/decorators/require-permissions.decorator';
+import { RequirePermissions } from '@/auth/permissions/require-permissions.decorator';
 import { CurrentUser } from '@/common/decorators/current-user.decorator';
 import { QueryNotificationsDto } from '@/notifications/dto/notification.dto';
 import {

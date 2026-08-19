@@ -10,7 +10,7 @@ import { PrismaService } from '@/prisma/prisma.service';
 import { ProjectActivityService } from '@/project-activity/project-activity.service';
 import { NotificationsService } from '@/notifications/notifications.service';
 
-import { DailyProjectEntryService } from '../daily-project-entry.service';
+import { DailyProjectEntryService } from '@/work-reports/entries/daily-project-entry.service';
 
 const AUTHOR = 'dev-1';
 const REVIEWER = 'pm-1';

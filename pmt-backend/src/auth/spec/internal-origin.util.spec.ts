@@ -9,7 +9,7 @@ import {
   hasOwnThrottleOverride,
   isTrustedInternalHeaders,
   isTrustedInternalOrigin,
-} from '../internal-origin.util';
+} from '@/auth/throttle/internal-origin.util';
 
 const SECRET = 'a-long-shared-internal-secret-value';
 

@@ -1,9 +1,9 @@
 import { Module } from '@nestjs/common';
 import { SlackModule } from '@/slack/slack.module';
-import { DailyWorkReportController } from './daily-work-report.controller';
-import { DailyWorkReportService } from './daily-work-report.service';
-import { DailyProjectEntryService } from './daily-project-entry.service';
-import { ProjectDailyWorkReportsController } from './project-daily-work-reports.controller';
+import { DailyWorkReportController } from '@/work-reports/daily/daily-work-report.controller';
+import { DailyWorkReportService } from '@/work-reports/daily/daily-work-report.service';
+import { DailyProjectEntryService } from '@/work-reports/entries/daily-project-entry.service';
+import { ProjectDailyWorkReportsController } from '@/work-reports/entries/project-daily-work-reports.controller';
 
 /**
  * Daily plan and wrap up reporting.

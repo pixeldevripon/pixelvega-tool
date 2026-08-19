@@ -20,7 +20,7 @@ import { PrismaService } from '@/prisma/prisma.service';
 import { ProjectActivityService } from '@/project-activity/project-activity.service';
 import { SlackService } from '@/slack/slack.service';
 import { ProjectScopeService } from '@/project-scope/project-scope.service';
-import { DailyWorkReportService } from '../daily-work-report.service';
+import { DailyWorkReportService } from '@/work-reports/daily/daily-work-report.service';
 
 const REPORT_ID = 'report-1';
 const OWNER_ID = 'dev-1';

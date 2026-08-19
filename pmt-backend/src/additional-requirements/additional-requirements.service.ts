@@ -15,7 +15,7 @@ import {
 import { PrismaService } from '@/prisma/prisma.service';
 import { paginate } from '@/common/utils/pagination.util';
 import { ProjectActivityService } from '@/project-activity/project-activity.service';
-import { AiJobsService } from '@/ai/ai-jobs.service';
+import { AiJobsService } from '@/ai/jobs/ai-jobs.service';
 import { NotificationsService } from '@/notifications/notifications.service';
 import { ProjectScopeService } from '@/project-scope/project-scope.service';
 import {

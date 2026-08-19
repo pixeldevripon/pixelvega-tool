@@ -14,8 +14,8 @@ import { Role } from '@prisma/client';
 import { PrismaService } from '@/prisma/prisma.service';
 import { AuditLogService } from '@/audit-log/audit-log.service';
 import { NotificationsService } from '@/notifications/notifications.service';
-import { LeaveBalancesService } from '../leave-balances.service';
-import { LeaveRequestsService } from '../leave-requests.service';
+import { LeaveBalancesService } from '@/leave/requests/leave-balances.service';
+import { LeaveRequestsService } from '@/leave/requests/leave-requests.service';
 
 const REQUEST_ID = 'leave-1';
 const REQUESTER_ID = 'dev-1';

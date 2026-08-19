@@ -4,7 +4,7 @@ import { Permission, Role } from '@prisma/client';
 import { CurrentUser } from '@/common/decorators/current-user.decorator';
 import { PaginationQueryDto } from '@/common/dto/pagination-query.dto';
 import { InternalReviewsService } from './internal-reviews.service';
-import { RequirePermissions } from '@/auth/decorators/require-permissions.decorator';
+import { RequirePermissions } from '@/auth/permissions/require-permissions.decorator';
 import {
   ApiListInternalReviewsDocs,
   ApiSubmitInternalReviewDocs,

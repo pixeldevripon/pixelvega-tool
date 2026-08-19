@@ -1,14 +1,14 @@
 import { Module } from '@nestjs/common';
 import { AiModule } from '@/ai/ai.module';
 import { TimeTrackingModule } from '@/time-tracking/time-tracking.module';
-import { ProjectAiSummaryController } from '@/ai-summary/project-ai-summary.controller';
-import { ProjectAiSummaryService } from '@/ai-summary/project-ai-summary.service';
-import { ProjectStatusReportsController } from '@/ai-status-reports/project-status-reports.controller';
-import { ProjectStatusReportsService } from '@/ai-status-reports/project-status-reports.service';
-import { ProjectReportsController } from './project-reports.controller';
-import { ProjectReportService } from './project-report.service';
-import { DeveloperReportsController } from './developer-reports.controller';
-import { DeveloperReportService } from './developer-report.service';
+import { ProjectAiSummaryController } from '@/ai/summary/project-ai-summary.controller';
+import { ProjectAiSummaryService } from '@/ai/summary/project-ai-summary.service';
+import { ProjectStatusReportsController } from '@/ai/status-report/project-status-reports.controller';
+import { ProjectStatusReportsService } from '@/ai/status-report/project-status-reports.service';
+import { ProjectReportsController } from '@/project-reports/project/project-reports.controller';
+import { ProjectReportService } from '@/project-reports/project/project-report.service';
+import { DeveloperReportsController } from '@/project-reports/developer/developer-reports.controller';
+import { DeveloperReportService } from '@/project-reports/developer/developer-report.service';
 
 /**
  * Everything that reads the project domain and reports on it: the numeric

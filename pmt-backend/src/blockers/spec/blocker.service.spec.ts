@@ -21,7 +21,7 @@ import { PrismaService } from '@/prisma/prisma.service';
 import { ProjectActivityService } from '@/project-activity/project-activity.service';
 import { SlackService } from '@/slack/slack.service';
 import { ProjectScopeService } from '@/project-scope/project-scope.service';
-import { BlockerService } from '../blocker.service';
+import { BlockerService } from '@/blockers/blockers/blocker.service';
 
 const BLOCKER_ID = 'blocker-1';
 const PROJECT_ID = 'project-1';

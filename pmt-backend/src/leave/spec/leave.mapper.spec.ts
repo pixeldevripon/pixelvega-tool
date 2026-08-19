@@ -4,7 +4,7 @@ import {
   LeaveRequestWithRelations,
   toHolidayResponse,
   toLeaveRequestResponse,
-} from '../leave.mapper';
+} from '@/leave/leave.mapper';
 
 const REQUESTER = 'u1';
 const REVIEWER = 'u2';

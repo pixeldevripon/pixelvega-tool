@@ -12,8 +12,8 @@ import { Permission, Role } from '@prisma/client';
 import { CurrentUser } from '@/common/decorators/current-user.decorator';
 import { PaginationQueryDto } from '@/common/dto/pagination-query.dto';
 import { ProjectsService } from './projects.service';
-import { RequirePermissions } from '@/auth/decorators/require-permissions.decorator';
-import { RequireAnyPermission } from '@/auth/decorators/require-any-permission.decorator';
+import { RequirePermissions } from '@/auth/permissions/require-permissions.decorator';
+import { RequireAnyPermission } from '@/auth/permissions/require-any-permission.decorator';
 import {
   ApiArchiveProjectDocs,
   ApiConnectProjectSlackDocs,

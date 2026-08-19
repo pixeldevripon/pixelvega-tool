@@ -1,7 +1,7 @@
 import { Module } from '@nestjs/common';
 import { UsersController } from './users.controller';
 import { UsersService } from './users.service';
-import { SystemAdminBootstrapService } from './system-admin-bootstrap.service';
+import { SystemAdminBootstrapService } from '@/users/bootstrap/system-admin-bootstrap.service';
 import { MailModule } from '@/mail/mail.module';
 import { ProfilesModule } from '@/profiles/profiles.module';
 

@@ -1,8 +1,8 @@
 import {
   INTERNAL_API_KEY_HEADER,
   INTERNAL_CLIENT_IP_HEADER,
-} from '../internal-origin.util';
-import { TrustedOriginThrottlerGuard } from '../trusted-origin-throttler.guard';
+} from '@/auth/throttle/internal-origin.util';
+import { TrustedOriginThrottlerGuard } from '@/auth/throttle/trusted-origin-throttler.guard';
 
 const SECRET = 'a-long-shared-internal-secret-value';
 

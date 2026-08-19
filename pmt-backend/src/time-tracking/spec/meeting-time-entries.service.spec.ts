@@ -13,8 +13,8 @@ import { BadRequestException, ConflictException } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
 import { TimeEntryStatus } from '@prisma/client';
 import { PrismaService } from '@/prisma/prisma.service';
-import { ProjectTimeEntriesService } from '../project-time-entries.service';
-import { MeetingTimeEntriesService } from '../meeting-time-entries.service';
+import { ProjectTimeEntriesService } from '@/time-tracking/project/project-time-entries.service';
+import { MeetingTimeEntriesService } from '@/time-tracking/meeting/meeting-time-entries.service';
 
 const USER_ID = 'dev-1';
 

@@ -7,14 +7,14 @@ import 'dotenv/config';
 import { Module } from '@nestjs/common';
 import { BullModule } from '@nestjs/bullmq';
 import Redis from 'ioredis';
-import { ClaudeService } from './claude.service';
-import { AiJobsService } from './ai-jobs.service';
-import { AiJobsProcessor } from './ai-jobs.processor';
-import { AiJobsController } from './ai-jobs.controller';
-import { AiTemplatesService } from './ai-templates.service';
-import { AiTemplatesController } from './ai-templates.controller';
-import { ScopeCheckService } from './scope-check.service';
-import { StatusReportService } from './status-report.service';
+import { ClaudeService } from '@/ai/claude/claude.service';
+import { AiJobsService } from '@/ai/jobs/ai-jobs.service';
+import { AiJobsProcessor } from '@/ai/jobs/ai-jobs.processor';
+import { AiJobsController } from '@/ai/jobs/ai-jobs.controller';
+import { AiTemplatesService } from '@/ai/templates/ai-templates.service';
+import { AiTemplatesController } from '@/ai/templates/ai-templates.controller';
+import { ScopeCheckService } from '@/ai/scope-check/scope-check.service';
+import { StatusReportService } from '@/ai/status-report/status-report.service';
 
 @Module({
   imports: [
