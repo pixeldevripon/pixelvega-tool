@@ -1,8 +1,44 @@
-@import "tailwindcss";
+/*
+ * The design system, and the only place a colour, a radius, a type step or a
+ * duration is allowed to be a literal value.
+ *
+ * Three groups of tokens, and the difference between them matters:
+ *
+ * 1. **The product's palette.** Every value below was already here and is
+ *    unchanged. It is the product's identity, not a placeholder, and the
+ *    refactor does not repaint it.
+ * 2. **The names shadcn's components expect** (`secondary`, `popover`, `ring`,
+ *    `destructive`, `sidebar`, `chart-*`). Added so a component added through
+ *    the CLI renders in THIS palette rather than referencing a variable nobody
+ *    defined and falling back to nothing. Each is defined in terms of the
+ *    palette above rather than given a new value of its own.
+ * 3. **Scales**: radius, type, tracking and motion. New, and the reason a
+ *    component can stop carrying arbitrary values like `text-[13px]`.
+ *
+ * Both themes are complete. A colour whose only definition sits inside `.dark`
+ * renders as nothing in light mode, so every token is declared in `:root` first
+ * and only overridden in `.dark`.
+ */
 
+@import "tailwindcss";
+/* `enter`/`exit` animation utilities. shadcn's overlays (dialog, dropdown,
+   tooltip, select) are written against them, so a component added through the
+   CLI appears without a transition if this is missing. */
+@import "tw-animate-css";
+/* The `data-open:` / `data-checked:` / `data-disabled:` variants and the
+   `no-scrollbar`, `scroll-fade` and `shimmer` utilities that registry
+   components use. Ships with the `shadcn` package. */
+@import "shadcn/tailwind.css";
+
+/*
+ * Matches the `.dark` element itself as well as its descendants.
+ * `next-themes` puts the class on `<html>`, so a variant written only as
+ * `.dark *` would miss anything styled on the root element.
+ */
 @custom-variant dark (&:where(.dark, .dark *));
 
 :root {
+  /* ── Palette: unchanged ─────────────────────────────────────────────── */
   --background: #f6f7fb;
   --foreground: #111827;
   --card: #ffffff;
@@ -19,6 +55,105 @@
   --warning: #d97706;
   --danger: #dc2626;
   color-scheme: light;
+
+  /* ── Surfaces the palette implied but never named ───────────────────── */
+
+  /* A popover, a dropdown and a tooltip float above the page. They read as
+     cards rather than as a fourth surface, so they take the card's values. */
+  --popover: var(--card);
+  --popover-foreground: var(--card-foreground);
+
+  /* A quiet button or badge: present but not competing with `primary`. */
+  --secondary: var(--muted);
+  --secondary-foreground: var(--foreground);
+
+  /* The focus ring. The primary hue rather than a grey, because a keyboard
+     user tracking focus across a form needs it to be unmistakable. */
+  --ring: var(--primary);
+
+  /* shadcn calls it `destructive`; the API's tone vocabulary calls it
+     `danger`. One value, two names, because renaming either half would mean
+     editing the other project. `danger` is the source. */
+  --destructive: var(--danger);
+  --destructive-foreground: #ffffff;
+
+  /* ── Tone surfaces, so a status needs no numeric palette class ───────── */
+  /*
+   * The API sends every enum as `{ value, label, tone }` with tone from a
+   * closed set of five (ADR 0001). `default` and `primary` are covered by
+   * `muted` and `accent` above; the other three need a surface, a border and a
+   * foreground each, in both themes.
+   *
+   * The values are the ones `badge.tsx` and `alert.tsx` already used as
+   * literal Tailwind palette classes, lifted out unchanged. Two exceptions,
+   * both deliberate: the warning foreground was `amber-700` on a badge and
+   * `amber-900` on an alert, and the same tone cannot legitimately read as two
+   * shades, so it is now `amber-700` in both. Same for its dark counterpart.
+   *
+   * `-surface` is the stronger fill a badge uses; `-subtle` is the wash behind
+   * an alert.
+   */
+  --success-surface: #d1fae5;
+  --success-subtle: #ecfdf5;
+  --success-border: #a7f3d0;
+  --success-foreground: #047857;
+
+  --warning-surface: #fef3c7;
+  --warning-subtle: #fffbeb;
+  --warning-border: #fde68a;
+  --warning-foreground: #b45309;
+
+  --danger-surface: #fee2e2;
+  --danger-subtle: #fef2f2;
+  --danger-border: #fecaca;
+  --danger-foreground: #b91c1c;
+
+  /* ── Chart and sidebar slots the registry expects ────────────────────── */
+  /*
+   * Defined so a chart or sidebar added through the CLI is not invisible. The
+   * chart ramp walks the primary hue rather than being five unrelated colours,
+   * because a project's five statuses are one family of things.
+   */
+  --chart-1: #4a3bd8;
+  --chart-2: #6757f5;
+  --chart-3: #8b7dff;
+  --chart-4: #b0a6ff;
+  --chart-5: #d6d0ff;
+
+  --sidebar: var(--card);
+  --sidebar-foreground: var(--card-foreground);
+  --sidebar-primary: var(--primary);
+  --sidebar-primary-foreground: var(--primary-foreground);
+  --sidebar-accent: var(--accent);
+  --sidebar-accent-foreground: var(--accent-foreground);
+  --sidebar-border: var(--border);
+  --sidebar-ring: var(--ring);
+
+  /* ── Radius ─────────────────────────────────────────────────────────── */
+  /*
+   * One number the ladder is derived from, so a rounder or squarer product is
+   * a one line change rather than a search for every `rounded-*`.
+   *
+   * 0.5rem is chosen so `rounded-lg` keeps the exact value Tailwind's default
+   * gave it. The app uses `rounded-lg` on every card and `rounded-md` on every
+   * control, and a foundations change should not move a corner radius on every
+   * screen as a side effect.
+   */
+  --radius: 0.5rem;
+
+  /* ── Motion ─────────────────────────────────────────────────────────── */
+  /*
+   * Three durations, named for intent rather than for milliseconds.
+   *
+   * Tailwind v4 has no `--duration-*` theme namespace (an `ease-*` utility can
+   * be a token, a `duration-*` one cannot), so these are plain custom
+   * properties. The house transition below is wired from them, which is why
+   * almost nothing needs to name a duration at all: `transition-colors` is
+   * already correct.
+   */
+  --motion-fast: 120ms; /* a hover or a focus ring: must feel instant */
+  --motion-base: 180ms; /* a colour or a size change on a control */
+  --motion-slow: 260ms; /* something entering or leaving the page */
 }
 
 @theme inline {
@@ -26,15 +161,120 @@
   --color-foreground: var(--foreground);
   --color-card: var(--card);
   --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
   --color-muted: var(--muted);
   --color-muted-foreground: var(--muted-foreground);
   --color-border: var(--border);
   --color-input: var(--input);
+  --color-ring: var(--ring);
   --color-primary: var(--primary);
   --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
   --color-accent: var(--accent);
   --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-destructive-foreground: var(--destructive-foreground);
+
+  --color-success: var(--success);
+  --color-success-surface: var(--success-surface);
+  --color-success-subtle: var(--success-subtle);
+  --color-success-border: var(--success-border);
+  --color-success-foreground: var(--success-foreground);
+
+  --color-warning: var(--warning);
+  --color-warning-surface: var(--warning-surface);
+  --color-warning-subtle: var(--warning-subtle);
+  --color-warning-border: var(--warning-border);
+  --color-warning-foreground: var(--warning-foreground);
+
+  --color-danger: var(--danger);
+  --color-danger-surface: var(--danger-surface);
+  --color-danger-subtle: var(--danger-subtle);
+  --color-danger-border: var(--danger-border);
+  --color-danger-foreground: var(--danger-foreground);
+
+  --color-chart-1: var(--chart-1);
+  --color-chart-2: var(--chart-2);
+  --color-chart-3: var(--chart-3);
+  --color-chart-4: var(--chart-4);
+  --color-chart-5: var(--chart-5);
+
+  --color-sidebar: var(--sidebar);
+  --color-sidebar-foreground: var(--sidebar-foreground);
+  --color-sidebar-primary: var(--sidebar-primary);
+  --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
+  --color-sidebar-accent: var(--sidebar-accent);
+  --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
+  --color-sidebar-border: var(--sidebar-border);
+  --color-sidebar-ring: var(--sidebar-ring);
+
   --font-sans: "Plus Jakarta Sans", Inter, ui-sans-serif, system-ui, sans-serif;
+
+  /* ── The radius ladder ───────────────────────────────────────────────── */
+  --radius-sm: calc(var(--radius) * 0.6);
+  --radius-md: calc(var(--radius) * 0.8);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) * 1.4);
+  --radius-2xl: calc(var(--radius) * 1.8);
+  --radius-3xl: calc(var(--radius) * 2.2);
+  --radius-4xl: calc(var(--radius) * 2.6);
+
+  /* ── The type scale ──────────────────────────────────────────────────── */
+  /*
+   * Every step carries its own line height AND its own tracking, which is the
+   * part that was missing: a heading set at the body's letter spacing looks
+   * loose, and 12px text set at a heading's looks cramped. The sizes and line
+   * heights are Tailwind's defaults restated, so declaring the scale moves no
+   * existing text; the tracking is the new information.
+   *
+   * Restated rather than inherited on purpose. A scale that is half ours and
+   * half the framework's is one nobody can read off a single screen, and the
+   * tracking values below only make sense next to the size they belong to.
+   */
+  --text-xs: 0.75rem;
+  --text-xs--line-height: calc(1 / 0.75);
+  --text-xs--letter-spacing: 0.01em;
+
+  --text-sm: 0.875rem;
+  --text-sm--line-height: calc(1.25 / 0.875);
+  --text-sm--letter-spacing: 0.005em;
+
+  --text-base: 1rem;
+  --text-base--line-height: calc(1.5 / 1);
+  --text-base--letter-spacing: 0em;
+
+  --text-lg: 1.125rem;
+  --text-lg--line-height: calc(1.75 / 1.125);
+  --text-lg--letter-spacing: -0.005em;
+
+  --text-xl: 1.25rem;
+  --text-xl--line-height: calc(1.75 / 1.25);
+  --text-xl--letter-spacing: -0.01em;
+
+  --text-2xl: 1.5rem;
+  --text-2xl--line-height: calc(2 / 1.5);
+  --text-2xl--letter-spacing: -0.015em;
+
+  --text-3xl: 1.875rem;
+  --text-3xl--line-height: calc(2.25 / 1.875);
+  --text-3xl--letter-spacing: -0.02em;
+
+  --text-4xl: 2.25rem;
+  --text-4xl--line-height: calc(2.5 / 2.25);
+  --text-4xl--letter-spacing: -0.025em;
+
+  /* ── Easing ──────────────────────────────────────────────────────────── */
+  /* `ease-emphasis` and `ease-exit` as utilities. Named for what they are for:
+     something arriving should decelerate, something leaving should not. */
+  --ease-emphasis: cubic-bezier(0.2, 0, 0, 1);
+  --ease-exit: cubic-bezier(0.4, 0, 1, 1);
+
+  /* The house transition, so `transition-colors` and `transition` are already
+     the right speed and curve and nothing has to name a number. */
+  --default-transition-duration: var(--motion-base);
+  --default-transition-timing-function: var(--ease-emphasis);
 }
 
 .dark {
@@ -51,6 +291,33 @@
   --accent: #28215d;
   --accent-foreground: #ddd8ff;
   color-scheme: dark;
+
+  /* `--success`, `--warning` and `--danger` keep their light values here, as
+     they always have: they are used as solid indicator dots and read the same
+     on either ground. The tone SURFACES below do have to change. */
+
+  --success-surface: #022c22;
+  --success-subtle: #022c22;
+  --success-border: #064e3b;
+  --success-foreground: #6ee7b7;
+
+  --warning-surface: #451a03;
+  --warning-subtle: #451a03;
+  --warning-border: #78350f;
+  --warning-foreground: #fcd34d;
+
+  --danger-surface: #450a0a;
+  --danger-subtle: #450a0a;
+  --danger-border: #7f1d1d;
+  --danger-foreground: #fca5a5;
+
+  /* The ramp is lightened rather than reversed, so the highest value stays the
+     most saturated end in both themes. */
+  --chart-1: #6757f5;
+  --chart-2: #8b7dff;
+  --chart-3: #a99eff;
+  --chart-4: #c7bfff;
+  --chart-5: #e4e0ff;
 }
 
 body {
@@ -64,6 +331,23 @@ input,
 select,
 textarea {
   font: inherit;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  /*
+   * Honour the setting globally rather than per component. A reader who has
+   * asked their operating system for less motion has asked once, and every
+   * component agreeing to it separately is a component that will eventually
+   * forget.
+   */
+  *,
+  *::before,
+  *::after {
+    animation-duration: 1ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 1ms !important;
+    scroll-behavior: auto !important;
+  }
 }
 
 .auth-bg {

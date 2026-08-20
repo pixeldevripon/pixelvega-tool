@@ -2,18 +2,32 @@ import * as React from "react";
 import { cva, type VariantProps } from "class-variance-authority";
 import { cn } from "@/lib/utils";
 
+/**
+ * A callout, in one of the four tones a message can have.
+ *
+ * The variant names differ from `Badge`'s tones (`destructive` rather than
+ * `danger`) because they were written at different times, and renaming one now
+ * would touch every alert in the app for no behaviour change. They resolve to
+ * the same tokens, which is the part that matters: there is one definition of
+ * what danger looks like, in `globals.css`, for both components and both themes.
+ *
+ * The `-subtle` surface is the wash behind a whole paragraph; `Badge` uses the
+ * stronger `-surface` because it is colouring a two-word chip.
+ */
 const alertVariants = cva(
   "relative w-full rounded-lg border px-4 py-3 text-sm font-semibold",
   {
     variants: {
       variant: {
         default: "border-border bg-card text-card-foreground",
+        // Previously `border-red-200 bg-red-50 text-red-700` plus three `dark:`
+        // overrides, per variant. Same colours, now named.
         destructive:
-          "border-red-200 bg-red-50 text-red-700 dark:border-red-900 dark:bg-red-950 dark:text-red-300",
+          "border-danger-border bg-danger-subtle text-danger-foreground",
         success:
-          "border-emerald-200 bg-emerald-50 text-emerald-700 dark:border-emerald-900 dark:bg-emerald-950 dark:text-emerald-300",
+          "border-success-border bg-success-subtle text-success-foreground",
         warning:
-          "border-amber-200 bg-amber-50 text-amber-900 dark:border-amber-900 dark:bg-amber-950 dark:text-amber-100",
+          "border-warning-border bg-warning-subtle text-warning-foreground",
       },
     },
     defaultVariants: {
@@ -27,13 +41,18 @@ export function Alert({
   variant,
   ...props
 }: React.ComponentProps<"div"> & VariantProps<typeof alertVariants>) {
-  return <div className={cn(alertVariants({ variant }), className)} {...props} />;
+  return (
+    <div
+      // Announced to a screen reader without stealing focus. An alert appears
+      // in response to something the user did, and they need to be told.
+      role="status"
+      className={cn(alertVariants({ variant }), className)}
+      {...props}
+    />
+  );
 }
 
-export function AlertTitle({
-  className,
-  ...props
-}: React.ComponentProps<"h5">) {
+export function AlertTitle({ className, ...props }: React.ComponentProps<"h5">) {
   return <h5 className={cn("mb-1 font-extrabold", className)} {...props} />;
 }
 

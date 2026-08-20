@@ -45,9 +45,9 @@ Every item below serves one of these. They are binding constraints, not preferen
 | 3     | Backend test floor            |           | 17    | **Done, merged.** Per-controller specs replaced by the route permission matrix |
 | 4     | Permission gate               | D2        | 19    | **Done, merged**                                                               |
 | 5     | Backend module mirror         | D1        | 20    | **Done, merged.** Response DTOs for 22 modules and the BullMQ move still owed  |
-| 6     | The backend serves everything | D4 D5     | 21    | **NEXT**                                                                       |
-| 7     | Frontend foundations          |           | 16    | Not started                                                                    |
-| 8     | Frontend module migration     | D4        | 14    | Not started                                                                    |
+| 6     | The backend serves everything | D4 D5     | 21    | Four items open, all of them frontend deletions that phase 8 performs          |
+| 7     | Frontend foundations          |           | 20    | **Done.** One item dropped with a reason, one half done with a reason          |
+| 8     | Frontend module migration     | D4        | 14    | **NEXT.** `settings` already done, as phase 7's proof screen                   |
 | 9     | Documentation and process     |           | 9     | Not started                                                                    |
 | n/a   | Open questions                |           | 4     | Unanswered                                                                     |
 
@@ -371,25 +371,49 @@ build the same screens without re-deriving anything.
 
 ## Phase 7: frontend foundations
 
-- [ ] Add `@tanstack/react-query`, `@tanstack/react-table`, `react-hook-form`, `zod`, `@hookform/resolvers`, `date-fns`
-- [ ] `components/providers/query-provider.tsx`, mounted in `app/layout.tsx`
-- [ ] Query defaults: 30s stale time, two retries with exponential backoff, refetch on window focus, no retry on mutations
-- [ ] Port `lib/api/humane-error.ts` (pure module, no fetch, no React)
-- [ ] Port `lib/api/fetch.ts` with jittered retry on 429 and 503, GET only
-- [ ] **Change `window.setTimeout` to `setTimeout`** so the client works server side
-- [ ] Keep the existing `ApiError` shape so current call sites still compile
-- [ ] Keep `lib/api/client.ts` as a thin re-export during the migration
-- [ ] `npx shadcn init` against the existing `globals.css` tokens to produce a real `components.json`
-- [ ] Re-add the existing primitives through the shadcn CLI
-- [ ] Expand `globals.css`: radius ladder, type scale with per step line heights, tracking, motion tokens
-- [ ] Keep the existing colour values. They are the product's identity, not a placeholder
-- [ ] Port `components/data-table/`: table, toolbar, pagination, empty, skeleton, bulk bar
-- [ ] Port `components/data-table/use-table-state.ts` (URL synced page, limit, debounced search, filters)
-- [ ] `contexts/role-context.tsx` fed from `GET /users/me/permissions`, never from a hardcoded role check
-- [ ] Port `proxy.ts` **with its comments**. Cookie shape only, no network call
-- [ ] NEXT.js PPR and suspense
+- [x] Add `@tanstack/react-query`, `@tanstack/react-table`, `react-hook-form`, `zod`, `@hookform/resolvers` React Query 5.101, **React Table 9.1** (a new major: `useTable`, not `useReactTable`, with an explicit `tableFeatures()` set), Zod 4.4
+- [-] `date-fns` **Dropped, with a reason.** Nothing in the package needs it. `lib/format.ts` is `Intl` throughout, which is correct for locale presentation and needs no library, and every piece of date ARITHMETIC in the app is a D4 violation that phase 6 moved to the server rather than something to reimplement in a client. Installing it now would be an unused dependency in the bundle and a claim in `package.json` that nothing backs. Add it the day something needs it
+- [x] `components/providers/query-provider.tsx`, mounted in `app/layout.tsx` A module singleton in the browser and a fresh client per server render, not `useState`: React discards state from a render that suspends, and there are `<Suspense>` boundaries below the provider
+- [x] Query defaults: 30s stale time, two retries with exponential backoff, refetch on window focus, no retry on mutations In `query-defaults.ts`, separately from the provider so the retry rule is testable. 12 specs. It refuses to retry a 4xx (settled) and refuses 429 and 503 (`apiFetch` already retried those, and repeating would make three attempts nine)
+- [x] Port `lib/api/humane-error.ts` (pure module, no fetch, no React) Prefers the API's own wording, which is written for humans, and falls back to per-status copy when the text is not prose: HTML from a proxy, a stack frame, raw JSON, a socket error. 30 specs
+- [x] Port `lib/api/fetch.ts` with jittered retry on 429 and 503, GET only Full jitter, because every screen fires several queries at once and an unjittered backoff retries them all in the same instant. Honours `Retry-After` (seconds or HTTP date), capped at 10s. 32 specs
+- [x] **Change `window.setTimeout` to `setTimeout`** so the client works server side Done in the client. Fourteen components still call the window form; they are all `"use client"` so it is harmless, and they are the debounce timers `useTableState` and TanStack Query replace in phase 8
+- [x] Keep the existing `ApiError` shape so current call sites still compile `{ message, status }`, unchanged. `status` is 0 for a transport failure, which is how a caller tells "the server said no" from "there was no server"
+- [x] Keep `lib/api/client.ts` as a thin re-export during the migration `apiRequest` is an alias for `apiFetch`, not a wrapper: a wrapper is a second place for behaviour to collect. All fifteen `lib/api/*.ts` modules gained the timeout fix, the retry and the humane messages without being edited
+- [x] `npx shadcn init` against the existing `globals.css` tokens to produce a real `components.json` `npx shadcn@latest info` resolves the project, and `add` writes a working component. Verified by adding eight
+- [~] Re-add the existing primitives through the shadcn CLI **Half, deliberately.** Eight NEW primitives added through the CLI (`table`, `dropdown-menu`, `separator`, `empty`, `spinner`, `checkbox`, `label`, `tooltip`), left byte identical to the registry so a future `add --diff` is clean. The ten hand written ones were NOT overwritten: the current registry style is a different design (`h-8` buttons where ours are `h-11`, `radix-ui` imports where ours are `@radix-ui/react-*`), and its `Badge` is keyed on `variant` rather than on the API's closed `tone` vocabulary, so adopting it would break the contract `DISPLAY_TONES` was fixed against. That is a decision about the product's look, not a foundation
+- [x] Expand `globals.css`: radius ladder, type scale with per step line heights, tracking, motion tokens Radius derived from one `--radius`, set to `0.5rem` so `rounded-lg` keeps the exact value it had. The type scale restates Tailwind's sizes and line heights unchanged and ADDS tracking per step, which is the new information. Motion is three named durations wired into `--default-transition-duration`, plus two `ease-*` utilities, plus a global `prefers-reduced-motion` block
+- [x] Keep the existing colour values. They are the product's identity, not a placeholder Every pre-existing value is byte identical. Added: the shadcn names its components reference (`secondary`, `popover`, `ring`, `destructive`, `sidebar`, `chart-*`), each defined in terms of the palette rather than given a new value, and tone surfaces for success, warning and danger in both themes, lifted from the numeric palette classes `badge.tsx` and `alert.tsx` had inline. Those two now use tokens, so they carry no `dark:` overrides of their own
+- [x] Port `components/data-table/`: table, toolbar, pagination, empty, skeleton, bulk bar Server driven throughout: no sorted, filtered or paginated row model, because sorting the twenty rows you were sent is an answer that looks right and is wrong. Row selection is the one local exception
+- [x] Port `components/data-table/use-table-state.ts` (URL synced page, limit, debounced search, filters) Plus sort, plus a `prefix` so two lists on one screen page independently. Every write resets to page 1 except paging itself. 29 specs
+- [x] `contexts/role-context.tsx` fed from `GET /users/me/permissions`, never from a hardcoded role check Denies everything by default and while loading, so a missing provider is a visible bug rather than an invisible bypass. Holds a `Set<string>`, so a permission the API grows before `types/permissions.ts` catches up still works. 8 specs
+- [x] Port `proxy.ts` **with its comments**. Cookie shape only, no network call Next.js 16 renamed `middleware.ts` to `proxy.ts`. Verified live: no cookie plus `/dashboard/projects?status=ACTIVE` gives 307 to `/login?next=...`, a cookie plus `/login` gives 307 to `/dashboard`, and `_next/*` is untouched. `?next=` goes through `safeRedirect`, so the param cannot become an open redirect (14 specs). `SESSION_GUARD=off` exists for a split-domain deployment where the cookie never reaches this app's server
+- [x] NEXT.js PPR and suspense `cacheComponents: true`, which is what Next.js 16 calls PPR. It immediately caught `DashboardShell` reading `usePathname()` above every boundary, which was blocking the whole document on the navigation. Three routes moved from fully dynamic (`ƒ`) to partial prerender (`◐`)
 
-**Exit criteria.** One screen migrated end to end, measurably shorter, with a test.
+Not on the original list, and needed:
+
+- [x] The three `"use client"` `page.tsx` files split, so every page is a Server Component again `login`, `forgot-password` and `change-password`. The bodies moved to `components/auth/` and `components/onboarding/`. This was not optional: reading `?next=` through `useSearchParams` in a client page failed the build outright
+- [x] `types/permissions.ts` and `types/users.ts` The permission union is verified against the live `/api/docs-json` (59 both ways, no drift), and `User` matches `UserResponseDto` field for field
+- [x] `pmt-frontend/CLAUDE.md` corrected It said this app runs on 3001 and the backend on 3000. Both were wrong, in the one file someone reads before starting
+
+**Exit criteria: met, with one honest qualification.** `settings` is migrated end to end:
+`useSyncExternalStore(userStore)` plus a `useEffect` became one `useCurrentUser()`, the four view
+states are explicit rather than two early returns that conflated loading with failure, and it has 7
+specs.
+
+It is **not measurably shorter**: 92 lines to 115, or 88 once the docblock is discounted, so call it
+level. Two thirds of the growth is a loading skeleton for the second card and an error state
+distinct from the empty one, neither of which existed before. The real reduction is the 180 lines of
+`user-store.ts` that nothing in this screen needs any more, and those come out when the last screen
+leaves it. A single read-only screen was always going to be the weakest demonstration of that: the
+list screens in phase 8 are where the debounce timers, the `latestRequestRef` race guards and the
+per-screen pagination state actually get deleted.
+
+**Found while doing this, not fixed here.** `types/auth.ts`'s `AppUser` types `role` and `status` as
+strings, but phase 6 made every response enum `{ value, label, tone }`. Eight call sites index
+`roleLabels[user.role]` with an object, so those badges render empty today. It is a real defect, it
+is per screen, and each screen fixes it as phase 8 reaches it: the API already sends `role.label`, so
+the fix is to delete `roleLabels` and `lib/auth-meta.ts` rather than to patch them.
 
 ---
 
@@ -397,7 +421,7 @@ build the same screens without re-deriving anything.
 
 One PR per module, ordered by ascending size so the pattern is proven cheaply first.
 
-- [ ] `settings` (92 lines)
+- [x] `settings` (92 lines) Done in phase 7 as the proof screen. `components/settings/settings-view.tsx`, on `useCurrentUser()`, with 7 specs
 - [ ] `reports` (293)
 - [ ] `profile` (403)
 - [ ] `blockers` (479 + 493)
