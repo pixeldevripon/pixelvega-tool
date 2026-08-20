@@ -1,0 +1,17 @@
+<svg width="64" height="64" viewBox="0 0 64 64" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <!--
+    The tab and bookmark mark for Vega.
+
+    A square, because the wordmark is 181x24 and squashes to an illegible smear
+    at 16px. The V is drawn as two strokes meeting at a point rather than set as
+    text: a favicon that depends on a webfont renders in whatever the browser
+    falls back to, which on a fresh profile is not the brand face.
+
+    The purple is --color-brand-600, oklch(0.37 0.14 323), written here as the
+    hex it resolves to. An SVG served as a file cannot read a CSS custom
+    property, so this is the one place the value is duplicated: if the brand
+    hue changes, change it here too.
+  -->
+  <rect width="64" height="64" rx="14" fill="#601C69"/>
+  <path d="M18 20L32 45L46 20" stroke="#FFFFFF" stroke-width="7" stroke-linecap="round" stroke-linejoin="round"/>
+</svg>

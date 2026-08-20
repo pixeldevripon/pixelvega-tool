@@ -28,6 +28,27 @@ Numbered prefixes are the reading order, not a category.
 | [`02-checklist.md`](./refactor/02-checklist.md) | The same work as 185 tickable items. **Tick it in the same PR as the work**                       |
 | [`03-progress.md`](./refactor/03-progress.md)   | **The live execution log.** What is being worked right now, in order, with outcomes and decisions |
 
+Refactor phases 0 to 7 are done. **Phase 8, frontend module migration, is absorbed by `dashboard/`
+below**, because the two describe the same files and running them separately would migrate a screen
+and then immediately rebuild it. Phase 9 still runs as written.
+
+### `product/`
+
+The four requirement documents this build implements, kept verbatim as handed over. The source, not
+the plan. See [`product/README.md`](./product/README.md).
+
+### `dashboard/`
+
+The v1 feature build: every requirement in `features.md`, `features1.md`, `Project Module.md` and
+`AI Integration Module.md`, delivered on the shell and design system copied from
+`tripwheel-x-islandtours-dashboard`.
+
+| Doc                                                    | What it answers                                                                                                                          |
+| ------------------------------------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------- |
+| [`00-requirements.md`](./dashboard/00-requirements.md) | All 178 requirements, each with what the backend already serves and what is left. The six document conflicts, with a recommendation each |
+| [`01-plan.md`](./dashboard/01-plan.md)                 | Twelve phases, what to copy from the reference and what not to, the per-module recipe, sequencing, risks                                 |
+| [`02-checklist.md`](./dashboard/02-checklist.md)       | The same work as 320 tickable items. **Tick it in the same PR as the work**                                                              |
+
 ---
 
 ## If you only read one thing
@@ -54,6 +75,8 @@ session loads automatically.
 | ---------------------------------------------- | --------------------------------------------------------------- |
 | Repo-wide architecture, decisions, conventions | `docs/architecture/`                                            |
 | Refactor and migration planning                | `docs/refactor/`                                                |
+| The v1 dashboard feature build                 | `docs/dashboard/`                                               |
+| A product requirement document, kept verbatim  | `docs/product/`                                                 |
 | An architecture decision record                | `docs/decisions/`, one file per decision, `NNNN-short-title.md` |
 | A feature's design or business rules, backend  | `pmt-backend/docs/features/<feature>/`                          |
 | A feature's design, frontend                   | `pmt-frontend/docs/features/<feature>/`                         |

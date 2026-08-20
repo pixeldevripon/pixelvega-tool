@@ -486,3 +486,94 @@ of `@nestjs/platform-express`, and pnpm's strict layout does not put a
 transitive dependency where the app can resolve it. It is now a declared
 dependency. Nothing in the gate covers this, because `lint`, `typecheck`, `test`
 and `build` all pass on code that cannot start.
+
+---
+
+## Phase 7: frontend foundations — complete, 2026-08-20
+
+On `refactor/phase-7-frontend-foundations`. Nothing in an existing screen changed behaviour except
+`settings`, which was migrated as the proof, and the three auth pages, which were split so they are
+Server Components again. Everything else is new machinery that phase 8 consumes.
+
+### What is now the only way to do each thing
+
+| Concern          | The one way                                      | Specs |
+| ---------------- | ------------------------------------------------ | ----- |
+| HTTP             | `apiFetch` / `apiDownload` in `lib/api/fetch.ts` | 32    |
+| Error copy       | `humaneError` in `lib/api/humane-error.ts`       | 30    |
+| Query cache      | `queryDefaults` in `components/providers/`       | 12    |
+| List state       | `useTableState` in `components/data-table/`      | 29    |
+| Permissions      | `usePermissions` in `contexts/role-context.tsx`  | 8     |
+| Redirect param   | `safeRedirect` in `lib/safe-redirect.ts`         | 14    |
+| The proof screen | `components/settings/settings-view.tsx`          | 7     |
+
+172 frontend specs in total, from 12.
+
+### Three library surprises, all of which changed the design
+
+**TanStack Table resolved to 9.1.** A new major, and not a rename: `useReactTable` is `useTable`, the
+row model factories are gone, and the feature set is declared up front with `tableFeatures({...})`
+rather than inferred from which factories were passed. That last change is a gift here: declaring
+`tableFeatures({ rowSelectionFeature })` and nothing else is a statement in code that this table does
+not sort, filter or paginate in the browser, which is exactly D4. The generic also needs an explicit
+`extends RowData` constraint, which is satisfied by a `type` alias and not by an `interface`; every
+type in `types/` is already a `type`.
+
+**Tailwind v4 has no `--duration-*` theme namespace.** An `--ease-*` token becomes an `ease-*`
+utility; a `--duration-*` token does not become `duration-*`, which was verified by compiling a probe
+rather than assumed. So the motion tokens are three named plain custom properties wired into
+`--default-transition-duration`, and the effect is that `transition-colors` is already the house
+speed and curve and almost nothing needs to name a duration at all.
+
+**The shadcn registry has moved on further than expected.** The current `radix-nova` style imports
+from the unified `radix-ui` package, needs `shadcn/tailwind.css` for its `data-open:` variants and
+`tw-animate-css` for its enter and exit animations, and its components are a different design from
+this product's: `h-8` buttons where ours are `h-11`, and a `Badge` keyed on `variant` rather than on
+the API's five tones. So `init` and `add` are wired up and eight NEW primitives came through the CLI,
+but the ten hand written ones were not overwritten. See the note against that checklist item.
+
+### Two defects this work found
+
+| Found                                                                                                                                                                                       | Why nothing caught it                                                                                                                        |
+| ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------- |
+| The old client wrote `signal: options.signal ?? controller.signal`, so a caller supplying its own abort signal silently turned the 15 second timeout OFF and the request could hang forever | Nothing tested the client at all. There is now a spec asserting a 408 when both signals are present                                          |
+| `JSON.parse` on a non-JSON error body threw a `SyntaxError` out of the client, so a 502 from a proxy reached a user as "Unexpected token '<'"                                               | Same reason. `parseBody` returns the raw text on a parse failure and `humaneError` recognises markup as not-prose and substitutes a sentence |
+
+### One defect it found and did NOT fix
+
+`types/auth.ts`'s `AppUser` types `role` and `status` as strings. Phase 6 made every response enum
+`{ value, label, tone }` (ADR 0001), so both are objects now, and eight call sites index
+`roleLabels[user.role]` with an object and render an empty badge. This is live, and it is the cost of
+a deferred client: the API changed shape and nothing on this side moved with it.
+
+Not fixed here because the fix is not a patch. The API already sends `role.label`, so the correct
+change is to delete `roleLabels` and `lib/auth-meta.ts` and read the label off the response, and that
+means editing every screen that renders a role. Each one does it as phase 8 reaches it, against
+`types/users.ts`, which was written for this purpose and verified field for field against the live
+`/api/docs-json`.
+
+### `cacheComponents` earned its keep immediately
+
+Turning it on failed the build with a named file and line: `DashboardShell` reads `usePathname()` and
+sat above every `<Suspense>` boundary, so the entire document was blocked on the navigation before
+any HTML was sent. A boundary in the dashboard layout fixed it, and three routes moved from fully
+dynamic to partial prerender. That is a real latency defect that `lint`, `typecheck`, `test` and the
+old `build` all passed over.
+
+### Verified
+
+`lint · typecheck · 172 frontend specs · build` for the frontend, plus the backend gate unchanged.
+
+Beyond the suite, three things were checked against something real rather than a mock:
+
+- **The proxy guard, live.** No cookie plus `/dashboard/projects?status=ACTIVE` gives 307 to
+  `/login?next=%2Fdashboard%2Fprojects%3Fstatus%3DACTIVE`; a cookie plus `/login` gives 307 to
+  `/dashboard`; `_next/*` is not touched by the matcher.
+- **The two endpoint shapes, against the running API's `/api/docs-json`.** `User` matches
+  `UserResponseDto` field for field, and the permission union matches the published enum exactly:
+  59 members, nothing missing in either direction.
+- **The tone utilities, in the built CSS.** `bg-success-surface`, `text-warning-foreground`,
+  `border-danger-border` and the rest all compile, `rounded-lg` still resolves to the `0.5rem` it
+  always was, and the per-step tracking reaches the output as
+  `letter-spacing: var(--tw-tracking, -.015em)`. A token that does not compile is a component with
+  no background, and that is invisible in a typecheck.

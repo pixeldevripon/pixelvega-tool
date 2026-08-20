@@ -1,49 +1,71 @@
-import * as React from "react";
-import { cva, type VariantProps } from "class-variance-authority";
-import { cn } from "@/lib/utils";
+import * as React from "react"
+import { cva, type VariantProps } from "class-variance-authority"
+import { Slot } from "radix-ui"
 
+import { cn } from "@/lib/utils"
+
+/*
+ * 03 §5.5 (Phase 13). The old base forced `uppercase tracking-widest text-xs`
+ * on every button in the product (D-8, E-4) - retired: sentence case at 14px.
+ * Eight sizes collapsed to five (sm 32 / default 36 / lg 40 / icon-sm / icon).
+ * `destructive` is a SOLID fill again: "Delete tour" must not look quieter
+ * than "Save".
+ */
 const buttonVariants = cva(
-  "inline-flex h-11 cursor-pointer items-center justify-center gap-2 rounded-md px-4 text-sm font-semibold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary disabled:cursor-not-allowed disabled:opacity-50",
+  "group/button inline-flex shrink-0 items-center justify-center rounded-md border border-transparent bg-clip-padding text-sm font-medium whitespace-nowrap transition-all outline-none select-none focus-visible:border-ring focus-visible:ring-2 focus-visible:ring-ring/30 active:not-aria-[haspopup]:translate-y-px disabled:pointer-events-none disabled:opacity-50 aria-invalid:border-destructive aria-invalid:ring-2 aria-invalid:ring-destructive/20 dark:aria-invalid:border-destructive/50 dark:aria-invalid:ring-destructive/40 [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4",
   {
     variants: {
       variant: {
-        default:
-          "bg-primary text-primary-foreground shadow-sm hover:bg-primary/90",
+        default: "bg-primary text-primary-foreground hover:bg-primary-hover",
         outline:
-          "border border-border bg-card text-foreground hover:border-primary hover:bg-primary/10 hover:text-primary",
-        ghost: "text-muted-foreground hover:bg-primary/10 hover:text-primary",
-        secondary: "bg-muted text-foreground hover:bg-primary/10 hover:text-primary",
+          "border-border bg-transparent hover:bg-muted hover:text-foreground aria-expanded:bg-muted aria-expanded:text-foreground dark:hover:bg-input/30",
+        secondary:
+          "bg-secondary text-secondary-foreground hover:bg-secondary/80 aria-expanded:bg-secondary aria-expanded:text-secondary-foreground",
+        ghost:
+          "hover:bg-muted hover:text-foreground aria-expanded:bg-muted aria-expanded:text-foreground dark:hover:bg-muted/50",
+        destructive:
+          "bg-danger-solid text-n-0 hover:bg-danger-solid/90 focus-visible:border-danger-border focus-visible:ring-danger-solid/30",
+        link: "text-primary underline underline-offset-4 hover:underline",
       },
+      // Vega re-skin: one step roomier across the board (default 36->40 etc.)
+      // so controls breathe next to the taller h-10 inputs.
       size: {
-        default: "h-11 px-4",
-        sm: "h-9 px-3",
-        lg: "h-11 px-5 text-base",
-        icon: "h-10 w-10 px-0",
+        default:
+          "h-10 gap-2 px-6 has-data-[icon=inline-end]:pr-4 has-data-[icon=inline-start]:pl-4",
+        sm: "h-9 gap-1.5 px-4 has-data-[icon=inline-end]:pr-3 has-data-[icon=inline-start]:pl-3 [&_svg:not([class*='size-'])]:size-3.5",
+        lg: "h-11 gap-2 px-8 has-data-[icon=inline-end]:pr-6 has-data-[icon=inline-start]:pl-6",
+        icon: "size-10",
+        "icon-sm": "size-9 [&_svg:not([class*='size-'])]:size-3.5",
       },
     },
     defaultVariants: {
       variant: "default",
       size: "default",
     },
-  },
-);
+  }
+)
 
-export interface ButtonProps
-  extends React.ButtonHTMLAttributes<HTMLButtonElement>,
-    VariantProps<typeof buttonVariants> {}
-
-export function Button({
+function Button({
   className,
-  variant,
-  size,
-  type = "button",
+  variant = "default",
+  size = "default",
+  asChild = false,
   ...props
-}: ButtonProps) {
+}: React.ComponentProps<"button"> &
+  VariantProps<typeof buttonVariants> & {
+    asChild?: boolean
+  }) {
+  const Comp = asChild ? Slot.Root : "button"
+
   return (
-    <button
-      type={type}
+    <Comp
+      data-slot="button"
+      data-variant={variant}
+      data-size={size}
       className={cn(buttonVariants({ variant, size, className }))}
       {...props}
     />
-  );
+  )
 }
+
+export { Button, buttonVariants }
