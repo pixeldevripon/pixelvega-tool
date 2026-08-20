@@ -186,7 +186,7 @@ export const leaveApi = {
   },
 
   listBalanceForUser(userId: string) {
-    return apiRequest<LeaveBalance[]>(`/api/leave/requests/${userId}/balance`);
+    return apiRequest<LeaveBalance[]>(`/api/leave/balances/${userId}`);
   },
 
   cancelRequest(requestId: string) {
