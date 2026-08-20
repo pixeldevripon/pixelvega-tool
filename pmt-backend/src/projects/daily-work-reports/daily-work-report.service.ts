@@ -288,12 +288,27 @@ export class DailyWorkReportService {
         'You can only view your own daily work reports',
       );
     }
-    const userId = requestedUserId ?? actorId;
+
+    /**
+     * Whose reports come back.
+     *
+     * A DEVELOPER or DESIGNER gets their own, always: `VIEW_WORK_REPORTS` is
+     * held by every delivery role, so the permission alone cannot separate
+     * reading your own standup from reading the team's.
+     *
+     * For a PROJECT_MANAGER or admin, asking for nobody in particular means the
+     * WHOLE TEAM. It used to mean themselves, which was an empty page: managers
+     * do not file standups, so the one screen a manager opens to read the team's
+     * standups showed nothing at all and there was no way to ask for everyone.
+     * Naming a person still narrows it to them.
+     */
+    const userId = requestedUserId ?? (isStaff ? undefined : actorId);
 
     const entryWhere = entryTypeWhere(type);
 
     const where = {
-      userId,
+      // Undefined means every author, which only a manager or admin reaches.
+      ...(userId && { userId }),
       ...((startDate || endDate) && {
         date: {
           ...(startDate && { gte: toDateOnly(new Date(startDate)) }),
@@ -310,8 +325,13 @@ export class DailyWorkReportService {
       (args) =>
         this.prisma.dailyWorkReport.findMany({
           where,
-          orderBy: { date: 'desc' },
+          // Date first, then author, so one day's standups sit together
+          // rather than interleaving when the whole team is listed.
+          orderBy: [{ date: 'desc' }, { user: { name: 'asc' } }],
           include: {
+            // Without this a team wide list shows bare ids and there is no way
+            // to tell whose standup you are reading.
+            user: { select: { id: true, name: true, email: true } },
             entries: {
               ...(entryWhere && { where: entryWhere }),
               include: {

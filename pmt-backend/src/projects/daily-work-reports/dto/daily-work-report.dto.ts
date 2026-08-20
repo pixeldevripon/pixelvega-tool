@@ -236,7 +236,7 @@ export class PaginatedProjectDailyEntriesResponseDto {
 export class QueryDailyWorkReportsDto extends PaginationQueryDto {
   @ApiPropertyOptional({
     description:
-      "View a specific team member's reports instead of your own. DEVELOPER and DESIGNER may only view themselves (403 otherwise); PROJECT_MANAGER, ADMIN and SYSTEM_ADMIN may view anyone.",
+      "View one team member's reports. DEVELOPER and DESIGNER may only view themselves (403 otherwise); PROJECT_MANAGER, ADMIN and SYSTEM_ADMIN may view anyone. Omitting it means your own reports for a DEVELOPER or DESIGNER, and the WHOLE TEAM for a manager or admin: a manager files no standups, so defaulting them to their own gave an empty page on the one screen that exists to read everyone else's.",
   })
   @IsOptional()
   @IsString()

@@ -3,10 +3,15 @@
 import { AlertDiamondIcon } from '@hugeicons/core-free-icons';
 
 import { blockersColumns } from '@/components/blockers/blockers-columns';
+import {
+    BLOCKER_SEVERITY_OPTIONS,
+    BLOCKER_STATUS_OPTIONS,
+} from '@/components/blockers/blockers-options';
 import { FilterSelect } from '@/components/common/filter-select';
 import { DataTable } from '@/components/data-table/data-table';
 import { useTableState } from '@/components/data-table/use-table-state';
 import { Input } from '@/components/ui/input';
+import { listErrorDescription } from '@/lib/api/list-error';
 import { useBlockers } from '@/hooks/blockers/use-blockers';
 
 /**
@@ -16,19 +21,6 @@ import { useBlockers } from '@/hooks/blockers/use-blockers';
  * they are an active member of, enforced in the service's where clause. This
  * screen asks the same question for everyone and the answer differs by caller.
  */
-
-const STATUS_OPTIONS = [
-    { value: 'OPEN', label: 'Open' },
-    { value: 'IN_PROGRESS', label: 'Being worked on' },
-    { value: 'RESOLVED', label: 'Resolved' },
-];
-
-const SEVERITY_OPTIONS = [
-    { value: 'CRITICAL', label: 'Critical' },
-    { value: 'HIGH', label: 'High' },
-    { value: 'MEDIUM', label: 'Medium' },
-    { value: 'LOW', label: 'Low' },
-];
 
 export function BlockersListView() {
     const table = useTableState();
@@ -62,16 +54,16 @@ export function BlockersListView() {
                     : 'Nothing is blocked',
                 description: query.isError
                     ? // `ApiError.message` is written to be shown verbatim.
-                      query.error instanceof Error
-                      ? query.error.message
-                      : 'Please try again.'
+                      listErrorDescription(query.error)
                     : 'No blocker matches this view, which on an unfiltered screen is good news.',
             }}
             toolbar={() => (
                 <div className='flex flex-wrap items-center gap-2'>
                     <Input
                         value={table.search}
-                        onChange={(event) => table.setSearch(event.target.value)}
+                        onChange={(event) =>
+                            table.setSearch(event.target.value)
+                        }
                         placeholder='Search blockers…'
                         aria-label='Search blockers'
                         className='h-9 w-full sm:w-64'
@@ -80,7 +72,7 @@ export function BlockersListView() {
                         label='Status'
                         placeholder='Any status'
                         value={table.filters.status}
-                        options={STATUS_OPTIONS}
+                        options={BLOCKER_STATUS_OPTIONS}
                         onChange={(value) => table.setFilter('status', value)}
                         className='w-44'
                     />
@@ -88,7 +80,7 @@ export function BlockersListView() {
                         label='Severity'
                         placeholder='Any severity'
                         value={table.filters.severity}
-                        options={SEVERITY_OPTIONS}
+                        options={BLOCKER_SEVERITY_OPTIONS}
                         onChange={(value) => table.setFilter('severity', value)}
                     />
                 </div>

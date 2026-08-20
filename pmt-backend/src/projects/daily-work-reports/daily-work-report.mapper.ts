@@ -14,12 +14,18 @@ import {
   DailyProjectEntryResponseDto,
   DailyWorkReportResponseDto,
   ProjectDailyEntryResponseDto,
+  WorkReportUserDto,
 } from './dto/daily-work-report.dto';
 
 /** A wrap up may be corrected for two hours after it is submitted. */
 export const WRAP_UP_EDIT_WINDOW_MS = 2 * 60 * 60 * 1000;
 
 type ReportUser = Pick<User, 'id' | 'name' | 'email'>;
+
+/** The three fields `WorkReportUserDto` declares, and only those. */
+function toWorkReportUser(user: ReportUser): WorkReportUserDto {
+  return { id: user.id, name: user.name, email: user.email };
+}
 
 export type DailyProjectEntryWithRelations = DailyProjectEntry & {
   project?: Pick<Project, 'id' | 'name'>;
@@ -139,7 +145,11 @@ export function toDailyWorkReportResponse(
   return {
     id: report.id,
     userId: report.userId,
-    ...(report.user && { user: report.user }),
+    // Field by field, never a spread. `...(report.user && { user: report.user })`
+    // put the raw row in the response, so the day somebody widened the select
+    // an undeclared column would ship with it. `User.password` holds a real
+    // hash, and response DTOs are not validated at runtime.
+    ...(report.user && { user: toWorkReportUser(report.user) }),
     date: toDateOnlyString(report.date),
     status: toEnumDisplay(DAILY_WORK_REPORT_STATUS_DISPLAY, report.status),
     planSubmittedAt: report.planSubmittedAt,
@@ -174,6 +184,6 @@ export function toProjectDailyEntryResponse(
       context,
     ),
     date: toDateOnlyString(entry.dailyWorkReport.date),
-    author: entry.dailyWorkReport.user,
+    author: toWorkReportUser(entry.dailyWorkReport.user),
   };
 }

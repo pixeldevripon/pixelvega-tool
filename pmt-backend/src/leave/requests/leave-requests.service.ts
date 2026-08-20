@@ -53,6 +53,25 @@ export interface LeaveSummaryUser {
   requests?: LeaveSummaryRequest[];
 }
 
+/**
+ * Everything a leave request response needs.
+ *
+ * Shared because it was written out six times and one relation was missing from
+ * every one of them: `reviewedBy`. `reviewedAt` was set and the reviewer was
+ * always null, so 286 approved requests said a decision had been made and
+ * refused to say by whom. The mapper handled the relation correctly and there
+ * was nothing wrong with it: nothing ever fetched it.
+ *
+ * `role` on `user` and not on `reviewedBy`, deliberately. A reviewer needs to
+ * know whose absence they are covering for; nobody needs the reviewer's own
+ * role, and `LeaveUserDto.role` is optional for exactly that reason.
+ */
+const LEAVE_REQUEST_INCLUDE = {
+  leaveType: true,
+  user: { select: { id: true, name: true, email: true, role: true } },
+  reviewedBy: { select: { id: true, name: true, email: true } },
+} as const;
+
 @Injectable()
 export class LeaveRequestsService {
   constructor(
@@ -94,7 +113,7 @@ export class LeaveRequestsService {
         reason: dto.reason,
         status: 'PENDING',
       },
-      include: { leaveType: true },
+      include: LEAVE_REQUEST_INCLUDE,
     });
 
     await this.auditLog.log({
@@ -144,7 +163,7 @@ export class LeaveRequestsService {
     const requests = await this.prisma.leaveRequest.findMany({
       where: { userId },
       orderBy: { createdAt: 'desc' },
-      include: { leaveType: true },
+      include: LEAVE_REQUEST_INCLUDE,
     });
     // Every row here is the caller's own, so they may cancel a pending one and
     // review none of them.
@@ -231,12 +250,7 @@ export class LeaveRequestsService {
         this.prisma.leaveRequest.findMany({
           where,
           orderBy: { createdAt: 'desc' },
-          include: {
-            leaveType: true,
-            user: {
-              select: { id: true, name: true, email: true, role: true },
-            },
-          },
+          include: LEAVE_REQUEST_INCLUDE,
           ...args,
         }),
       () => this.prisma.leaveRequest.count({ where }),
@@ -434,7 +448,7 @@ export class LeaveRequestsService {
         reviewedById: actorId,
         reviewedAt: new Date(),
       },
-      include: { leaveType: true },
+      include: LEAVE_REQUEST_INCLUDE,
     });
 
     await this.leaveBalances.incrementUsedDays(
@@ -526,7 +540,7 @@ export class LeaveRequestsService {
     const updated = await this.prisma.leaveRequest.update({
       where: { id },
       data: { status: 'CANCELLED' },
-      include: { leaveType: true },
+      include: LEAVE_REQUEST_INCLUDE,
     });
 
     await this.auditLog.log({
@@ -552,7 +566,7 @@ export class LeaveRequestsService {
         reviewedById: actorId,
         reviewedAt: new Date(),
       },
-      include: { leaveType: true },
+      include: LEAVE_REQUEST_INCLUDE,
     });
 
     await this.auditLog.log({

@@ -6,6 +6,7 @@ import { FilterSelect } from '@/components/common/filter-select';
 import { DataTable } from '@/components/data-table/data-table';
 import { useTableState } from '@/components/data-table/use-table-state';
 import { leaveColumns } from '@/components/leave/leave-columns';
+import { listErrorDescription } from '@/lib/api/list-error';
 import { useLeaveRequests } from '@/hooks/leave/use-leave-requests';
 
 /**
@@ -69,9 +70,7 @@ export function LeaveListView() {
                       ? 'Nothing is waiting'
                       : 'No request matches this view',
                 description: query.isError
-                    ? query.error instanceof Error
-                      ? query.error.message
-                      : 'Please try again.'
+                    ? listErrorDescription(query.error)
                     : status === 'PENDING'
                       ? 'Every request has been decided.'
                       : 'Try a different status.',

@@ -19,6 +19,8 @@ import { EnumDisplayDto } from '@/common/dto/display.dto';
 import { PaginationQueryDto } from '@/common/dto/pagination-query.dto';
 import { SORT_ORDERS } from '@/common/dto/sort-query.dto';
 import type { SortOrder } from '@/common/dto/sort-query.dto';
+import { ToArray } from '@/common/decorators/to-array.decorator';
+import { IsSearchTerm } from '@/common/decorators/is-search-term.decorator';
 import * as FieldLength from '@/common/constants/field-lengths';
 
 /**
@@ -157,11 +159,7 @@ export class QueryUsersDto extends PaginationQueryDto {
       'Comma separated (?role=DEVELOPER,DESIGNER) or repeated (?role=DEVELOPER&role=DESIGNER). Matches ANY of the given roles, not all of them.',
   })
   @IsOptional()
-  @Transform(({ value }: TransformFnParams): unknown => {
-    if (Array.isArray(value)) return value;
-    if (typeof value === 'string') return value.split(',').map((v) => v.trim());
-    return value;
-  })
+  @ToArray()
   @IsArray()
   @IsEnum(Role, { each: true })
   role?: Role[];
@@ -176,10 +174,7 @@ export class QueryUsersDto extends PaginationQueryDto {
     description:
       'Case insensitive, matches anywhere in the name OR the email. One box for both, because a person looking for a colleague types whichever they remember.',
   })
-  @IsOptional()
-  @IsString()
-  @IsNotEmpty()
-  @MaxLength(FieldLength.SHORT_TEXT)
+  @IsSearchTerm()
   search?: string;
 }
 

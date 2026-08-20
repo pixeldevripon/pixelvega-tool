@@ -14,6 +14,7 @@ import { BlockerSeverity, BlockerStatus } from '@prisma/client';
 
 import { PaginationQueryDto } from '@/common/dto/pagination-query.dto';
 import { EnumDisplayDto } from '@/common/dto/display.dto';
+import { IsSearchTerm } from '@/common/decorators/is-search-term.decorator';
 import * as FieldLength from '@/common/constants/field-lengths';
 import { Trim } from '@/common/decorators/trim.decorator';
 
@@ -280,10 +281,7 @@ export class QueryBlockersDto extends PaginationQueryDto {
     description:
       'Case insensitive, matches anywhere in the description. A blocker is found by what it says, not by an id: nobody remembers which project a half recalled problem belonged to.',
   })
-  @IsOptional()
-  @IsString()
-  @IsNotEmpty()
-  @MaxLength(FieldLength.SHORT_TEXT)
+  @IsSearchTerm()
   search?: string;
 }
 

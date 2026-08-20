@@ -7,6 +7,7 @@ import { DataTable } from '@/components/data-table/data-table';
 import { useTableState } from '@/components/data-table/use-table-state';
 import { usersColumns } from '@/components/users/users-columns';
 import { Input } from '@/components/ui/input';
+import { listErrorDescription } from '@/lib/api/list-error';
 import { useUsersList } from '@/hooks/users/use-users-list';
 import { USER_SORT_FIELDS, type UserSortField } from '@/types/users';
 
@@ -78,16 +79,16 @@ export function UsersListView() {
                     ? 'The team could not be loaded'
                     : 'Nobody matches this view',
                 description: query.isError
-                    ? query.error instanceof Error
-                      ? query.error.message
-                      : 'Please try again.'
+                    ? listErrorDescription(query.error)
                     : 'Try clearing the filters, or search for a different name.',
             }}
             toolbar={() => (
                 <div className='flex flex-wrap items-center gap-2'>
                     <Input
                         value={table.search}
-                        onChange={(event) => table.setSearch(event.target.value)}
+                        onChange={(event) =>
+                            table.setSearch(event.target.value)
+                        }
                         placeholder='Search name or email…'
                         aria-label='Search the team'
                         className='h-9 w-full sm:w-64'

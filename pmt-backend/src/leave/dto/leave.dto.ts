@@ -16,6 +16,7 @@ import {
 } from 'class-validator';
 import { LeaveStatus, Role } from '@prisma/client';
 
+import { ToArray } from '@/common/decorators/to-array.decorator';
 import { PaginationQueryDto } from '@/common/dto/pagination-query.dto';
 import { EnumDisplayDto } from '@/common/dto/display.dto';
 import { ToBoolean } from '@/common/decorators/to-boolean.decorator';
@@ -308,6 +309,10 @@ export class QueryLeaveRequestsDto extends PaginationQueryDto {
   @ApiPropertyOptional({ description: 'Filter to a specific user' })
   @IsOptional()
   @IsString()
+  // Bounded like its sibling on `QueryLeaveSummaryDto`. A better-auth user id
+  // is not a UUID, so this cannot be `@IsUUID()`, but an unbounded string
+  // reaching an equality clause still has no reason to be unbounded.
+  @MaxLength(FieldLength.SINGLE_LINE)
   userId?: string;
 
   @ApiPropertyOptional({
@@ -321,7 +326,10 @@ export class QueryLeaveRequestsDto extends PaginationQueryDto {
 
   @ApiPropertyOptional({ description: 'Filter to one kind of leave.' })
   @IsOptional()
-  @IsString()
+  // A foreign key, and `CreateLeaveRequestDto.leaveTypeId` validates it as one.
+  // A query filter accepting an arbitrary string for the same column is the
+  // looser half of a promise the DTO is supposed to be (D5).
+  @IsUUID()
   leaveTypeId?: string;
 }
 
@@ -350,11 +358,7 @@ export class QueryLeaveSummaryDto {
       'Comma separated (?role=DEVELOPER,DESIGNER) or repeated (?role=DEVELOPER&role=DESIGNER). Matches ANY of the given roles, not all of them. Only PROJECT_MANAGER, DEVELOPER, and DESIGNER can have leave requests.',
   })
   @IsOptional()
-  @Transform(({ value }: TransformFnParams): unknown => {
-    if (Array.isArray(value)) return value;
-    if (typeof value === 'string') return value.split(',').map((v) => v.trim());
-    return value;
-  })
+  @ToArray()
   @IsArray()
   @IsIn(LEAVE_TAKING_ROLES, { each: true })
   role?: Role[];

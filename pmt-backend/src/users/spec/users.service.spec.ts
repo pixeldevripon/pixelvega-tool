@@ -24,7 +24,7 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
-import { Role } from '@prisma/client';
+import { Role, UserStatus } from '@prisma/client';
 import { AuditLogService } from '@/audit-logs/audit-log.service';
 import { MailService } from '@/mail/mail.service';
 import { PrismaService } from '@/prisma/prisma.service';
@@ -394,5 +394,122 @@ describe('UsersService: target specific protection rules', () => {
       ).rejects.toBeInstanceOf(ForbiddenException);
       expect(prisma.user.findUnique).not.toHaveBeenCalled();
     });
+  });
+});
+
+describe('UsersService.findAll: the list filters', () => {
+  /**
+   * `GET /users` took only `sortBy` and `sortOrder`, so the team screen had no
+   * way to answer "who are the designers" except by paging 235 people. Three
+   * filters were added and none had a test.
+   *
+   * These assert the WHERE clause, because that is where the rules live: a mock
+   * that ignores the clause would satisfy any assertion about the rows.
+   */
+  let service: UsersService;
+  let prisma: { user: { findMany: jest.Mock; count: jest.Mock } };
+
+  const whereFrom = () =>
+    (
+      prisma.user.findMany.mock.calls[0][0] as {
+        where: Record<string, unknown>;
+      }
+    ).where;
+
+  beforeEach(async () => {
+    prisma = {
+      user: {
+        findMany: jest.fn().mockResolvedValue([]),
+        count: jest.fn().mockResolvedValue(0),
+      },
+    };
+
+    const module: TestingModule = await Test.createTestingModule({
+      providers: [
+        UsersService,
+        { provide: PrismaService, useValue: prisma },
+        { provide: MailService, useValue: { sendMail: jest.fn() } },
+        { provide: ProfilesService, useValue: { createForUser: jest.fn() } },
+        { provide: AuditLogService, useValue: { log: jest.fn() } },
+      ],
+    }).compile();
+
+    service = module.get(UsersService);
+  });
+
+  it('always excludes soft deleted people', async () => {
+    await service.findAll({});
+
+    expect(whereFrom().deletedAt).toBeNull();
+  });
+
+  it('STILL excludes them with every filter applied', async () => {
+    // `deletedAt: null` is not a filter and must never become one. A new filter
+    // spreading over it would resurrect deleted accounts into the team list.
+    await service.findAll({
+      role: [Role.DEVELOPER],
+      status: UserStatus.ACTIVE,
+      search: 'ada',
+    });
+
+    expect(whereFrom().deletedAt).toBeNull();
+  });
+
+  it('matches ANY of several roles, not all of them', async () => {
+    await service.findAll({ role: [Role.DEVELOPER, Role.DESIGNER] });
+
+    expect(whereFrom().role).toEqual({ in: ['DEVELOPER', 'DESIGNER'] });
+  });
+
+  it('ignores an empty role array rather than matching nothing', async () => {
+    // `{ in: [] }` matches no rows, so an empty array would silently empty the
+    // list instead of being the no-op the caller meant.
+    await service.findAll({ role: [] });
+
+    expect('role' in whereFrom()).toBe(false);
+  });
+
+  it('searches the name OR the email, case insensitively', async () => {
+    // One box for both, because a person looking for a colleague types
+    // whichever of the two they remember.
+    await service.findAll({ search: 'ada' });
+
+    expect(whereFrom().OR).toEqual([
+      { name: { contains: 'ada', mode: 'insensitive' } },
+      { email: { contains: 'ada', mode: 'insensitive' } },
+    ]);
+  });
+
+  it('places no filter that was not asked for', async () => {
+    await service.findAll({});
+
+    const where = whereFrom();
+    expect('role' in where).toBe(false);
+    expect('status' in where).toBe(false);
+    expect('OR' in where).toBe(false);
+  });
+
+  it('sorts by name ascending by default', async () => {
+    // Every screen that lists people reads them alphabetically.
+    await service.findAll({});
+
+    const call = prisma.user.findMany.mock.calls[0][0] as { orderBy: unknown };
+    expect(call.orderBy).toEqual({ name: 'asc' });
+  });
+
+  it('counts with the SAME clause it lists with', async () => {
+    await service.findAll({ status: UserStatus.SUSPENDED });
+
+    expect(prisma.user.count).toHaveBeenCalledWith({ where: whereFrom() });
+  });
+
+  it('never selects the password column', async () => {
+    // `User.password` holds a real hash.
+    await service.findAll({});
+
+    const call = prisma.user.findMany.mock.calls[0][0] as {
+      select: Record<string, unknown>;
+    };
+    expect('password' in call.select).toBe(false);
   });
 });

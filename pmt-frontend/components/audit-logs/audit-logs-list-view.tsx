@@ -7,6 +7,7 @@ import { DataTable } from '@/components/data-table/data-table';
 import { useTableState } from '@/components/data-table/use-table-state';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { listErrorDescription } from '@/lib/api/list-error';
 import { useAuditLogs } from '@/hooks/audit-logs/use-audit-logs';
 
 /**
@@ -54,9 +55,7 @@ export function AuditLogsListView() {
                     ? 'The audit log could not be loaded'
                     : 'Nothing recorded in this range',
                 description: query.isError
-                    ? query.error instanceof Error
-                      ? query.error.message
-                      : 'Please try again.'
+                    ? listErrorDescription(query.error)
                     : 'Try widening the dates, or clearing the action.',
             }}
             toolbar={() => (
@@ -64,7 +63,8 @@ export function AuditLogsListView() {
                     <div className='flex flex-col gap-1'>
                         <Label
                             htmlFor='audit-action'
-                            className='text-2xs text-content-muted'>
+                            className='text-2xs text-content-muted'
+                        >
                             Action
                         </Label>
                         <Input

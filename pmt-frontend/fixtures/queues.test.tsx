@@ -9,7 +9,7 @@ import {
     BLOCKER_ROWS,
     LEAVE_ROWS,
     USER_ROWS,
-} from '@/components/common/queues.fixture';
+} from '@/fixtures/queues';
 import { DataTable } from '@/components/data-table/data-table';
 import { leaveColumns } from '@/components/leave/leave-columns';
 import { usersColumns } from '@/components/users/users-columns';
