@@ -44,7 +44,12 @@ import { DisplayTone, EnumDisplayDto } from '@/common/dto/display.dto';
  * judgment already lived. Where the frontend had no opinion the tone is stated
  * fresh and the reasoning is in a comment.
  */
-type EnumDisplayEntry = { label: string; tone: DisplayTone };
+/**
+ * Exported so a consumer can accept "any display map" without widening `tone`
+ * to `string`, which would silently drop the closed five-tone union and let a
+ * caller invent a sixth.
+ */
+export type EnumDisplayEntry = { label: string; tone: DisplayTone };
 
 // ════════════════════════════════════════════════════════════════════════════
 // Projects
@@ -614,6 +619,40 @@ export const NOTIFICATION_TYPE_DISPLAY: Record<
  * rather than silently becoming a "None" object that a client then has to
  * special case: an absent priority is absent, not a priority called absent.
  */
+// ════════════════════════════════════════════════════════════════════════════
+// Dashboard
+// ════════════════════════════════════════════════════════════════════════════
+
+/**
+ * Which dashboard a caller gets.
+ *
+ * NOT a Prisma enum, and deliberately not derived from `Role` either. It is
+ * decided from the caller's PERMISSION SET (`resolveDashboardAudience`), so a
+ * role whose grants change gets the right dashboard without this file moving.
+ * `toEnumDisplay` is generic over `E extends string`, so a plain union works.
+ *
+ * Every tone is `default`. An audience is not a severity: it says whose day
+ * this screen describes, and colouring it would imply one of them is a problem.
+ */
+export const DASHBOARD_AUDIENCES = [
+  'ADMIN',
+  'MANAGER',
+  'STAFF',
+  'CLIENT',
+] as const;
+
+export type DashboardAudience = (typeof DASHBOARD_AUDIENCES)[number];
+
+export const DASHBOARD_AUDIENCE_DISPLAY: Record<
+  DashboardAudience,
+  EnumDisplayEntry
+> = {
+  ADMIN: { label: 'Administrator', tone: 'default' },
+  MANAGER: { label: 'Project manager', tone: 'default' },
+  STAFF: { label: 'Delivery', tone: 'default' },
+  CLIENT: { label: 'Client', tone: 'default' },
+};
+
 export function toEnumDisplay<E extends string>(
   map: Record<E, EnumDisplayEntry>,
   value: E,

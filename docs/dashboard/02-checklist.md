@@ -14,7 +14,7 @@ A stale checklist is worse than no checklist, because the next person trusts it.
 | ~     | Decisions to make first                     | 9       | 0      | not started |
 | D0    | Mirror, then prune                          | 99      | 68     | in progress |
 | D1    | The module kit                              | 29      | 0      | not started |
-| D2    | Backend, the dashboards                     | 15      | 0      | not started |
+| D2    | Backend, the dashboards                     | 26      | 12     | in progress |
 | D3    | Frontend, the four dashboards               | 11      | 0      | not started |
 | D4    | Backend, the contract gaps                  | 7       | 0      | not started |
 | D5    | Projects, list to detail                    | 33      | 0      | not started |
@@ -24,7 +24,7 @@ A stale checklist is worse than no checklist, because the next person trusts it.
 | D9    | The AI module                               | 24      | 0      | not started |
 | D10   | The named gaps                              | 30      | 0      | not started |
 | D11   | Hardening and close                         | 16      | 0      | not started |
-|       | **Total**                                   | **351** | **68** |             |
+|       | **Total**                                   | **362** | **80** |             |     |
 
 Regenerate the counts with
 `awk '/^## /{if(s!="")print s": "n; s=$0; n=0} /^- \[ \]|^- \[x\]/{n++} END{print s": "n}' 02-checklist.md`
@@ -311,23 +311,81 @@ sidebar. **PixelVega is the company; Vega is the tool.** Renaming it is one edit
 
 ## Phase D2: backend, the dashboards (Q1 to Q9)
 
-- [ ] ADR `0005-the-dashboard-is-one-endpoint-with-an-audience-discriminator.md`, or the alternative if X-decision says four routes
-- [ ] `VIEW_DASHBOARD` in `prisma/enums.prisma`, granted to all six roles in `ROLE_PERMISSIONS`
-- [ ] Hand-write the migration folder and `migration.sql`, then `prisma migrate deploy`. `migrate dev` needs a TTY
-- [ ] `src/dashboard/` following the module shape: one `dto/dashboard.dto.ts`, `spec/`, `dashboard.swagger.ts`, service, controller, module
-- [ ] Register it in `AppModule.imports`
-- [ ] `GET /dashboard` returns an `audience` discriminator plus exactly one populated block
-- [ ] The admin block (Q2, Q9)
-- [ ] The manager block (Q3)
-- [ ] The staff block (Q4, Q5)
-- [ ] The client block (Q8)
-- [ ] **Ordering is server side** (Q6, Q7): priority, then deadline, then planned start date, with Ready For Work and In Progress ahead of completed or inactive
-- [ ] Every figure carries its display label alongside the exact value (ADR 0003)
-- [ ] A rate is `null`, never zero, when its denominator is zero
-- [ ] Service specs: every audience branch, and the ordering rule asserted on a fixture that would fail under any other order
-- [ ] Swagger published, and the shape checked against `/api/docs-json`
+### The shape, decided
 
----
+`GET /dashboard` returns an `audience` discriminator plus four nullable blocks, **exactly one
+populated**. The alternative was four routes and a client that works out which one it may call, which
+is derivation, and deriving it in a browser means a second copy of the rule that decides it (D4, D2).
+
+`audience` is resolved from the caller's **permission set, never from their role** (D2), most
+privileged first, because an ADMIN also holds the markers for MANAGER and STAFF:
+
+| Marker held          | Audience  | Why that marker                                                                                          |
+| -------------------- | --------- | -------------------------------------------------------------------------------------------------------- |
+| `VIEW_AUDIT_LOG`     | `ADMIN`   | Admin only                                                                                               |
+| `VIEW_ALL_PROJECTS`  | `MANAGER` | Project manager and above                                                                                |
+| `TRACK_PROJECT_TIME` | `STAFF`   | Developer and designer only. A PM does not hold it, which is also why they get no "My day"               |
+| none of the above    | `CLIENT`  | A **fallback**, because a client's grants are a subset of everyone's and no capability is unique to them |
+
+### Every project is private. The scope is enforced in the QUERY
+
+**This is the part to get right, and it is not the permission.** A permission answers "may this role
+ever see a project". Whether this caller may see THIS project is a separate question, and an
+unassigned developer must not see a project they are not staffed on.
+
+| Audience  | Projects it may see                                                      | Enforced by                                                                   |
+| --------- | ------------------------------------------------------------------------ | ----------------------------------------------------------------------------- |
+| `ADMIN`   | Every non-archived project                                               | No filter. `features1.md`: "Full unrestricted access to all data and modules" |
+| `MANAGER` | Projects where they are an **active member with role `PROJECT_MANAGER`** | `members: { some: { userId, role: PROJECT_MANAGER, leftAt: null } }`          |
+| `STAFF`   | Projects where they are an **active member in any role**                 | `members: { some: { userId, leftAt: null } }`                                 |
+| `CLIENT`  | Projects where `clientId` is them                                        | `where: { clientId: userId }`                                                 |
+
+- [ ] **The filter is in the `where`, never in the mapper.** A mapper that drops rows is a leak the
+      first time someone edits it, and the response would look correct while carrying data the caller
+      may not have. This is the defect `pmt-backend/CLAUDE.md` calls the most repeated one in the
+      codebase, in its other direction
+- [ ] **A MANAGER sees projects they MANAGE, not all of them.** They hold `VIEW_ALL_PROJECTS`, so
+      `GET /projects` correctly lists everything for them; a dashboard of 40 projects they are not
+      responsible for is not a dashboard. That narrowing is a deliberate product decision and needs
+      confirming
+- [ ] **Former members are off the card.** Only `leftAt: null` rows count as who is working on it.
+      Someone who left is part of the project's history, which the activity timeline carries
+- [ ] Archived projects are excluded from every block
+- [ ] Every list is bounded by the service, never by a client-supplied page size
+- [ ] A spec per audience asserting a project the caller is NOT staffed on is absent from the response
+
+### The card is the content
+
+Each project renders as **one card** carrying its status, who is working on it, its blockers and its
+progress. So the card is the primary payload rather than a row in a table, and everything it shows is
+a field:
+
+- [x] `DashboardProjectDto`: status and priority as display objects, deadline with `daysUntilDeadline` and `isOverdue`, progress, estimated/actual/remaining hours, `isActive`
+- [x] `openBlockerCount` and `highSeverityBlockerCount`, so a card can say "1 high" without receiving every blocker row to count them
+- [x] `members`, project managers first then by name, avatars included so a card does not fetch its own team (one request per card on a screen whose job is to load at once)
+- [x] `DashboardClientProjectDto` is a **separate class**, not a subset. Omitting fields at runtime from the wider one is how an internal number reaches a client the first time someone edits the mapper
+
+### Done
+
+- [x] `VIEW_DASHBOARD` in `prisma/enums.prisma`, granted to `EVERYONE` in `ROLE_PERMISSIONS`
+- [x] Migration hand written and applied with `prisma migrate deploy`, because `migrate dev` needs a TTY
+- [x] `DASHBOARD_AUDIENCE_DISPLAY` in `enum-display.util.ts`. Every tone is `default`: an audience is not a severity
+- [x] `EnumDisplayEntry` exported from that file, so a consumer can accept "any display map" without widening `tone` to `string` and losing the closed five-tone union
+- [x] `dto/dashboard.dto.ts`, Response then Query then Request, with an example on every field. Query and Request are empty and say why
+- [x] `dashboard.mapper.ts`, pure. Reuses `daysUntilDeadline`, `TERMINAL_STATUSES`, `withRemainingHours` and `DASHBOARD_ACTIVE_STATUSES` rather than reimplementing them: a second copy of "is this overdue" disagreeing by one day is invisible from either file alone
+- [x] `spec/dashboard.mapper.spec.ts`, 42 cases. Audience resolution is driven from the real `ROLE_PERMISSIONS` rather than hand-written lists, because a role's grants changing is the thing that can break it
+- [x] Backend gate green with it in the tree: lint clean, typecheck 0, 1,142 tests
+
+### Still to build
+
+- [ ] `dashboard.service.ts`, with the four scoped queries above
+- [ ] `dashboard.controller.ts`, one `GET /` gated on `VIEW_DASHBOARD`
+- [ ] `dashboard.swagger.ts`, one `applyDecorators()` function
+- [ ] `dashboard.module.ts`, registered in `AppModule.imports`
+- [ ] **Registered in `src/app.controllers.ts`**, or neither route spec sees it and both silently cover less. Both assert the controller count for this reason
+- [ ] `spec/dashboard.service.spec.ts`, Prisma fully mocked, one case per audience plus the scoping assertions above
+- [ ] Ordering asserted on a fixture that would fail under any other order (Q6, Q7), reusing `compareForDashboard` rather than a second comparator
+- [ ] `test/openapi.e2e-spec.ts` still green: every 2xx needs a schema
 
 ## Phase D3: frontend, the four dashboards (Q1 to Q9)
 

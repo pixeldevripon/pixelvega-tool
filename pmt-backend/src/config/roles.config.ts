@@ -33,6 +33,12 @@ import { Permission, Role } from '@prisma/client';
  * mistake rather than a deliberate omission.
  */
 const EVERYONE: Permission[] = [
+  // The landing screen. Every role lands somewhere, and WHICH dashboard they
+  // get is decided by the rest of their set rather than by this permission:
+  // holding VIEW_AUDIT_LOG makes it the admin one, VIEW_ALL_PROJECTS the
+  // manager one, TRACK_PROJECT_TIME the staff one, and holding none of the
+  // three makes it the client one.
+  Permission.VIEW_DASHBOARD,
   Permission.VIEW_OWN_PROJECTS,
   Permission.VIEW_OWN_PROFILE,
   Permission.EDIT_OWN_PROFILE,
