@@ -9,6 +9,7 @@ import { DailyWorkReportStatus, NotificationType, Role } from '@prisma/client';
 import { PrismaService } from '@/prisma/prisma.service';
 import { ProjectActivityService } from '@/projects/activity/project-activity.service';
 import { NotificationsService } from '@/notifications/notifications.service';
+import { ProjectScopeService } from '@/projects/scope/project-scope.service';
 
 import { DailyProjectEntryService } from '@/projects/daily-work-reports/daily-project-entry.service';
 
@@ -20,10 +21,13 @@ describe('DailyProjectEntryService', () => {
 
   const prisma = {
     dailyProjectEntry: { findUnique: jest.fn(), update: jest.fn() },
-    projectMember: { findFirst: jest.fn() },
   };
   const projectActivity = { log: jest.fn() };
   const notificationsService = { notify: jest.fn() };
+  const projectScope = {
+    assertManagesProject: jest.fn(),
+    managesProject: jest.fn(),
+  };
 
   function entry(
     status: DailyWorkReportStatus = DailyWorkReportStatus.COMPLETED,
@@ -50,12 +54,14 @@ describe('DailyProjectEntryService', () => {
         { provide: PrismaService, useValue: prisma },
         { provide: ProjectActivityService, useValue: projectActivity },
         { provide: NotificationsService, useValue: notificationsService },
+        { provide: ProjectScopeService, useValue: projectScope },
       ],
     }).compile();
     service = moduleRef.get(DailyProjectEntryService);
     prisma.dailyProjectEntry.update.mockImplementation(() =>
       Promise.resolve(entry()),
     );
+    projectScope.assertManagesProject.mockResolvedValue(undefined);
   });
 
   it('404s on an entry that does not exist', async () => {
@@ -88,29 +94,45 @@ describe('DailyProjectEntryService', () => {
   });
 
   describe('who may review', () => {
-    it.each([Role.ADMIN, Role.SYSTEM_ADMIN])(
-      '%s may review without being staffed',
-      async (role) => {
-        prisma.dailyProjectEntry.findUnique.mockResolvedValue(entry());
-        await service.review('e1', {}, 'admin-1', role);
-        expect(prisma.projectMember.findFirst).not.toHaveBeenCalled();
-      },
-    );
-
-    it('a PROJECT_MANAGER must manage THIS project', async () => {
+    // Reviewing is a manager's act, and the rule belongs to
+    // ProjectScopeService, not to a private copy here. What this level can
+    // assert is that the question is asked about the right project and the
+    // right caller, and that a refusal is not swallowed. Who satisfies
+    // `managesProject` is that service's own spec.
+    it("asks the scope service about THIS entry's project and the caller", async () => {
       prisma.dailyProjectEntry.findUnique.mockResolvedValue(entry());
-      prisma.projectMember.findFirst.mockResolvedValue(null);
+      await service.review('e1', {}, REVIEWER, Role.PROJECT_MANAGER);
+      expect(projectScope.assertManagesProject).toHaveBeenCalledWith(
+        'p1',
+        REVIEWER,
+        Role.PROJECT_MANAGER,
+      );
+    });
+
+    it('does not review when the scope service refuses', async () => {
+      prisma.dailyProjectEntry.findUnique.mockResolvedValue(entry());
+      projectScope.assertManagesProject.mockRejectedValue(
+        new ForbiddenException('You do not manage this project'),
+      );
       await expect(
         service.review('e1', {}, REVIEWER, Role.PROJECT_MANAGER),
       ).rejects.toThrow(ForbiddenException);
+      expect(prisma.dailyProjectEntry.update).not.toHaveBeenCalled();
     });
 
-    it('passes for a PM staffed as this project as its manager', async () => {
+    it('reports the review it just performed as permitted', async () => {
+      // The caller manages the project, or the assertion above would have
+      // thrown, so the flag on the response has to say so. Returning
+      // `canReview: false` on the very entry the caller just reviewed is what
+      // the previous version did once the flag started consulting the project.
       prisma.dailyProjectEntry.findUnique.mockResolvedValue(entry());
-      prisma.projectMember.findFirst.mockResolvedValue({ id: 'm1' });
-      await expect(
-        service.review('e1', {}, REVIEWER, Role.PROJECT_MANAGER),
-      ).resolves.toBeDefined();
+      const result = await service.review(
+        'e1',
+        {},
+        REVIEWER,
+        Role.PROJECT_MANAGER,
+      );
+      expect(result.capabilities.canReview).toBe(true);
     });
   });
 

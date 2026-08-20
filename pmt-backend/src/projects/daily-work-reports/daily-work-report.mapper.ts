@@ -33,6 +33,19 @@ export type DailyWorkReportWithRelations = DailyWorkReport & {
 
 export type WorkReportContext = {
   callerId: string;
+  /**
+   * The projects the caller manages, out of those on this response.
+   *
+   * `canReview` needs it because reviewing is a manager's act:
+   * `DailyProjectEntryService.review` admits ADMIN, SYSTEM_ADMIN, and the
+   * project's own PROJECT_MANAGER, nobody else. The flag used to be only
+   * `callerId !== authorId`, so every entry advertised a review that a
+   * DEVELOPER (who does not even hold `REVIEW_WORK_REPORT`) would be 403'd for.
+   *
+   * Absent means "not computed for this response", which reads as no review
+   * rights. Every list and detail path that returns entries fills it.
+   */
+  managedProjectIds?: ReadonlySet<string>;
 };
 
 // ════════════════════════════════════════════════════════════════════════════
@@ -106,10 +119,13 @@ export function toDailyProjectEntryResponse(
     reviewComment: entry.reviewComment,
     isReviewed: entry.reviewedAt !== null,
     capabilities: {
-      // Reviewing your own work report is not a review. Whether the caller has
-      // the REVIEW_WORK_REPORT permission at all is the guard's question; this
-      // is the part the guard cannot answer.
-      canReview: context.callerId !== authorId,
+      // Reviewing your own work is not a review, and reviewing at all is a
+      // manager's act. Both halves are needed: the route's
+      // `@RequirePermissions(REVIEW_WORK_REPORT)` answers "may this ROLE ever",
+      // and `managedProjectIds` answers "on THIS project".
+      canReview:
+        context.callerId !== authorId &&
+        (context.managedProjectIds?.has(entry.projectId) ?? false),
     },
   };
 }

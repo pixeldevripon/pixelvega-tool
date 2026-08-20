@@ -193,6 +193,7 @@ export class DailyWorkReportService {
       );
     });
 
+    // Same as above: the caller's own report, so no review rights to compute.
     return toDailyWorkReportResponse(report, { callerId: userId });
   }
 
@@ -244,10 +245,20 @@ export class DailyWorkReportService {
       pageSize,
     );
 
+    // One project, known from the parameter: every entry on this page has it.
+    const managedProjectIds = await this.managedProjectIds(
+      [projectId],
+      actorId,
+      actorRole,
+    );
+
     return {
       ...result,
       items: result.items.map((entry) =>
-        toProjectDailyEntryResponse(entry, { callerId: actorId }),
+        toProjectDailyEntryResponse(entry, {
+          callerId: actorId,
+          managedProjectIds,
+        }),
       ),
     };
   }
@@ -316,10 +327,21 @@ export class DailyWorkReportService {
       pageSize,
     );
 
+    const managedProjectIds = await this.managedProjectIds(
+      result.items.flatMap((report) =>
+        report.entries.map((entry) => entry.projectId),
+      ),
+      actorId,
+      actorRole,
+    );
+
     return {
       ...result,
       items: result.items.map((report) =>
-        toDailyWorkReportResponse(report, { callerId: actorId }),
+        toDailyWorkReportResponse(report, {
+          callerId: actorId,
+          managedProjectIds,
+        }),
       ),
     };
   }
@@ -388,6 +410,8 @@ export class DailyWorkReportService {
 
     return toDailyWorkReportResponse(
       await this.getOwnReportOrThrow(reportId, userId),
+      // No `managedProjectIds`: this is the caller's OWN report, and reviewing
+      // your own work is never a review, so `canReview` is false regardless.
       { callerId: userId },
     );
   }
@@ -465,6 +489,8 @@ export class DailyWorkReportService {
 
     return toDailyWorkReportResponse(
       await this.getOwnReportOrThrow(reportId, userId),
+      // No `managedProjectIds`: this is the caller's OWN report, and reviewing
+      // your own work is never a review, so `canReview` is false regardless.
       { callerId: userId },
     );
   }
@@ -542,8 +568,31 @@ export class DailyWorkReportService {
 
     return toDailyWorkReportResponse(
       await this.getOwnReportOrThrow(reportId, userId),
+      // No `managedProjectIds`: this is the caller's OWN report, and reviewing
+      // your own work is never a review, so `canReview` is false regardless.
       { callerId: userId },
     );
+  }
+
+  /**
+   * Which of these projects does the caller manage?
+   *
+   * `canReview` needs it, and reviewing is a manager's act. Computed once for
+   * the whole page and deduplicated, so a report spanning five projects costs
+   * five checks rather than one per entry.
+   */
+  private async managedProjectIds(
+    projectIds: string[],
+    actorId: string,
+    actorRole: Role,
+  ): Promise<ReadonlySet<string>> {
+    const distinct = [...new Set(projectIds)];
+    const answers = await Promise.all(
+      distinct.map((projectId) =>
+        this.projectScope.managesProject(projectId, actorId, actorRole),
+      ),
+    );
+    return new Set(distinct.filter((_projectId, index) => answers[index]));
   }
 
   private assertNoDuplicateProjects(projectIds: string[]) {

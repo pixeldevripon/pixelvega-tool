@@ -157,6 +157,71 @@ describe('ProjectsService: status, archive and restore', () => {
     });
   });
 
+  describe('updateStatus: the caller must be scoped to THIS project', () => {
+    // Every other test in this file leaves `projectMember.findFirst` on its
+    // permissive default, so the project-scoping branch is trivially satisfied
+    // throughout and its refusal path was never exercised: deleting the
+    // `assertMayChangeProjectStatus` call entirely left the suite green.
+    it('refuses a PROJECT_MANAGER who does not manage it', async () => {
+      setProject({ status: ProjectStatus.IN_PROGRESS });
+      prisma.projectMember.findFirst.mockResolvedValue(null);
+
+      await expect(
+        service.updateStatus(
+          PROJECT_ID,
+          { status: ProjectStatus.INTERNAL_REVIEW },
+          PM_ID,
+          Role.PROJECT_MANAGER,
+        ),
+      ).rejects.toBeInstanceOf(ForbiddenException);
+      expect(prisma.project.update).not.toHaveBeenCalled();
+    });
+
+    it('allows a PROJECT_MANAGER who does', async () => {
+      setProject({ status: ProjectStatus.IN_PROGRESS });
+      prisma.projectMember.findFirst.mockResolvedValue({ id: 'm1' });
+
+      await expect(
+        service.updateStatus(
+          PROJECT_ID,
+          { status: ProjectStatus.INTERNAL_REVIEW },
+          PM_ID,
+          Role.PROJECT_MANAGER,
+        ),
+      ).resolves.toBeDefined();
+    });
+
+    it('refuses a DEVELOPER who is not staffed on it', async () => {
+      setProject({ status: ProjectStatus.IN_PROGRESS });
+      prisma.projectMember.findFirst.mockResolvedValue(null);
+
+      await expect(
+        service.updateStatus(
+          PROJECT_ID,
+          { status: ProjectStatus.INTERNAL_REVIEW },
+          DEV_ID,
+          Role.DEVELOPER,
+        ),
+      ).rejects.toBeInstanceOf(ForbiddenException);
+    });
+
+    it('allows an ADMIN with no membership at all', async () => {
+      // The superset rule from roles.config.ts: admins are not scoped by
+      // staffing, so this must not start asking for a membership row.
+      setProject({ status: ProjectStatus.IN_PROGRESS });
+      prisma.projectMember.findFirst.mockResolvedValue(null);
+
+      await expect(
+        service.updateStatus(
+          PROJECT_ID,
+          { status: ProjectStatus.INTERNAL_REVIEW },
+          'admin-1',
+          Role.ADMIN,
+        ),
+      ).resolves.toBeDefined();
+    });
+  });
+
   describe('updateStatus: CANCELLED is admin only and needs a reason', () => {
     beforeEach(() => setProject({ status: ProjectStatus.IN_PROGRESS }));
 
@@ -412,6 +477,104 @@ describe('ProjectsService: status, archive and restore', () => {
         PM_ID,
         'PROJECT_RESTORED',
       );
+    });
+  });
+
+  describe('findForUser: the subject lists, the CALLER gets the flags', () => {
+    // The bug: `findForUser(userId, query)` forwarded the SUBJECT as the actor
+    // into the capability builder, so an ADMIN reading a developer's workload
+    // was told `canEdit: false` on projects she can in fact edit, and a
+    // D4-obedient frontend hid the controls. Nothing covered this method at all.
+    const SUBJECT_ID = 'subject-dev';
+
+    beforeEach(() => {
+      prisma.user.findFirst.mockResolvedValue({
+        id: SUBJECT_ID,
+        role: Role.DEVELOPER,
+      });
+      prisma.project.findMany.mockResolvedValue([
+        {
+          id: PROJECT_ID,
+          name: 'Acme corporate site',
+          status: ProjectStatus.IN_PROGRESS,
+          priority: 'HIGH',
+          archivedAt: null,
+          deadline: null,
+          completedAt: null,
+          estimatedHours: null,
+          actualHours: 0,
+          createdAt: new Date('2026-08-01'),
+          projectTypeTags: [],
+          client: null,
+          createdBy: null,
+        },
+      ]);
+    });
+
+    it("uses the CALLER's permissions, not the subject's", async () => {
+      // An ADMIN asking about a DEVELOPER. `managesProject` short-circuits true
+      // for admins, so no membership row is needed.
+      prisma.projectMember.findFirst.mockResolvedValue(null);
+
+      const result = await service.findForUser(
+        SUBJECT_ID,
+        {},
+        'admin-1',
+        Role.ADMIN,
+      );
+
+      expect(result.items[0].capabilities.canEdit).toBe(true);
+      expect(result.items[0].capabilities.canArchive).toBe(true);
+    });
+
+    it("does not hand the caller the subject's flags", async () => {
+      // The reverse direction. A DEVELOPER may not edit, and asking about an
+      // ADMIN must not lend them the admin's capabilities.
+      prisma.user.findFirst.mockResolvedValue({
+        id: 'subject-admin',
+        role: Role.ADMIN,
+      });
+      prisma.projectMember.findFirst.mockResolvedValue({ id: 'm1' });
+
+      const result = await service.findForUser(
+        'subject-admin',
+        {},
+        DEV_ID,
+        Role.DEVELOPER,
+      );
+
+      expect(result.items[0].capabilities.canEdit).toBe(false);
+      expect(result.items[0].capabilities.canArchive).toBe(false);
+    });
+
+    it("lists the SUBJECT's memberships, not the caller's", async () => {
+      prisma.projectMember.findFirst.mockResolvedValue(null);
+      await service.findForUser(SUBJECT_ID, {}, 'admin-1', Role.ADMIN);
+
+      expect(prisma.project.findMany.mock.calls[0][0].where).toMatchObject({
+        members: { some: { userId: SUBJECT_ID, leftAt: null } },
+      });
+    });
+
+    it("applies the overload hint from the SUBJECT's role", async () => {
+      // Advisory, and only meaningful for an individual contributor. An ADMIN
+      // caller asking about a DEVELOPER must still get the developer's hint.
+      prisma.projectMember.findFirst.mockResolvedValue(null);
+      const result = (await service.findForUser(
+        SUBJECT_ID,
+        {},
+        'admin-1',
+        Role.ADMIN,
+      )) as { overloaded?: boolean };
+
+      expect(result).toHaveProperty('overloaded');
+    });
+
+    it('404s for a user who does not exist or is deleted', async () => {
+      prisma.user.findFirst.mockResolvedValue(null);
+      await expect(
+        service.findForUser('ghost', {}, 'admin-1', Role.ADMIN),
+      ).rejects.toBeInstanceOf(NotFoundException);
     });
   });
 });

@@ -5,7 +5,8 @@ import {
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
-import { NotificationType, Role } from '@prisma/client';
+import { NotificationType, Permission, Role } from '@prisma/client';
+import { PermissionsService } from '@/auth/permissions/permissions.service';
 import { PrismaService } from '@/prisma/prisma.service';
 import { AuditLogService } from '@/audit-log/audit-log.service';
 import { LeaveBalancesService } from '@/leave/requests/leave-balances.service';
@@ -54,6 +55,7 @@ export class LeaveRequestsService {
     private readonly auditLog: AuditLogService,
     private readonly leaveBalances: LeaveBalancesService,
     private readonly notificationsService: NotificationsService,
+    private readonly permissions: PermissionsService,
   ) {}
 
   // ADMIN/SYSTEM_ADMIN never submit a leave request, they only approve or
@@ -202,10 +204,17 @@ export class LeaveRequestsService {
       pageSize,
     );
 
-    // Reaching this listing at all required VIEW_LEAVE_REQUESTS, and every role
-    // that holds it also holds REVIEW_LEAVE_REQUEST except PROJECT_MANAGER on
-    // its own filtered view. The mapper still refuses self review.
-    const context = { callerId: actorId, canReviewLeave: true };
+    // Derived from the permission, NOT hardcoded true. Reaching this listing
+    // only required VIEW_LEAVE_REQUESTS, and PROJECT_MANAGER holds that WITHOUT
+    // holding REVIEW_LEAVE_REQUEST, which is what `/approve` and `/reject` are
+    // gated on. Hardcoding it showed a project manager an Approve button on
+    // every pending request in the list, and the route then answered 403.
+    const context = {
+      callerId: actorId,
+      canReviewLeave: this.permissions.hasAll({ role: actorRole }, [
+        Permission.REVIEW_LEAVE_REQUEST,
+      ]).granted,
+    };
     return {
       ...result,
       items: result.items.map((item) => toLeaveRequestResponse(item, context)),

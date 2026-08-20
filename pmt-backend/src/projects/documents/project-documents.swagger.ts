@@ -104,9 +104,10 @@ export const ApiCreateProjectDocumentsBatchDocs = () =>
       summary: 'Add several project documents in one request',
       description:
         'Up to ten files, each becoming its own document titled after its original ' +
-        'filename and sharing the type and description. Uploaded one at a time rather ' +
-        'than in parallel, so the resulting activity log entries stay in the order the ' +
-        'files were sent. Use the single file route when each needs its own title.',
+        'filename (truncated to 200 characters) and sharing the type and description. ' +
+        'The rows are written in one transaction, so either every file lands or none ' +
+        'does: a batch reported as failed leaves no documents behind and no orphaned ' +
+        'uploads. Use the single file route when each needs its own title.',
     }),
     ApiConsumes('multipart/form-data'),
     projectIdParam,

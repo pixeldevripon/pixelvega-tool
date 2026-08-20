@@ -137,7 +137,14 @@ export class CloudinaryService {
       uploaded.map((outcome) => {
         const { publicId, resourceType } = (outcome as { asset: UploadedAsset })
           .asset;
-        return this.delete(publicId, resourceType).catch(() => undefined);
+        return this.delete(publicId, resourceType).catch((error: Error) =>
+          // Logged, not swallowed. A rollback that fails leaves a paid-for
+          // orphan in Cloudinary that nothing will ever reference, and the
+          // only way anyone learns about it is this line.
+          this.logger.error(
+            `Rollback failed: ${publicId} (${resourceType}) is now orphaned in Cloudinary: ${error.message}`,
+          ),
+        );
       }),
     );
 
@@ -179,25 +186,72 @@ export class CloudinaryService {
   }
 
   /**
-   * Delete one asset.
+   * Delete one asset. Throws unless Cloudinary confirms it is gone.
    *
-   * `resourceType` must be the one the upload reported. Cloudinary partitions
-   * its namespace by resource type, so destroying a video with the default
-   * 'image' silently succeeds and deletes nothing, which is why
-   * `UploadedAsset` carries it.
+   * ── Why the result is inspected ──
+   * `destroy` RESOLVES with `{ result: 'not found' }` for a publicId or
+   * resourceType that does not match anything. It does not throw. Awaiting it
+   * and discarding the answer therefore reported success for a delete that
+   * removed nothing: the database row went, and the bytes stayed publicly
+   * reachable at their URL forever, with no error anywhere.
+   *
+   * ── Why resourceType is required ──
+   * Cloudinary partitions its namespace by resource type, so destroying a video
+   * as an 'image' is exactly the silent no-op above. It has no default for the
+   * same reason: `?? 'image'` at a call site recreates the bug, and
+   * `UploadedAsset` carries the real value precisely so it can be passed here.
    */
-  async delete(
-    publicId: string,
-    resourceType: string = 'image',
-  ): Promise<void> {
-    await cloudinary.uploader.destroy(publicId, {
+  async delete(publicId: string, resourceType: string): Promise<void> {
+    const response = (await cloudinary.uploader.destroy(publicId, {
       resource_type: resourceType,
-    });
+    })) as { result?: string };
+
+    // 'ok' is a delete. 'not found' is the silent no-op. Anything else is new,
+    // and treating an unrecognised answer as success is how this failed before.
+    if (response.result !== 'ok') {
+      throw new Error(
+        `Cloudinary refused to delete ${publicId} (${resourceType}): ${response.result ?? 'no result'}`,
+      );
+    }
+  }
+
+  /**
+   * Delete an asset whose resource type was never recorded.
+   *
+   * Only for rows written before `fileResourceType` existed. Cloudinary
+   * partitions its namespace by resource type and offers no way to ask which
+   * one an id belongs to, so each is tried in turn. That works only because
+   * `delete` now throws on `not found`: with the old version this could not
+   * have been written, since every attempt reported success.
+   *
+   * Never guess with `?? 'image'` instead. That is the silent no-op: the row
+   * disappears and the bytes stay publicly reachable.
+   *
+   * It stops at the FIRST namespace that reports a delete, and does not verify
+   * that what it deleted was the intended asset. That is safe only because
+   * `upload` sets `unique_filename: true`, so Cloudinary appends a random
+   * suffix and two independently uploaded assets cannot share a publicId across
+   * namespaces. If that option is ever removed, this becomes a way to delete an
+   * unrelated document's asset and must be revisited.
+   */
+  async deleteUnknownResourceType(publicId: string): Promise<void> {
+    const errors: string[] = [];
+    for (const resourceType of ['image', 'video', 'raw']) {
+      try {
+        await this.delete(publicId, resourceType);
+        return;
+      } catch (error) {
+        errors.push((error as Error).message);
+      }
+    }
+    throw new Error(
+      `Could not delete ${publicId} as any resource type: ${errors.join('; ')}`,
+    );
   }
 
   /** Delete several, never throwing: a failed cleanup must not fail the action. */
   async deleteMany(
-    assets: Array<{ publicId: string; resourceType?: string }>,
+    assets: Array<{ publicId: string; resourceType: string }>,
   ): Promise<void> {
     await Promise.all(
       assets.map((asset) =>

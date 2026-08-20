@@ -15,7 +15,7 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
-import { DailyWorkReportStatus } from '@prisma/client';
+import { DailyWorkReportStatus, Role } from '@prisma/client';
 import { PrismaService } from '@/prisma/prisma.service';
 import { ProjectActivityService } from '@/projects/activity/project-activity.service';
 import { SlackService } from '@/slack/slack.service';
@@ -63,6 +63,7 @@ describe('DailyWorkReportService: the two edit windows', () => {
       dailyProjectEntry: {
         upsert: jest.fn().mockResolvedValue({}),
         findMany: jest.fn().mockResolvedValue([]),
+        count: jest.fn().mockResolvedValue(0),
         update: jest.fn().mockResolvedValue({}),
       },
       project: {
@@ -240,6 +241,103 @@ describe('DailyWorkReportService: the two edit windows', () => {
       await expect(
         service.submitWrapUp(REPORT_ID, OWNER_ID, { entries: [] }),
       ).resolves.toBeDefined();
+    });
+  });
+
+  describe('findByProject: canReview is assembled from the real scope check', () => {
+    // The mapper's `canReview` logic is covered exhaustively in
+    // daily-work-report.mapper.spec.ts. What was NOT covered is the wiring:
+    // that the service actually asks ProjectScopeService which projects the
+    // caller manages and threads the answer into the mapper. Without this, the
+    // whole `managedProjectIds` mechanism could be deleted and the mapper specs
+    // would still pass.
+    const ENTRY_AUTHOR = 'author-1';
+    const REVIEWER = 'pm-1';
+
+    function entry() {
+      return {
+        id: 'e1',
+        dailyWorkReportId: 'r1',
+        projectId: 'p1',
+        plan: 'Ship it',
+        accomplishments: null,
+        reviewedAt: null,
+        reviewComment: null,
+        reviewedBy: null,
+        project: { id: 'p1', name: 'Acme corporate site' },
+        dailyWorkReport: {
+          date: new Date('2026-08-19T00:00:00.000Z'),
+          userId: ENTRY_AUTHOR,
+          user: {
+            id: ENTRY_AUTHOR,
+            name: 'Dev One',
+            email: 'dev@pixelvega.com',
+          },
+        },
+      };
+    }
+
+    beforeEach(() => {
+      prisma.dailyProjectEntry.findMany.mockResolvedValue([entry()]);
+      prisma.dailyProjectEntry.count.mockResolvedValue(1);
+    });
+
+    it('offers a review to a PROJECT_MANAGER who manages the project', async () => {
+      prisma.projectMember.findFirst.mockResolvedValue({ id: 'm1' });
+
+      const result = await service.findByProject(
+        'p1',
+        {},
+        REVIEWER,
+        Role.PROJECT_MANAGER,
+      );
+
+      expect(result.items[0].capabilities.canReview).toBe(true);
+    });
+
+    it('offers none to a PROJECT_MANAGER who does not', async () => {
+      // Reaching the listing needs only a read; reviewing needs the project.
+      prisma.projectMember.findFirst.mockResolvedValue(null);
+
+      const result = await service.findByProject(
+        'p1',
+        {},
+        REVIEWER,
+        Role.PROJECT_MANAGER,
+      );
+
+      expect(result.items[0].capabilities.canReview).toBe(false);
+    });
+
+    it('offers none to the author, even where they manage the project', async () => {
+      prisma.projectMember.findFirst.mockResolvedValue({ id: 'm1' });
+
+      const result = await service.findByProject(
+        'p1',
+        {},
+        ENTRY_AUTHOR,
+        Role.PROJECT_MANAGER,
+      );
+
+      expect(result.items[0].capabilities.canReview).toBe(false);
+    });
+
+    it('asks the scope question once for the whole page, not once per entry', async () => {
+      prisma.dailyProjectEntry.findMany.mockResolvedValue([
+        entry(),
+        { ...entry(), id: 'e2' },
+        { ...entry(), id: 'e3' },
+      ]);
+      prisma.projectMember.findFirst.mockResolvedValue({ id: 'm1' });
+
+      await service.findByProject('p1', {}, REVIEWER, Role.PROJECT_MANAGER);
+
+      // Three entries, one project, one membership lookup for the review
+      // question. The read guard asks its own separate question first.
+      const reviewLookups = prisma.projectMember.findFirst.mock.calls.filter(
+        ([args]: [{ where: { role?: string } }]) => args.where.role,
+      );
+      expect(reviewLookups).toHaveLength(1);
     });
   });
 });

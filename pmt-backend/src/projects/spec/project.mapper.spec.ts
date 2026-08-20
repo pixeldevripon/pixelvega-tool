@@ -20,7 +20,11 @@ const ALL_PERMISSIONS = [
   Permission.MANAGE_PROJECT_DOCUMENTS,
 ];
 
-const MANAGER = { permissions: ALL_PERMISSIONS, managesProject: true };
+const MANAGER = {
+  permissions: ALL_PERMISSIONS,
+  managesProject: true,
+  mayChangeStatus: true,
+};
 
 function project(overrides: Record<string, unknown> = {}) {
   return {
@@ -183,7 +187,11 @@ describe('buildProjectCapabilities', () => {
   it('refuses an action whose permission the caller lacks', () => {
     const caps = buildProjectCapabilities(
       { status: ProjectStatus.IN_PROGRESS, archivedAt: null },
-      { permissions: [Permission.EDIT_PROJECT], managesProject: true },
+      {
+        permissions: [Permission.EDIT_PROJECT],
+        managesProject: true,
+        mayChangeStatus: true,
+      },
     );
     expect(caps.canEdit).toBe(true);
     expect(caps.canArchive).toBe(false);
@@ -195,20 +203,46 @@ describe('buildProjectCapabilities', () => {
     // a PROJECT_MANAGER may edit projects, not that they may edit THIS one.
     const caps = buildProjectCapabilities(
       { status: ProjectStatus.IN_PROGRESS, archivedAt: null },
-      { permissions: ALL_PERMISSIONS, managesProject: false },
+      {
+        permissions: ALL_PERMISSIONS,
+        managesProject: false,
+        mayChangeStatus: false,
+      },
     );
     expect(caps.canEdit).toBe(false);
     expect(caps.canManageMembers).toBe(false);
-    // Status is the deliberate exception: it is open to every active member,
-    // not only the manager, so it does not require managesProject.
+    expect(caps.canChangeStatus).toBe(false);
+  });
+
+  it('allows a status change to a member who does not manage the project', () => {
+    // The status rule is not shaped like the others: a DEVELOPER staffed on the
+    // project may move it, a PROJECT_MANAGER who does not manage it may not.
+    // That distinction is `mayChangeStatus`, decided by ProjectScopeService, and
+    // NOT re-derived here. Re-deriving it is how this flag came to be
+    // `has(permission) && !isArchived`, true on every project a PM could read.
+    const caps = buildProjectCapabilities(
+      { status: ProjectStatus.IN_PROGRESS, archivedAt: null },
+      {
+        permissions: [Permission.CHANGE_PROJECT_STATUS],
+        managesProject: false,
+        mayChangeStatus: true,
+      },
+    );
     expect(caps.canChangeStatus).toBe(true);
+    expect(caps.canEdit).toBe(false);
   });
 
   it('gives a reader with no permissions nothing at all', () => {
     const caps = buildProjectCapabilities(
       { status: ProjectStatus.IN_PROGRESS, archivedAt: null },
-      { permissions: [], managesProject: false },
+      { permissions: [], managesProject: false, mayChangeStatus: true },
     );
-    expect(Object.values(caps).every((flag) => flag === false)).toBe(true);
+    // Named explicitly rather than `Object.values(...).every(f => !f)`, which
+    // is vacuously true for an empty object and so cannot fail if the flags
+    // ever stop being returned at all.
+    expect(Object.keys(caps).length).toBeGreaterThan(5);
+    for (const [flag, value] of Object.entries(caps)) {
+      expect([flag, value]).toEqual([flag, false]);
+    }
   });
 });

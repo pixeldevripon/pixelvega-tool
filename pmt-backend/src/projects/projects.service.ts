@@ -445,13 +445,32 @@ export class ProjectsService {
     // PROJECT_MANAGER/DEVELOPER/DESIGNER (and ADMIN/SYSTEM_ADMIN, who will
     // just get an empty list here unless they also happen to hold a
     // membership, since they already have full access via GET /projects).
-    return this.findByActiveMembership(actorId, actorRole, query);
+    return this.findByActiveMembership(
+      actorId,
+      actorRole,
+      query,
+      actorId,
+      actorRole,
+    );
   }
 
-  // Lets a PM/ADMIN check "how many projects is this person already on"
-  // before assigning new work. Same logic as findMine()'s staff branch,
-  // just for a chosen userId instead of the caller.
-  async findForUser(userId: string, query: QueryMyProjectsDto) {
+  /**
+   * Lets a PM or admin check "how many projects is this person already on"
+   * before assigning new work.
+   *
+   * Two different people are involved and they must not be confused. The
+   * SUBJECT decides which projects are listed and whether the overload hint
+   * applies; the CALLER decides every capability flag. Passing the subject as
+   * both meant an ADMIN looking at a developer's workload was told
+   * `canEdit: false` on projects she can in fact edit, and a D4-obedient
+   * frontend hid the controls.
+   */
+  async findForUser(
+    userId: string,
+    query: QueryMyProjectsDto,
+    actorId: string,
+    actorRole: Role,
+  ) {
     const user = await this.prisma.user.findFirst({
       where: { id: userId, deletedAt: null },
       select: { id: true, role: true },
@@ -459,19 +478,33 @@ export class ProjectsService {
     if (!user) {
       throw new NotFoundException('User not found');
     }
-    return this.findByActiveMembership(userId, user.role, query);
+    return this.findByActiveMembership(
+      userId,
+      user.role,
+      query,
+      actorId,
+      actorRole,
+    );
   }
 
+  /**
+   * @param subjectId whose memberships decide which projects are listed
+   * @param subjectRole whose role decides whether the overload hint applies
+   * @param actorId whose capability flags the response carries
+   * @param actorRole the caller's role, for the same reason
+   */
   private async findByActiveMembership(
-    userId: string,
-    role: Role,
+    subjectId: string,
+    subjectRole: Role,
     query: QueryMyProjectsDto,
+    actorId: string,
+    actorRole: Role,
   ) {
     const { page = 1, pageSize = 20, archived = false } = query;
 
     const projects = await this.prisma.project.findMany({
       where: {
-        members: { some: { userId, leftAt: null } },
+        members: { some: { userId: subjectId, leftAt: null } },
         archivedAt: archived ? { not: null } : null,
       },
       include: PROJECT_INCLUDE,
@@ -483,13 +516,13 @@ export class ProjectsService {
     // PROJECT_MANAGER overseeing many projects at once isn't "overloaded"
     // the same way, so this stays unset for PM/ADMIN/SYSTEM_ADMIN.
     const isIndividualContributor =
-      role === Role.DEVELOPER || role === Role.DESIGNER;
+      subjectRole === Role.DEVELOPER || subjectRole === Role.DESIGNER;
 
     const pageItems = sorted.slice((page - 1) * pageSize, page * pageSize);
     const contexts = await this.buildProjectContexts(
       pageItems.map((item) => item.id),
-      userId,
-      role,
+      actorId,
+      actorRole,
     );
 
     return {
@@ -722,7 +755,11 @@ export class ProjectsService {
     actorRole: Role,
   ) {
     const existing = await this.getProjectOrThrow(id);
-    await this.assertCanChangeStatus(id, actorId, actorRole);
+    await this.projectScope.assertMayChangeProjectStatus(
+      id,
+      actorId,
+      actorRole,
+    );
 
     const allowedNext = ALLOWED_STATUS_TRANSITIONS[existing.status];
     if (!allowedNext.includes(dto.status)) {
@@ -1097,6 +1134,11 @@ export class ProjectsService {
         actorId,
         actorRole,
       ),
+      mayChangeStatus: await this.projectScope.mayChangeProjectStatus(
+        projectId,
+        actorId,
+        actorRole,
+      ),
     };
   }
 
@@ -1108,18 +1150,26 @@ export class ProjectsService {
     const permissions = this.permissions.getEffectivePermissions({
       role: actorRole,
     });
-    const contexts = new Map<string, ProjectContext>();
-    for (const projectId of new Set(projectIds)) {
-      contexts.set(projectId, {
-        permissions,
-        managesProject: await this.projectScope.managesProject(
+    // Concurrently, not in a loop of awaits. Each project needs two scope
+    // questions, so a page of twenty was forty sequential round trips.
+    const distinct = [...new Set(projectIds)];
+    const resolved = await Promise.all(
+      distinct.map(async (projectId) => {
+        const [managesProject, mayChangeStatus] = await Promise.all([
+          this.projectScope.managesProject(projectId, actorId, actorRole),
+          this.projectScope.mayChangeProjectStatus(
+            projectId,
+            actorId,
+            actorRole,
+          ),
+        ]);
+        return [
           projectId,
-          actorId,
-          actorRole,
-        ),
-      });
-    }
-    return contexts;
+          { permissions, managesProject, mayChangeStatus },
+        ] as const;
+      }),
+    );
+    return new Map(resolved);
   }
 
   private async getProjectWithInclude(id: string) {
@@ -1131,27 +1181,5 @@ export class ProjectsService {
       throw new NotFoundException('Project not found');
     }
     return project;
-  }
-
-  // PATCH /projects/:id/status is the one mutation open to PROJECT_MANAGER,
-  // DEVELOPER, and DESIGNER alike, so it needs its own branch rather than
-  // reusing assertManagesProject (PM only) or assertActiveMember (does
-  // nothing for PM) individually. ADMIN/SYSTEM_ADMIN fall through to
-  // assertActiveMember, which itself does nothing for anything other than
-  // DEVELOPER/DESIGNER.
-  private async assertCanChangeStatus(
-    projectId: string,
-    actorId: string,
-    actorRole: Role,
-  ) {
-    if (actorRole === Role.PROJECT_MANAGER) {
-      await this.projectScope.assertManagesProject(
-        projectId,
-        actorId,
-        actorRole,
-      );
-      return;
-    }
-    await this.projectScope.assertActiveMember(projectId, actorId, actorRole);
   }
 }

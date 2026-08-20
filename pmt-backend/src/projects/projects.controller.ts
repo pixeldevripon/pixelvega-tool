@@ -89,8 +89,11 @@ export class ProjectsController {
   findForUser(
     @Param('userId') userId: string,
     @Query() query: QueryMyProjectsDto,
+    @CurrentUser() user: { id: string; role: Role },
   ) {
-    return this.projectsService.findForUser(userId, query);
+    // The caller, not the subject: capability flags describe what the person
+    // READING the response may do.
+    return this.projectsService.findForUser(userId, query, user.id, user.role);
   }
 
   @ApiGetProjectDocs()

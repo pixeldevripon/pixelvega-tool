@@ -213,6 +213,7 @@ export class CreateProjectDocumentDto {
   @ApiProperty({ example: 'Staging server credentials' })
   @IsString()
   @IsNotEmpty()
+  @MaxLength(FieldLength.SHORT_TEXT)
   title!: string;
 
   @ApiProperty({
@@ -261,6 +262,7 @@ export class UpdateProjectDocumentDto {
   @ApiPropertyOptional()
   @IsOptional()
   @IsString()
+  @MaxLength(FieldLength.SHORT_TEXT)
   title?: string;
 
   @ApiPropertyOptional()

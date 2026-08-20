@@ -11,6 +11,7 @@ import {
   ProjectRole,
   Role,
 } from '@prisma/client';
+import { SHORT_TEXT } from '@/common/constants/field-lengths';
 import { PrismaService } from '@/prisma/prisma.service';
 import { paginate } from '@/common/utils/pagination.util';
 import { CloudinaryService } from '@/uploads/cloudinary.service';
@@ -255,47 +256,74 @@ export class ProjectDocumentsService {
     return toProjectDocumentResponse(document, { managesProject: true });
   }
 
-  private createFileDocument(
+  private async createFileDocument(
     projectId: string,
     dto: CreateProjectDocumentDto,
     file: Express.Multer.File,
     actorId: string,
   ) {
-    return (
-      this.cloudinary
-        // No resourceType: Cloudinary decides from the bytes. The old
-        // `startsWith('image/') ? 'image' : 'raw'` guess stored a video as an
-        // undeliverable raw blob.
-        .upload(file, { folder: DOCUMENT_FOLDER })
-        .then((asset) =>
-          this.prisma.projectDocument.create({
-            data: {
-              projectId,
-              title: dto.title,
-              description: dto.description,
-              type: dto.type,
-              format: 'FILE',
-              fileUrl: asset.url,
-              fileMimeType: file.mimetype,
-              // Cloudinary's count, not multer's: they agree today, and if they
-              // ever disagree the stored size should describe the stored asset.
-              fileSizeBytes: asset.bytes,
-              // Kept so the asset can be destroyed when the document is removed.
-              filePublicId: asset.publicId,
-              fileResourceType: asset.resourceType,
-              uploadedById: actorId,
-            },
-            include: DOCUMENT_INCLUDE,
-          }),
-        )
+    // No resourceType: Cloudinary decides from the bytes. The old
+    // `startsWith('image/') ? 'image' : 'raw'` guess stored a video as an
+    // undeliverable raw blob.
+    const asset = await this.cloudinary.upload(file, {
+      folder: DOCUMENT_FOLDER,
+    });
+
+    try {
+      return await this.prisma.projectDocument.create({
+        data: {
+          projectId,
+          title: dto.title,
+          description: dto.description,
+          type: dto.type,
+          format: 'FILE',
+          fileUrl: asset.url,
+          fileMimeType: file.mimetype,
+          // Cloudinary's count, not multer's: they agree today, and if they
+          // ever disagree the stored size should describe the stored asset.
+          fileSizeBytes: asset.bytes,
+          // Kept so the asset can be destroyed when the document is removed.
+          filePublicId: asset.publicId,
+          fileResourceType: asset.resourceType,
+          uploadedById: actorId,
+        },
+        include: DOCUMENT_INCLUDE,
+      });
+    } catch (error) {
+      // The upload succeeded and the row did not, so the bytes are already in
+      // Cloudinary with nothing referencing them: an asset that is billed for
+      // and that nobody can ever find again. Delete it before rethrowing.
+      await this.rollbackAssets([asset]);
+      throw error;
+    }
+  }
+
+  /**
+   * Delete assets whose rows never landed.
+   *
+   * Never throws: the caller is already failing, and a cleanup error must not
+   * replace the error that explains what actually went wrong. It IS logged,
+   * because an orphan nothing references is otherwise invisible.
+   */
+  private async rollbackAssets(
+    assets: Array<{ publicId: string; resourceType: string }>,
+  ): Promise<void> {
+    await Promise.all(
+      assets.map((asset) =>
+        this.cloudinary
+          .delete(asset.publicId, asset.resourceType)
+          .catch((error: Error) =>
+            this.logger.error(
+              `Rollback failed: ${asset.publicId} (${asset.resourceType}) is now orphaned in Cloudinary: ${error.message}`,
+            ),
+          ),
+      ),
     );
   }
 
   // Every file shares the same type/description and becomes its own
   // ProjectDocument row, titled after its original filename. This suits a
   // Deliverable made up of several files, or a batch of Requirement docs.
-  // Files are uploaded one at a time, not in parallel, so the resulting
-  // activity log reads in the same order the files were sent.
   async createBatch(
     projectId: string,
     dto: CreateProjectDocumentsBatchDto,
@@ -319,32 +347,51 @@ export class ProjectDocumentsService {
       folder: DOCUMENT_FOLDER,
     });
 
-    const documents: Awaited<ReturnType<typeof this.createFileDocument>>[] = [];
-    for (const [index, asset] of assets.entries()) {
-      const file = files[index];
-      const document = await this.prisma.projectDocument.create({
-        data: {
-          projectId,
-          title: file.originalname,
-          description: dto.description,
-          type: dto.type,
-          format: 'FILE',
-          fileUrl: asset.url,
-          fileMimeType: file.mimetype,
-          fileSizeBytes: asset.bytes,
-          filePublicId: asset.publicId,
-          fileResourceType: asset.resourceType,
-          uploadedById: actorId,
-        },
-        include: DOCUMENT_INCLUDE,
-      });
+    // ONE transaction for the whole set. Written row by row, a failure on the
+    // third file of ten left eight assets in Cloudinary and two rows in the
+    // database: a batch the user was told had failed, half of which existed.
+    // Either the whole batch is there or none of it is.
+    //
+    // The activity log is written after the commit, on purpose. It is an
+    // append-only record of things that happened, and a rolled back batch did
+    // not happen.
+    let documents: Awaited<ReturnType<typeof this.createFileDocument>>[];
+    try {
+      documents = await this.prisma.$transaction((tx) =>
+        Promise.all(
+          assets.map((asset, index) =>
+            tx.projectDocument.create({
+              data: {
+                projectId,
+                // Bounded, because it comes straight from the client: multer
+                // takes `originalname` from the multipart headers, so it is
+                // caller-supplied text of any length.
+                title: files[index].originalname.slice(0, SHORT_TEXT),
+                description: dto.description,
+                type: dto.type,
+                format: 'FILE',
+                fileUrl: asset.url,
+                fileMimeType: files[index].mimetype,
+                fileSizeBytes: asset.bytes,
+                filePublicId: asset.publicId,
+                fileResourceType: asset.resourceType,
+                uploadedById: actorId,
+              },
+              include: DOCUMENT_INCLUDE,
+            }),
+          ),
+        ),
+      );
+    } catch (error) {
+      await this.rollbackAssets(assets);
+      throw error;
+    }
 
+    for (const document of documents) {
       await this.projectActivity.log(projectId, actorId, 'DOCUMENT_ADDED', {
         message: `Document "${document.title}" added`,
         metadata: { documentId: document.id, type: document.type },
       });
-
-      documents.push(document);
     }
 
     // One notification for the whole batch, not one per file, a 10 file
@@ -449,14 +496,22 @@ export class ProjectDocumentsService {
     // again. Best effort on purpose, so a Cloudinary outage cannot fail a
     // removal the user already asked for.
     if (existing.filePublicId) {
-      await this.cloudinary
-        .delete(existing.filePublicId, existing.fileResourceType ?? 'image')
-        .catch((error: Error) =>
-          this.logger.warn(
-            `Removed document ${documentId} but could not delete its asset ` +
-              `${existing.filePublicId}: ${error.message}`,
-          ),
-        );
+      const publicId = existing.filePublicId;
+      // `?? 'image'` here was the silent no-op: Cloudinary partitions its
+      // namespace by resource type, so deleting a PDF as an image removes
+      // nothing and answers `{ result: 'not found' }` rather than throwing.
+      // Rows written before `fileResourceType` existed have none, so those go
+      // through the version that tries each type.
+      await (
+        existing.fileResourceType
+          ? this.cloudinary.delete(publicId, existing.fileResourceType)
+          : this.cloudinary.deleteUnknownResourceType(publicId)
+      ).catch((error: Error) =>
+        this.logger.warn(
+          `Removed document ${documentId} but could not delete its asset ` +
+            `${publicId}: ${error.message}`,
+        ),
+      );
     }
 
     await this.projectActivity.log(projectId, actorId, 'DOCUMENT_REMOVED', {

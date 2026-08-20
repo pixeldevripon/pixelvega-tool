@@ -490,7 +490,7 @@ export class BlockerService {
       this.projectScope.managesProject(projectId, actorId, actorRole),
       this.projectScope.isActiveMember(projectId, actorId),
     ]);
-    return { managesProject, isProjectMember };
+    return { callerId: actorId, managesProject, isProjectMember };
   }
 
   private async getProjectOrThrow(projectId: string) {
@@ -571,14 +571,19 @@ export class BlockerService {
     await this.assertIsActiveMember(projectId, actorId);
   }
 
-  // Shared membership check (any ProjectRole) used by assertCanReport(),
-  // assertCanRead(), assertCanUpdate()'s reporter branch, and
-  // resolveAssignment()'s explicit-assignee validation above.
+  // Membership required of every role, admins included: reporting or editing a
+  // blocker means being staffed on the project, full stop.
+  //
+  // Built on ProjectScopeService's shared `isActiveMember` predicate rather
+  // than on a private query of its own, which is what this was: the thirteenth
+  // copy of the twelve that service was created to replace.
+  //
+  // Deliberately NOT `assertStaffedOnProject`, which also checks the project
+  // exists. Every caller here has already called `getProjectOrThrow`, so that
+  // would be a second round trip to the same row on the hot path of every
+  // blocker read and write.
   private async assertIsActiveMember(projectId: string, actorId: string) {
-    const membership = await this.prisma.projectMember.findFirst({
-      where: { projectId, userId: actorId, leftAt: null },
-    });
-    if (!membership) {
+    if (!(await this.projectScope.isActiveMember(projectId, actorId))) {
       throw new ForbiddenException(
         'You are not an active member of this project',
       );

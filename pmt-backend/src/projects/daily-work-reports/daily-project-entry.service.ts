@@ -12,6 +12,7 @@ import {
 } from '@prisma/client';
 import { PrismaService } from '@/prisma/prisma.service';
 import { ProjectActivityService } from '@/projects/activity/project-activity.service';
+import { ProjectScopeService } from '@/projects/scope/project-scope.service';
 import { NotificationsService } from '@/notifications/notifications.service';
 import { ReviewEntryDto } from '@/projects/daily-work-reports/dto/daily-work-report.dto';
 import { toDailyProjectEntryResponse } from '@/projects/daily-work-reports/daily-work-report.mapper';
@@ -28,6 +29,7 @@ export class DailyProjectEntryService {
     private readonly prisma: PrismaService,
     private readonly projectActivity: ProjectActivityService,
     private readonly notificationsService: NotificationsService,
+    private readonly projectScope: ProjectScopeService,
   ) {}
 
   async review(
@@ -84,29 +86,22 @@ export class DailyProjectEntryService {
       });
     }
 
+    // `assertCanReview` above passed, so the caller manages this project.
     return toDailyProjectEntryResponse(updated, entry.dailyWorkReport.userId, {
       callerId: actorId,
+      managedProjectIds: new Set([entry.projectId]),
     });
   }
 
+  // Reviewing is a manager's act, which is exactly
+  // ProjectScopeService.managesProject: the project's own PROJECT_MANAGER, plus
+  // ADMIN and SYSTEM_ADMIN through that service's superset rule. This was a
+  // private copy of it, and the `canReview` flag did not match it at all.
   private async assertCanReview(
     projectId: string,
     actorId: string,
     actorRole: Role,
   ) {
-    if (actorRole === Role.ADMIN || actorRole === Role.SYSTEM_ADMIN) {
-      return;
-    }
-    const membership = await this.prisma.projectMember.findFirst({
-      where: {
-        projectId,
-        userId: actorId,
-        role: ProjectRole.PROJECT_MANAGER,
-        leftAt: null,
-      },
-    });
-    if (!membership) {
-      throw new ForbiddenException('You do not manage this project');
-    }
+    await this.projectScope.assertManagesProject(projectId, actorId, actorRole);
   }
 }

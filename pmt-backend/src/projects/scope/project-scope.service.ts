@@ -81,6 +81,33 @@ export class ProjectScopeService {
     return role === Role.DEVELOPER || role === Role.DESIGNER;
   }
 
+  /**
+   * May this caller move THIS project's status?
+   *
+   * A PROJECT_MANAGER must actually manage the project. Everyone else is
+   * governed by the read rule: DEVELOPER and DESIGNER must be staffed on it,
+   * ADMIN and SYSTEM_ADMIN are not scoped by membership at all.
+   *
+   * It lives here, next to its assertion, because the capability flag and the
+   * enforcement have to be the SAME boolean. `canChangeStatus` used to be
+   * `has(CHANGE_PROJECT_STATUS) && !isArchived`, missing the scope half
+   * entirely, so a project manager was offered a status control on every
+   * project they could see and got a 403 from the one they did not manage.
+   */
+  async mayChangeProjectStatus(
+    projectId: string,
+    userId: string,
+    role: Role,
+  ): Promise<boolean> {
+    if (role === Role.PROJECT_MANAGER) {
+      return this.managesProject(projectId, userId, role);
+    }
+    if (!this.isScopedByMembership(role)) {
+      return true;
+    }
+    return this.isActiveMember(projectId, userId);
+  }
+
   // ══════════════════════════════════════════════════════════════════════════
   // Assertions. Services call these.
   // ══════════════════════════════════════════════════════════════════════════
@@ -113,6 +140,21 @@ export class ProjectScopeService {
   ): Promise<void> {
     if (!(await this.managesProject(projectId, actorId, actorRole))) {
       throw new ForbiddenException('You do not manage this project');
+    }
+  }
+
+  /** Paired with `mayChangeProjectStatus`, so the two can never disagree. */
+  async assertMayChangeProjectStatus(
+    projectId: string,
+    actorId: string,
+    actorRole: Role,
+  ): Promise<void> {
+    if (!(await this.mayChangeProjectStatus(projectId, actorId, actorRole))) {
+      throw new ForbiddenException(
+        actorRole === Role.PROJECT_MANAGER
+          ? 'You do not manage this project'
+          : 'You are not an active member of this project',
+      );
     }
   }
 

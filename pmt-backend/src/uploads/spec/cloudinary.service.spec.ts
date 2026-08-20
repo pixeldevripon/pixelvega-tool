@@ -105,8 +105,13 @@ describe('CloudinaryService batch behaviour', () => {
         }),
       ).rejects.toThrow('bad.pdf');
 
-      const deleted = remove.mock.calls.map(([publicId]) => publicId).sort();
-      expect(deleted).toEqual(['a.png', 'c.png']);
+      // Asserted WITH the resource type, not only the id: passing the wrong one
+      // is a delete that removes nothing, so the argument is the whole point.
+      expect(
+        remove.mock.calls
+          .map(([publicId, resourceType]) => `${publicId}:${resourceType}`)
+          .sort(),
+      ).toEqual(['a.png:image', 'c.png:image']);
     });
 
     it('names the first failure, and says how many others there were', async () => {
@@ -150,7 +155,10 @@ describe('CloudinaryService batch behaviour', () => {
         );
 
       await expect(
-        service.deleteMany([{ publicId: 'a' }, { publicId: 'b' }]),
+        service.deleteMany([
+          { publicId: 'a', resourceType: 'image' },
+          { publicId: 'b', resourceType: 'image' },
+        ]),
       ).resolves.toBeUndefined();
     });
 
@@ -166,6 +174,79 @@ describe('CloudinaryService batch behaviour', () => {
         ['a', 'video'],
         ['b', 'raw'],
       ]);
+    });
+  });
+});
+
+describe('CloudinaryService.delete', () => {
+  let service: CloudinaryService;
+  let destroy: jest.Mock;
+
+  beforeEach(() => {
+    service = new CloudinaryService();
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
+    const { v2 } = require('cloudinary') as {
+      v2: { uploader: { destroy: jest.Mock } };
+    };
+    destroy = jest.fn();
+    v2.uploader.destroy = destroy;
+  });
+
+  it("throws when Cloudinary answers 'not found'", async () => {
+    // The whole reason this method inspects its result. `destroy` RESOLVES with
+    // `{ result: 'not found' }` for a publicId or resourceType that matches
+    // nothing, so awaiting and discarding the answer reported success for a
+    // delete that removed nothing: the row went and the bytes stayed publicly
+    // reachable at their URL forever.
+    destroy.mockResolvedValue({ result: 'not found' });
+    await expect(service.delete('p1', 'image')).rejects.toThrow('not found');
+  });
+
+  it("resolves when Cloudinary answers 'ok'", async () => {
+    destroy.mockResolvedValue({ result: 'ok' });
+    await expect(service.delete('p1', 'raw')).resolves.toBeUndefined();
+    expect(destroy).toHaveBeenCalledWith('p1', { resource_type: 'raw' });
+  });
+
+  it('treats an unrecognised answer as failure', async () => {
+    // Defaulting to success is how the original bug worked.
+    destroy.mockResolvedValue({ result: 'something new' });
+    await expect(service.delete('p1', 'image')).rejects.toThrow(
+      'something new',
+    );
+  });
+
+  describe('deleteUnknownResourceType', () => {
+    it('tries each type until one deletes', async () => {
+      destroy.mockImplementation(
+        (_publicId: string, options: { resource_type: string }) =>
+          Promise.resolve({
+            result: options.resource_type === 'raw' ? 'ok' : 'not found',
+          }),
+      );
+
+      await expect(
+        service.deleteUnknownResourceType('legacy'),
+      ).resolves.toBeUndefined();
+      expect(
+        destroy.mock.calls.map(
+          ([, options]: [string, { resource_type: string }]) =>
+            options.resource_type,
+        ),
+      ).toEqual(['image', 'video', 'raw']);
+    });
+
+    it('stops at the first success rather than deleting three times', async () => {
+      destroy.mockResolvedValue({ result: 'ok' });
+      await service.deleteUnknownResourceType('legacy');
+      expect(destroy).toHaveBeenCalledTimes(1);
+    });
+
+    it('throws when no type matches, so the orphan is reported', async () => {
+      destroy.mockResolvedValue({ result: 'not found' });
+      await expect(service.deleteUnknownResourceType('legacy')).rejects.toThrow(
+        'any resource type',
+      );
     });
   });
 });

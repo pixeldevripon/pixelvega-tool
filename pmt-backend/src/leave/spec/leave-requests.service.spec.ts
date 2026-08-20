@@ -14,6 +14,7 @@ import { Role } from '@prisma/client';
 import { PrismaService } from '@/prisma/prisma.service';
 import { AuditLogService } from '@/audit-log/audit-log.service';
 import { NotificationsService } from '@/notifications/notifications.service';
+import { PermissionsService } from '@/auth/permissions/permissions.service';
 import { LeaveBalancesService } from '@/leave/requests/leave-balances.service';
 import { LeaveRequestsService } from '@/leave/requests/leave-requests.service';
 
@@ -84,6 +85,10 @@ describe('LeaveRequestsService: balance arithmetic on review', () => {
         { provide: AuditLogService, useValue: auditLog },
         { provide: LeaveBalancesService, useValue: leaveBalances },
         { provide: NotificationsService, useValue: notifications },
+        // The real one: it is a pure lookup over ROLE_PERMISSIONS with no
+        // dependencies, and mocking it would let the capability flags below
+        // assert against a fiction rather than against the permission map.
+        PermissionsService,
       ],
     }).compile();
 
@@ -244,5 +249,79 @@ describe('LeaveRequestsService: balance arithmetic on review', () => {
       );
       await expect(service.reject(REQUEST_ID, {}, ACTOR_ID)).rejects.toThrow();
     });
+  });
+});
+
+describe('LeaveRequestsService.findAll capability flags', () => {
+  let service: LeaveRequestsService;
+  let prisma: {
+    leaveRequest: { findMany: jest.Mock; count: jest.Mock };
+  };
+
+  const listed = {
+    ...pendingRequest(),
+    leaveType: { id: LEAVE_TYPE_ID, name: 'Annual' },
+    user: {
+      id: REQUESTER_ID,
+      name: 'Dev One',
+      email: 'dev@pixelvega.com',
+      role: Role.DEVELOPER,
+    },
+    reviewedBy: null,
+  };
+
+  beforeEach(async () => {
+    prisma = {
+      leaveRequest: {
+        findMany: jest.fn().mockResolvedValue([listed]),
+        count: jest.fn().mockResolvedValue(1),
+      },
+    };
+
+    const module: TestingModule = await Test.createTestingModule({
+      providers: [
+        LeaveRequestsService,
+        { provide: PrismaService, useValue: prisma },
+        { provide: AuditLogService, useValue: { log: jest.fn() } },
+        {
+          provide: LeaveBalancesService,
+          useValue: { incrementUsedDays: jest.fn() },
+        },
+        {
+          provide: NotificationsService,
+          useValue: {
+            notify: jest.fn(),
+            resolveManagingPmAndAdminIds: jest.fn().mockResolvedValue([]),
+          },
+        },
+        PermissionsService,
+      ],
+    }).compile();
+
+    service = module.get(LeaveRequestsService);
+  });
+
+  it.each([
+    [Role.SYSTEM_ADMIN, true],
+    [Role.ADMIN, true],
+    // The bug this pins. PROJECT_MANAGER holds VIEW_LEAVE_REQUESTS, which is
+    // what reaches this listing, but NOT REVIEW_LEAVE_REQUEST, which is what
+    // gates PATCH /approve and /reject. The context used to be hardcoded
+    // `canReviewLeave: true`, so a project manager was shown an Approve button
+    // on every pending request and the route answered 403.
+    [Role.PROJECT_MANAGER, false],
+  ])('canApprove/canReject for %s is %s', async (role, expected) => {
+    const result = await service.findAll(role, {}, 'caller-1');
+
+    expect(result.items[0].capabilities.canApprove).toBe(expected);
+    expect(result.items[0].capabilities.canReject).toBe(expected);
+  });
+
+  it('still refuses self review, whatever the permission says', async () => {
+    // An ADMIN who submitted the request cannot approve their own.
+    const result = await service.findAll(Role.ADMIN, {}, REQUESTER_ID);
+
+    expect(result.items[0].capabilities.canApprove).toBe(false);
+    expect(result.items[0].capabilities.canReject).toBe(false);
   });
 });
