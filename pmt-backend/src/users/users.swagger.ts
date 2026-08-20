@@ -47,22 +47,6 @@ export const ApiInviteUserDocs = () =>
     }),
   );
 
-export const ApiChangeOwnPasswordDocs = () =>
-  applyDecorators(
-    ApiOperation({
-      summary: "Change the caller's own password",
-      description:
-        'Requires the current password. Clears mustResetPassword on success and writes a ' +
-        'user.password_changed audit row.',
-    }),
-    ApiResponse({
-      status: 200,
-      description: 'Password changed',
-      type: MessageResponseDto,
-    }),
-    ...commonErrors,
-  );
-
 export const ApiGetOwnProfileDocs = () =>
   applyDecorators(
     ApiOperation({ summary: "Get the caller's own profile" }),

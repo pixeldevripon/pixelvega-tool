@@ -19,7 +19,6 @@ import { PaginationQueryDto } from '@/common/dto/pagination-query.dto';
 import { toUserResponse } from '@/users/user.mapper';
 import { QueryUsersDto } from '@/users/dto/user.dto';
 import {
-  ChangeOwnPasswordRequestDto,
   InviteUserRequestDto,
   UpdateUserRequestDto,
 } from '@/users/dto/user.dto';
@@ -256,33 +255,5 @@ export class UsersService {
     await this.mail.sendInviteEmail(dto.email, dto.name, tempPassword);
 
     return toUserResponse(user);
-  }
-
-  async changePassword(
-    dto: ChangeOwnPasswordRequestDto,
-    userId: string,
-    req: Request,
-  ) {
-    await auth.api.changePassword({
-      body: {
-        currentPassword: dto.currentPassword,
-        newPassword: dto.newPassword,
-      },
-      headers: fromNodeHeaders(req.headers),
-    });
-
-    await this.prisma.user.update({
-      where: { id: userId },
-      data: { mustResetPassword: false },
-    });
-
-    await this.auditLog.log({
-      userId,
-      action: 'user.password_changed',
-      targetType: 'User',
-      targetId: userId,
-    });
-
-    return { message: 'Password changed successfully.' };
   }
 }

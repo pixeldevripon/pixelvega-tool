@@ -23,30 +23,10 @@
 // which ships ESM that Jest's CJS transform cannot parse. None of it is used
 // here: this spec only reads decorator metadata off the classes.
 jest.mock('better-auth/node', () => ({ fromNodeHeaders: jest.fn() }));
-jest.mock('better-auth/crypto', () => ({
-  hashPassword: jest.fn(),
-  verifyPassword: jest.fn(),
-  signJWT: jest.fn(),
-  verifyJWT: jest.fn(),
-}));
 jest.mock('better-auth', () => ({
   betterAuth: jest.fn(() => ({ api: {} })),
   APIError: Error,
 }));
-jest.mock('@thallesp/nestjs-better-auth', () => {
-  // AllowAnonymous must keep writing its real metadata key, or the three public
-  // routes would read as ungated and this spec would assert the wrong thing.
-  // The key matches the library's own `SetMetadata("PUBLIC", true)`.
-  const { SetMetadata } = jest.requireActual('@nestjs/common');
-  return {
-    AuthModule: { forRoot: jest.fn() },
-    AllowAnonymous: () => SetMetadata('PUBLIC', true),
-    Hook: () => () => undefined,
-    BeforeHook: () => () => undefined,
-    AfterHook: () => () => undefined,
-    Roles: () => () => undefined,
-  };
-});
 jest.mock('@/auth/instance/auth.instance', () => ({ auth: { api: {} } }));
 
 import 'reflect-metadata';
@@ -221,7 +201,6 @@ const EXPECTED: Record<string, Expected> = {
   'PATCH /time-entries/meetings/:id/resume': [P.TRACK_MEETING_TIME],
   'PATCH /time-entries/meetings/:id/stop': [P.TRACK_MEETING_TIME],
   'PATCH /users/:id': [P.UPDATE_USER],
-  'PATCH /users/me/password': [P.CHANGE_OWN_PASSWORD],
   'POST /ai/templates': [P.MANAGE_AI_TEMPLATES],
   'POST /blocker-reasons': [P.MANAGE_BLOCKER_REASONS],
   'POST /blockers': [P.REPORT_BLOCKER],
@@ -279,7 +258,7 @@ describe('route permission matrix', () => {
   });
 
   it('finds the expected number of routes', () => {
-    expect(actual).toHaveLength(109);
+    expect(actual).toHaveLength(108);
   });
 
   it('has an expectation for every route, and a route for every expectation', () => {

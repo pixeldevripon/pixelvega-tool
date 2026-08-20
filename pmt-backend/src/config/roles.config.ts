@@ -37,7 +37,6 @@ const EVERYONE: Permission[] = [
   Permission.VIEW_OWN_PROFILE,
   Permission.EDIT_OWN_PROFILE,
   Permission.VIEW_OWN_PERMISSIONS,
-  Permission.CHANGE_OWN_PASSWORD,
   Permission.VIEW_OWN_NOTIFICATIONS,
   Permission.MANAGE_OWN_NOTIFICATIONS,
   Permission.VIEW_HOLIDAYS,

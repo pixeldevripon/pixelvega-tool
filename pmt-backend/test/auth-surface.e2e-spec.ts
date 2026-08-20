@@ -7,9 +7,12 @@
  * real app, then fixed; these are the tests that keep it fixed.
  */
 import { INestApplication } from '@nestjs/common';
+import type { OpenAPIObject } from '@nestjs/swagger';
 import request from 'supertest';
 import { auth } from '@/auth/instance/auth.instance';
-import { addBetterAuthPaths } from '@/common/swagger/better-auth-paths';
+import { mergeBetterAuthSchema } from '@/common/swagger/better-auth-schema';
+import { mailService } from '@/mail/mail.singleton';
+import { PrismaService } from '@/prisma/prisma.service';
 import { createTestApp } from './create-test-app';
 
 describe('better-auth surface (e2e)', () => {
@@ -114,56 +117,163 @@ describe('better-auth surface (e2e)', () => {
       expect(response.status).not.toBe(404);
       expect(response.status).toBeGreaterThanOrEqual(400);
     });
-
-    it('serves change-password', async () => {
-      const response = await request(app.getHttpServer())
-        .post('/api/auth/change-password')
-        .send({ currentPassword: 'x', newPassword: 'Password123!' });
-
-      // Unauthenticated, so rejected. Still not a 404.
-      expect(response.status).not.toBe(404);
-    });
   });
 
-  describe('there is exactly one door to a password change', () => {
-    it("refuses better-auth's change-password over HTTP", async () => {
-      // It is middleware, so it never reaches the permission guard and writes
-      // no audit entry. PATCH /api/users/me/password does both. Two doors to
-      // one action with different security properties is worse than one.
+  describe('better-auth serves the only password change', () => {
+    // There used to be two doors: this one, and a PATCH /users/me/password
+    // wrapper in the users module. The wrapper existed because it did two
+    // things this route did not, clear `mustResetPassword` and write an audit
+    // entry, which left one action with two different security properties.
+    // The wrapper is gone and an after hook does those two things here.
+    //
+    // NOTE ON ORDER: better-auth rate limits /change-password to 5/min per IP,
+    // and every test in this block shares 127.0.0.1. The cases below are
+    // written to spend exactly four, then the last case deliberately spends the
+    // rest to prove the limiter is real. Adding a case here means accounting
+    // for its request.
+    const email = `change-pwd-${Date.now()}@pixelvega.test`;
+    const firstPassword = 'Password123!';
+    const secondPassword = 'Password456!';
+    // better-auth refuses a cookie-authenticated state change with no Origin
+    // header (`MISSING_OR_NULL_ORIGIN`). That is its CSRF protection, so the
+    // browser's header has to be simulated. It must be a trusted origin:
+    // CORS_ORIGINS in .env.test.
+    const origin = 'http://localhost:3000';
+    let userId: string;
+    let cookie: string;
+
+    const changePassword = (currentPassword: string, newPassword: string) =>
+      request(app.getHttpServer())
+        .post('/api/auth/change-password')
+        .set('Origin', origin)
+        .set('Cookie', cookie)
+        .send({ currentPassword, newPassword });
+
+    beforeAll(async () => {
+      const created = await auth.api.signUpEmail({
+        body: { email, password: firstPassword, name: 'Password Door' },
+      });
+      userId = created.user.id;
+
+      const prisma = app.get(PrismaService);
+      await prisma.user.update({
+        where: { id: userId },
+        data: { status: 'ACTIVE', mustResetPassword: true },
+      });
+
+      const signIn = await request(app.getHttpServer())
+        .post('/api/auth/sign-in/email')
+        .send({ email, password: firstPassword })
+        .expect(200);
+      cookie = (signIn.headers['set-cookie'] as unknown as string[]).join('; ');
+      expect(cookie).toContain('better-auth');
+    });
+
+    afterAll(async () => {
+      const prisma = app.get(PrismaService);
+      await prisma.auditLog.deleteMany({ where: { userId } });
+      await prisma.session.deleteMany({ where: { userId } });
+      await prisma.account.deleteMany({ where: { userId } });
+      await prisma.user.delete({ where: { id: userId } });
+    });
+
+    // Request 1.
+    it('refuses a change without a session', async () => {
       const response = await request(app.getHttpServer())
         .post('/api/auth/change-password')
-        .send({ currentPassword: 'x', newPassword: 'Password123!' });
+        .set('Origin', origin)
+        .send({ currentPassword: firstPassword, newPassword: secondPassword });
+
+      expect(response.status).toBe(401);
+    });
+
+    // Request 2.
+    it('refuses a change with no Origin header, session or not', async () => {
+      // CSRF protection. Without it, a form on any site could POST the
+      // browser's session cookie here and change the password.
+      const response = await request(app.getHttpServer())
+        .post('/api/auth/change-password')
+        .set('Cookie', cookie)
+        .send({ currentPassword: firstPassword, newPassword: secondPassword });
 
       expect(response.status).toBe(403);
       expect((response.body as { code?: string }).code).toBe(
-        'USE_USERS_ME_PASSWORD',
+        'MISSING_OR_NULL_ORIGIN',
       );
     });
 
-    it('still lets the audited Nest route change a password internally', async () => {
-      // UsersService.changePassword reaches the same endpoint through
-      // auth.api.changePassword(), which must keep working.
-      const email = `pwd-${Date.now()}@example.com`;
-      const created = await auth.api.signUpEmail({
-        body: { email, password: 'Password123!', name: 'Password Door' },
-      });
-      expect(created.user.id).toBeTruthy();
+    // Request 3.
+    it('refuses the wrong current password, and writes nothing', async () => {
+      // An after hook runs on failure too: the dispatcher catches the
+      // endpoint's error and then calls the after hooks. A hook keyed only off
+      // the session cleared mustResetPassword and wrote an audit row for a
+      // change that had just been refused.
+      const prisma = app.get(PrismaService);
 
-      await expect(
-        auth.api.changePassword({
-          body: {
-            currentPassword: 'Password123!',
-            newPassword: 'Password456!',
-          },
-          headers: { cookie: '' },
+      const response = await changePassword('wrong', secondPassword);
+      expect(response.status).toBe(400);
+
+      const user = await prisma.user.findUniqueOrThrow({
+        where: { id: userId },
+        select: { mustResetPassword: true },
+      });
+      expect(user.mustResetPassword).toBe(true);
+      expect(
+        await prisma.auditLog.count({
+          where: { userId, action: 'user.password_changed' },
         }),
-      ).rejects.toBeDefined();
-      // Rejected for want of a session, NOT for being forbidden: the internal
-      // path is open, which is the half this asserts.
+      ).toBe(0);
+    });
+
+    // Request 4.
+    it('changes the password, clears mustResetPassword, and audits it', async () => {
+      const prisma = app.get(PrismaService);
+
+      await changePassword(firstPassword, secondPassword).expect(200);
+
+      const after = await prisma.user.findUniqueOrThrow({
+        where: { id: userId },
+        select: { mustResetPassword: true },
+      });
+      expect(after.mustResetPassword).toBe(false);
+
+      const audit = await prisma.auditLog.findMany({
+        where: { userId, action: 'user.password_changed' },
+      });
+      expect(audit).toHaveLength(1);
+      expect(audit[0].targetId).toBe(userId);
+
+      // The new password is the one that works now.
+      await request(app.getHttpServer())
+        .post('/api/auth/sign-in/email')
+        .send({ email, password: secondPassword })
+        .expect(200);
+    });
+
+    // Requests 5 and beyond. Last on purpose.
+    it('rate limits repeated attempts', async () => {
+      // Nest's throttler deliberately does not cover /api/auth (the controller
+      // carries @SkipThrottle()), so better-auth's own per-path limiter is the
+      // only thing standing between this route and unlimited guessing.
+      let sawTooManyRequests = false;
+      for (let attempt = 0; attempt < 4 && !sawTooManyRequests; attempt += 1) {
+        const response = await changePassword('wrong-again', 'Whatever123!');
+        sawTooManyRequests = response.status === 429;
+      }
+      expect(sawTooManyRequests).toBe(true);
     });
   });
 
-  describe('every auth route a client may call is in /api/docs', () => {
+  describe('every auth route is in /api/docs', () => {
+    // Built once: generating the schema walks every registered endpoint.
+    let paths: Record<string, unknown>;
+
+    beforeAll(async () => {
+      const document = { paths: {} } as never as OpenAPIObject;
+      await mergeBetterAuthSchema(document);
+      paths = document.paths;
+    });
+
     it.each([
       '/api/auth/sign-in/email',
       '/api/auth/sign-out',
@@ -171,16 +281,155 @@ describe('better-auth surface (e2e)', () => {
       '/api/auth/request-password-reset',
       '/api/auth/reset-password',
       '/api/auth/update-user',
-      '/api/auth/sign-up/email',
       '/api/auth/change-password',
     ])('%s is documented', (path) => {
-      // The list drifted once: the reset flow moved onto better-auth and
-      // nothing was added, so /api/docs showed three auth routes of nine.
-      const document = { paths: {} } as never;
-      addBetterAuthPaths(document);
-      expect(Object.keys((document as { paths: object }).paths)).toContain(
-        path,
+      expect(Object.keys(paths)).toContain(path);
+    });
+
+    it('documents the whole surface, not a hand written subset', () => {
+      // The hand written list this replaced drifted to three of nine. The
+      // number here is a floor, not an exact count: a better-auth upgrade
+      // adding a route should not fail the suite, but losing the plugin
+      // (and with it every auth path) must.
+      expect(Object.keys(paths).length).toBeGreaterThanOrEqual(8);
+      expect(
+        Object.keys(paths).every((path) => path.startsWith('/api/auth/')),
+      ).toBe(true);
+    });
+
+    it.each([
+      // Closed to HTTP callers by a hook.
+      '/api/auth/sign-up/email',
+      // Registered by the library, but not configured here. Publishing them
+      // would advertise a Google button and an email-verification flow that
+      // cannot work.
+      '/api/auth/sign-in/social',
+      '/api/auth/link-social',
+      '/api/auth/callback/{id}',
+      '/api/auth/verify-email',
+      '/api/auth/send-verification-email',
+      '/api/auth/change-email',
+      '/api/auth/delete-user',
+    ])('%s is not documented', (path) => {
+      expect(Object.keys(paths)).not.toContain(path);
+    });
+
+    it('does not document the schema endpoint that produced it', () => {
+      expect(Object.keys(paths)).not.toContain(
+        '/api/auth/open-api/generate-schema',
       );
+    });
+  });
+
+  describe('the reset link actually carries a token', () => {
+    // This is the test that was missing. `sendResetPassword` used to read the
+    // token off `url`'s query string, but better-auth puts it in the PATH
+    // (`/reset-password/<token>?callbackURL=`), so every email shipped
+    // `?token=` with nothing after it and no reset could complete. The old
+    // suite only ever asked for a reset on an address that does not exist,
+    // which returns before the callback runs.
+    const email = `reset-probe-${Date.now()}@pixelvega.test`;
+    let userId: string;
+    // A hand rolled stub rather than jest.spyOn: this suite runs under
+    // --experimental-vm-modules, where the `jest` global is not injected.
+    let sentResetUrls: string[] = [];
+    let sentTo: string[] = [];
+    let realSend: typeof mailService.sendPasswordResetEmail;
+
+    beforeAll(async () => {
+      const prisma = app.get(PrismaService);
+      const created = await prisma.user.create({
+        data: {
+          email,
+          name: 'Reset Probe',
+          role: 'DEVELOPER',
+          status: 'ACTIVE',
+          mustResetPassword: true,
+        },
+        select: { id: true },
+      });
+      userId = created.id;
+    });
+
+    afterAll(async () => {
+      const prisma = app.get(PrismaService);
+      await prisma.user.delete({ where: { id: userId } });
+    });
+
+    beforeEach(() => {
+      sentResetUrls = [];
+      sentTo = [];
+      realSend = mailService.sendPasswordResetEmail.bind(mailService);
+      mailService.sendPasswordResetEmail = (to, resetUrl) => {
+        sentTo.push(to);
+        sentResetUrls.push(resetUrl);
+        return Promise.resolve();
+      };
+    });
+
+    afterEach(() => {
+      mailService.sendPasswordResetEmail = realSend;
+    });
+
+    it('emails a link whose token is not empty', async () => {
+      await request(app.getHttpServer())
+        .post('/api/auth/request-password-reset')
+        .send({ email })
+        .expect(200);
+
+      // The send is fire and forget, so give the microtask queue a turn.
+      await new Promise((resolve) => setImmediate(resolve));
+
+      expect(sentTo).toEqual([email]);
+
+      const token = new URL(sentResetUrls[0]).searchParams.get('token');
+      expect(token).toBeTruthy();
+      expect(String(token).length).toBeGreaterThan(16);
+    });
+
+    it('clears mustResetPassword once the reset completes', async () => {
+      // An invited user's first password is temporary and `mustResetPassword`
+      // is the flag that makes the dashboard insist on a replacement. It used
+      // to be cleared in exactly one place, the `PATCH /users/me/password`
+      // wrapper, so anyone who arrived through forgot-password kept the flag
+      // forever and was nagged to change a password they had just chosen.
+      const prisma = app.get(PrismaService);
+
+      await request(app.getHttpServer())
+        .post('/api/auth/request-password-reset')
+        .send({ email })
+        .expect(200);
+      await new Promise((resolve) => setImmediate(resolve));
+
+      const token = new URL(sentResetUrls[0]).searchParams.get('token');
+      expect(token).toBeTruthy();
+
+      const before = await prisma.user.findUniqueOrThrow({
+        where: { id: userId },
+        select: { mustResetPassword: true },
+      });
+      expect(before.mustResetPassword).toBe(true);
+
+      await request(app.getHttpServer())
+        .post('/api/auth/reset-password')
+        .send({ token, newPassword: 'a-brand-new-password-1' })
+        .expect(200);
+
+      const after = await prisma.user.findUniqueOrThrow({
+        where: { id: userId },
+        select: { mustResetPassword: true },
+      });
+      expect(after.mustResetPassword).toBe(false);
+    });
+
+    it('points the link at the dashboard, not back at this API', async () => {
+      await request(app.getHttpServer())
+        .post('/api/auth/request-password-reset')
+        .send({ email })
+        .expect(200);
+      await new Promise((resolve) => setImmediate(resolve));
+
+      expect(new URL(sentResetUrls[0]).pathname).toBe('/reset-password');
     });
   });
 

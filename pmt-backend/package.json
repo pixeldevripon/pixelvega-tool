@@ -41,7 +41,6 @@
     "@prisma/adapter-pg": "^7.8.0",
     "@prisma/client": "^7.8.0",
     "@slack/web-api": "^8.0.0",
-    "@thallesp/nestjs-better-auth": "^2.7.0",
     "better-auth": "^1.6.23",
     "bullmq": "^6.1.0",
     "class-transformer": "^0.5.1",

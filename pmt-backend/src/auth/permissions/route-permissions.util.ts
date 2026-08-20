@@ -3,6 +3,7 @@ import { RequestMethod } from '@nestjs/common';
 import type { Permission } from '@prisma/client';
 import { ANY_PERMISSIONS_KEY } from '@/auth/permissions/require-any-permission.decorator';
 import { PERMISSIONS_KEY } from '@/auth/permissions/require-permissions.decorator';
+import { IS_PUBLIC_KEY } from '@/auth/decorators/public.decorator';
 
 /** How a route is gated. */
 export type RouteGate = 'ALL' | 'ANY' | 'PUBLIC' | 'UNGATED';
@@ -14,14 +15,6 @@ export interface RouteGating {
   gate: RouteGate;
   permissions: Permission[];
 }
-
-/**
- * The metadata key @thallesp/nestjs-better-auth's `@AllowAnonymous()` writes.
- * Read from the library's own source (`SetMetadata("PUBLIC", true)`) rather than
- * guessed, because a wrong key here would silently report every public route as
- * ungated and the coverage assertion would then be meaningless.
- */
-const ALLOW_ANONYMOUS_KEY = 'PUBLIC';
 
 /**
  * Read the permission gating off a controller class, from the metadata the
@@ -55,7 +48,7 @@ export function collectRouteGating(
         Permission[] | undefined;
       const any = Reflect.getMetadata(ANY_PERMISSIONS_KEY, fn) as
         Permission[] | undefined;
-      const anonymous = Reflect.getMetadata(ALLOW_ANONYMOUS_KEY, fn) === true;
+      const anonymous = Reflect.getMetadata(IS_PUBLIC_KEY, fn) === true;
 
       const gate: RouteGate = all?.length
         ? 'ALL'
