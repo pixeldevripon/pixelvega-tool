@@ -521,6 +521,41 @@ Design taken from the references; the information architecture and the reading o
       reference's card and column-heading language and links to that screen; it does not grow a second
       board with a third grouping
 
+### D3 revision: the board leads, and everything else shrinks
+
+Plan and reasoning in [`05-overview-redesign.md`](./05-overview-redesign.md).
+
+- [x] `ProjectPhase`: ten statuses grouped into four board lanes, in `src/projects/project-phase.ts`,
+      with `spec/project-phase.spec.ts` asserting every `ProjectStatus` lands in exactly one lane
+- [x] `?phase=` on `/projects` and `/projects/mine`, intersecting with `?status=` rather than one
+      winning. Verified live: the four lane totals (28/30/30/18) match the filtered list exactly
+- [x] `projectBoard` on `WorkspaceDashboardDto`, replacing the flat `projects` slice. Cards are taken
+      PER COLUMN, since a global limit of twelve left the Closed lane empty on a real workspace
+- [x] A column header carries the phase's true total, from the grouped status count, not the number of
+      cards under it
+- [x] `description` and `isTerminal` on the dashboard card. The mapper already computed `isTerminal`
+      and discarded it, so the board printed "93 days overdue" under a CANCELLED project
+- [x] Permission gates in the backend for `blockerBreakdown`, `topProjectsByHours`,
+      `standupComplianceToday` and the `hoursLogged` and `openBlockers` tiles. Absent, never empty
+- [x] `atRisk` counts every at-risk project in scope. It counted the twelve-card slice, so an admin
+      with 78 at-risk projects was told 12
+- [x] `components/home/project-board.tsx` and `project-board-card.tsx`, replacing `project-card.tsx`
+- [x] `lib/config/deep-links.ts`: one registry of destination, permission gate, and whether the route
+      exists. `attention-card.tsx` had three links to unwritten routes; the page now has none, checked
+      by a spec rather than by eye
+- [x] Board columns fill the width and scroll only when they cannot
+- [x] One four-column grid for the whole page, cards spanning within it. Every row matches top and
+      bottom, and no row contains a hole: reached by shrinking content (`aspect-video` off the chart,
+      the status legend collapsed after five, two sparklines dropped), not by alignment tricks
+- [x] The at-risk card tint is gone: it read as a priority colour, not a risk one
+- [x] Board cards are taller, with an always-rendered description slot so a card with no description
+      is not two thirds the height of the one beside it
+- [x] Avatar stack keeps its overlap. The cropping was a `overflow-hidden` wrapper clipping the last
+      face, not the overlap
+- [x] Frontend suite 483 green, lint 0 errors, tsc clean, contrast gate green, both builds green
+- [ ] `/projects/[id]`, which every board card links to, is still not built. Pre-existing: the
+      projects list, board and timeline all link there too
+
 ---
 
 ## Phase D4: backend, the contract gaps

@@ -198,4 +198,17 @@ describe('MyDayCard', () => {
         expect(screen.getByText('My blockers')).toBeInTheDocument();
         expect(screen.getByText('2')).toBeInTheDocument();
     });
+
+    it('renders no personal sparkline', () => {
+        /**
+         * Deliberately absent. It made this the tallest card in its row, which
+         * held the two beside it open with a hole in each, and the team's hours
+         * chart lower down is the page's real trend. Pinned so it does not
+         * creep back: nothing asserted its presence before, so removing it
+         * broke no test at all.
+         */
+        render(<MyDayCard myDay={myDay()} />);
+
+        expect(screen.queryByText('My hours')).not.toBeInTheDocument();
+    });
 });

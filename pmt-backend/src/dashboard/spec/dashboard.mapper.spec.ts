@@ -24,6 +24,7 @@ import {
   toDashboardHours,
   toDashboardProject,
   toMetric,
+  toProjectBoard,
   toRankedRow,
   toRate,
   toSeries,
@@ -247,6 +248,7 @@ describe('toDashboardProject', () => {
   const base: DashboardProjectRow = {
     id: 'p1',
     name: 'Acme corporate site',
+    description: 'Five page marketing site plus a blog.',
     status: ProjectStatus.IN_PROGRESS,
     priority: ProjectPriority.HIGH,
     deadline: new Date('2026-08-25T00:00:00.000Z'),
@@ -275,6 +277,44 @@ describe('toDashboardProject', () => {
       },
     ],
   };
+
+  it('marks a finished project terminal, so a card knows not to print a countdown', () => {
+    /**
+     * A completed project keeps its deadline, so `deadlineLabel` still reads
+     * "138 days overdue" long after the work is done, and `isOverdue` is
+     * deliberately false for it. Neither field can tell a card to drop the
+     * line, which is why this one ships: the board printed "93 days overdue"
+     * under a CANCELLED project.
+     */
+    for (const status of [ProjectStatus.COMPLETED, ProjectStatus.CANCELLED]) {
+      const card = toDashboardProject({ ...base, status }, context, now);
+      expect(card.isTerminal).toBe(true);
+      expect(card.isOverdue).toBe(false);
+      expect(card.isAtRisk).toBe(false);
+    }
+
+    expect(
+      toDashboardProject(
+        { ...base, status: ProjectStatus.IN_PROGRESS },
+        context,
+        now,
+      ).isTerminal,
+    ).toBe(false);
+  });
+
+  it('carries the description through, and null when there is none', () => {
+    // The board card's second line. It reads straight off the row, so the case
+    // worth pinning is that a project without one arrives as null rather than
+    // as an empty string: the card renders no line at all for null, and would
+    // render an empty one for ''.
+    expect(toDashboardProject(base, context, now).description).toBe(
+      'Five page marketing site plus a blog.',
+    );
+    expect(
+      toDashboardProject({ ...base, description: null }, context, now)
+        .description,
+    ).toBeNull();
+  });
 
   it('derives progress from the lifecycle, not from hours used', () => {
     // The `progressPercentage` column Project Module.md specifies was never
@@ -1064,6 +1104,184 @@ describe('tallyOpenBlockers', () => {
     expect(tallyOpenBlockers([])).toEqual({
       openCount: 0,
       highSeverityCount: 0,
+    });
+  });
+});
+
+// ══════════════════════════════════════════════════════════════════════════
+// The board
+// ══════════════════════════════════════════════════════════════════════════
+
+describe('toProjectBoard', () => {
+  type Row = { id: string; status: ProjectStatus };
+
+  const row = (id: string, status: ProjectStatus): Row => ({ id, status });
+
+  /**
+   * A stand-in card, so these cases test the GROUPING rather than the mapper
+   * they delegate to. `toDashboardProject` has its own eleven cases above.
+   */
+  const toCard = (r: Row) =>
+    ({ id: r.id }) as unknown as ReturnType<typeof toDashboardProject>;
+
+  const build = (
+    rows: Row[],
+    statusTotals: Map<ProjectStatus, number>,
+    perColumn = 4,
+  ) => toProjectBoard({ rows, statusTotals, perColumn, toCard });
+
+  const column = (board: ReturnType<typeof build>, phase: string) =>
+    board.columns.find((c) => c.phase.value === phase);
+
+  it('returns all four phases in lifecycle order, empty ones included', () => {
+    const board = build([], new Map());
+
+    // A board that drops its empty columns changes shape as work moves through
+    // it, and a reader loses the place they learned to look.
+    expect(board.columns.map((c) => c.phase.value)).toEqual([
+      'TO_DO',
+      'IN_PROGRESS',
+      'IN_REVIEW',
+      'CLOSED',
+    ]);
+    expect(board.columns.every((c) => c.projects.length === 0)).toBe(true);
+  });
+
+  it('files each row under the phase its status belongs to', () => {
+    const board = build(
+      [
+        row('a', ProjectStatus.PLANNING),
+        row('b', ProjectStatus.ON_HOLD),
+        row('c', ProjectStatus.WAITING_FOR_FEEDBACK),
+        row('d', ProjectStatus.CANCELLED),
+      ],
+      new Map(),
+    );
+
+    expect(column(board, 'TO_DO')?.projects.map((p) => p.id)).toEqual(['a']);
+    expect(column(board, 'IN_PROGRESS')?.projects.map((p) => p.id)).toEqual([
+      'b',
+    ]);
+    expect(column(board, 'IN_REVIEW')?.projects.map((p) => p.id)).toEqual([
+      'c',
+    ]);
+    expect(column(board, 'CLOSED')?.projects.map((p) => p.id)).toEqual(['d']);
+  });
+
+  it('preserves the order it was given inside a column', () => {
+    // It must not sort. The caller ordered the whole list once, and a column
+    // re-sorting its slice would disagree with every other reading of the same
+    // rows.
+    const board = build(
+      [
+        row('third', ProjectStatus.IN_PROGRESS),
+        row('first', ProjectStatus.ON_HOLD),
+        row('second', ProjectStatus.IN_PROGRESS),
+      ],
+      new Map(),
+    );
+
+    expect(column(board, 'IN_PROGRESS')?.projects.map((p) => p.id)).toEqual([
+      'third',
+      'first',
+      'second',
+    ]);
+  });
+
+  it('counts the phase total from the status totals, not from the cards', () => {
+    // The whole reason both exist. Two cards on the board, nineteen projects in
+    // the lane, and the header must say nineteen.
+    const board = build(
+      [row('a', ProjectStatus.PLANNING), row('b', ProjectStatus.SCHEDULED)],
+      new Map([
+        [ProjectStatus.PLANNING, 11],
+        [ProjectStatus.SCHEDULED, 5],
+        [ProjectStatus.READY_FOR_WORK, 3],
+      ]),
+    );
+
+    const todo = column(board, 'TO_DO');
+    expect(todo?.total).toBe(19);
+    expect(todo?.totalLabel).toBe('19 projects');
+    expect(todo?.projects).toHaveLength(2);
+    expect(todo?.hiddenCount).toBe(17);
+    expect(todo?.hiddenLabel).toBe('17 more');
+  });
+
+  it('caps the cards per column and reports the rest as hidden', () => {
+    const rows = Array.from({ length: 9 }, (_, i) =>
+      row(`p${i}`, ProjectStatus.IN_PROGRESS),
+    );
+    const board = build(rows, new Map([[ProjectStatus.IN_PROGRESS, 9]]), 4);
+
+    const inProgress = column(board, 'IN_PROGRESS');
+    expect(inProgress?.projects.map((p) => p.id)).toEqual([
+      'p0',
+      'p1',
+      'p2',
+      'p3',
+    ]);
+    expect(inProgress?.hiddenCount).toBe(5);
+  });
+
+  it('says nothing is hidden when the column shows everything it counted', () => {
+    const board = build(
+      [row('a', ProjectStatus.COMPLETED)],
+      new Map([[ProjectStatus.COMPLETED, 1]]),
+    );
+
+    const closed = column(board, 'CLOSED');
+    expect(closed?.hiddenCount).toBe(0);
+    // Null rather than "0 more", which is how a client knows not to render the
+    // overflow link at all.
+    expect(closed?.hiddenLabel).toBeNull();
+  });
+
+  it('says "1 project", not "1 projects"', () => {
+    const board = build([], new Map([[ProjectStatus.PLANNING, 1]]));
+
+    expect(column(board, 'TO_DO')?.totalLabel).toBe('1 project');
+  });
+
+  it('never reports a negative hidden count', () => {
+    // A total and the rows it was counted from are read in the same wave but
+    // not in the same transaction. A "-2 more" link is worse than none.
+    const board = build(
+      [
+        row('a', ProjectStatus.IN_PROGRESS),
+        row('b', ProjectStatus.IN_PROGRESS),
+        row('c', ProjectStatus.IN_PROGRESS),
+      ],
+      new Map([[ProjectStatus.IN_PROGRESS, 1]]),
+    );
+
+    expect(column(board, 'IN_PROGRESS')?.hiddenCount).toBe(0);
+    expect(column(board, 'IN_PROGRESS')?.hiddenLabel).toBeNull();
+  });
+
+  it('totals the board from the same counts its columns used', () => {
+    const board = build(
+      [row('a', ProjectStatus.PLANNING)],
+      new Map([
+        [ProjectStatus.PLANNING, 4],
+        [ProjectStatus.IN_PROGRESS, 6],
+        [ProjectStatus.COMPLETED, 2],
+      ]),
+    );
+
+    expect(board.total).toBe(12);
+    expect(board.columns.reduce((sum, c) => sum + c.total, 0)).toBe(
+      board.total,
+    );
+  });
+
+  it('carries the phase label and tone for the column header', () => {
+    const board = build([], new Map());
+
+    expect(column(board, 'IN_REVIEW')?.phase).toEqual({
+      value: 'IN_REVIEW',
+      label: 'In review',
+      tone: 'warning',
     });
   });
 });

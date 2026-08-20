@@ -31,6 +31,7 @@ import { ToArray } from '@/common/decorators/to-array.decorator';
 import { IsSearchTerm } from '@/common/decorators/is-search-term.decorator';
 import * as FieldLength from '@/common/constants/field-lengths';
 import { Trim } from '@/common/decorators/trim.decorator';
+import { PROJECT_PHASES, type ProjectPhase } from '@/projects/project-phase';
 
 const STATUSES = Object.values(ProjectStatus);
 const PRIORITIES = Object.values(ProjectPriority);
@@ -485,6 +486,15 @@ export class QueryProjectsDto extends PaginationQueryDto {
   @IsEnum(ProjectStatus)
   status?: ProjectStatus;
 
+  @ApiPropertyOptional({
+    enum: PROJECT_PHASES,
+    description:
+      'The board lane, which is a coarse grouping of status: TO_DO covers planning through ready for work, IN_PROGRESS covers in progress and on hold, IN_REVIEW covers internal review through waiting for feedback, and CLOSED covers completed and cancelled. Combined with `status` it intersects, so asking for a status outside the phase returns nothing rather than widening the filter.',
+  })
+  @IsOptional()
+  @IsIn(PROJECT_PHASES)
+  phase?: ProjectPhase;
+
   @ApiPropertyOptional({ enum: PRIORITIES })
   @IsOptional()
   @IsEnum(ProjectPriority)
@@ -559,6 +569,15 @@ export class QueryMyProjectsDto extends PaginationQueryDto {
   @IsOptional()
   @IsEnum(ProjectStatus)
   status?: ProjectStatus;
+
+  @ApiPropertyOptional({
+    enum: PROJECT_PHASES,
+    description:
+      'The board lane, which is a coarse grouping of status: TO_DO covers planning through ready for work, IN_PROGRESS covers in progress and on hold, IN_REVIEW covers internal review through waiting for feedback, and CLOSED covers completed and cancelled. Combined with `status` it intersects, so asking for a status outside the phase returns nothing rather than widening the filter.',
+  })
+  @IsOptional()
+  @IsIn(PROJECT_PHASES)
+  phase?: ProjectPhase;
 
   @ApiPropertyOptional({ enum: PRIORITIES })
   @IsOptional()

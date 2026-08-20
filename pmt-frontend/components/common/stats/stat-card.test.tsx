@@ -1,9 +1,27 @@
 import { render, screen } from '@testing-library/react';
 import { describe, expect, it } from 'vitest';
 
+import { RoleProvider } from '@/contexts/role-context';
+import { Permission } from '@/lib/config/rbac';
 import type { DashboardMetric } from '@/types/dashboard';
 
 import { StatCard } from './stat-card';
+
+/**
+ * Every case renders inside a provider, because the tile asks the session's
+ * permission set where its figure's detail lives. The deny-all default outside
+ * one would silently make every gated tile unlinked, so the permission cases
+ * would pass for the wrong reason.
+ */
+const withPermissions = (
+    metric: DashboardMetric,
+    permissions: string[] = [],
+) =>
+    render(
+        <RoleProvider permissions={permissions}>
+            <StatCard metric={metric} />
+        </RoleProvider>,
+    );
 
 const metric = (overrides: Partial<DashboardMetric> = {}): DashboardMetric => ({
     key: 'activeProjects',
@@ -61,14 +79,45 @@ describe('StatCard', () => {
         expect(screen.queryByText('+27%')).not.toBeInTheDocument();
     });
 
-    it('renders the visual passed as a child', () => {
-        render(
-            <StatCard metric={metric()}>
-                <div data-testid='strip' />
-            </StatCard>,
+    it('links the tile to the screen behind its figure', () => {
+        // The tile is a summary of a list, so it is a door to that list.
+        withPermissions(metric({ key: 'activeProjects' }));
+
+        expect(
+            screen.getByRole('link', { name: 'Active projects: 14' }),
+        ).toHaveAttribute('href', '/projects?phase=IN_PROGRESS');
+    });
+
+    it('renders the figure without a link when the caller may not follow it', () => {
+        // Not hidden, not zeroed: the number is still the caller's to see. Only
+        // the door is withheld, because `/blockers` would answer 403.
+        withPermissions(metric({ key: 'openBlockers', label: 'Open blockers' }));
+
+        expect(screen.queryByRole('link')).toBeNull();
+        expect(screen.getByText('Open blockers')).toBeInTheDocument();
+        expect(screen.getByText('14')).toBeInTheDocument();
+    });
+
+    it('links a gated tile once the caller holds its permission', () => {
+        withPermissions(
+            metric({ key: 'openBlockers', label: 'Open blockers' }),
+            [Permission.VIEW_BLOCKERS],
         );
 
-        expect(screen.getByTestId('strip')).toBeInTheDocument();
+        expect(
+            screen.getByRole('link', { name: 'Open blockers: 14' }),
+        ).toHaveAttribute('href', '/blockers');
+    });
+
+    it('renders no link for a destination whose screen is not built', () => {
+        // `/time` is in the plan and unwritten, so linking to it would 404 even
+        // for an admin who holds every permission there is.
+        withPermissions(metric({ key: 'hoursLogged', label: 'Hours logged' }), [
+            Permission.VIEW_TIME_ENTRIES,
+        ]);
+
+        expect(screen.queryByRole('link')).toBeNull();
+        expect(screen.getByText('Hours logged')).toBeInTheDocument();
     });
 
     it('still renders a metric key it has no icon for', () => {

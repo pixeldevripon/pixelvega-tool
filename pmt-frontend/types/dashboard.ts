@@ -118,6 +118,8 @@ export type DashboardProjectCapabilities = {
 export type DashboardProject = {
   id: string;
   name: string;
+  /** The board card's second line. Null when nobody wrote one. */
+  description: string | null;
   status: EnumDisplay;
   priority: EnumDisplay;
   types: EnumDisplay[];
@@ -127,6 +129,13 @@ export type DashboardProject = {
   isOverdue: boolean;
   /** Overdue or blocked. The one flag a card colours itself from. */
   isAtRisk: boolean;
+  /**
+   * Completed or cancelled. A card must not print a countdown for one of these:
+   * a finished project keeps its deadline, so `deadlineLabel` still reads
+   * "138 days overdue" and `isOverdue` is false for exactly these, so neither
+   * field can answer it alone.
+   */
+  isTerminal: boolean;
   plannedStartDate: string | null;
   progressPercentage: number;
   estimatedHours: number | null;
@@ -145,6 +154,37 @@ export type DashboardProject = {
   lastWorkedAt: string | null;
   members: DashboardMember[];
   capabilities: DashboardProjectCapabilities;
+};
+
+/**
+ * The four lanes a board reads in, matching the backend's `ProjectPhase`.
+ *
+ * `phase.value` is also the token `/projects?phase=` accepts, which is what
+ * makes a column header a working link rather than an approximation of one.
+ */
+export type DashboardProjectColumn = {
+  phase: EnumDisplay;
+  /**
+   * Projects in this phase across the WHOLE caller scope, which is what the
+   * header counts. Never `projects.length`: the column carries a slice.
+   */
+  total: number;
+  totalLabel: string;
+  /** How many of `total` are not on the board. */
+  hiddenCount: number;
+  /** Null when nothing is hidden, which is how this knows to skip the link. */
+  hiddenLabel: string | null;
+  projects: DashboardProject[];
+};
+
+/**
+ * Always four columns, in lifecycle order, empty ones included. Render the array
+ * as it arrives: the grouping, the order and every count were decided by the
+ * server, because which status counts as "in progress" is a business rule (D4).
+ */
+export type DashboardProjectBoard = {
+  columns: DashboardProjectColumn[];
+  total: number;
 };
 
 /** The reduced projection a client receives: status and deadline, nothing else. */
@@ -227,18 +267,30 @@ export type DashboardAttention = {
   items: DashboardAttentionItem[];
 };
 
+/**
+ * ── Every nullable block here is a permission gate ──
+ *
+ * Null means "this caller does not get this card", and the decision was made by
+ * the server from their permission set. Render nothing at all for a null: an
+ * empty card claims a measured result of zero, which is a different and often
+ * false statement. Never re-derive the gate from a role (D2).
+ */
 export type WorkspaceDashboard = {
+  /** Already gated: a tile the caller may not see is absent from the array. */
   headline: DashboardMetric[];
   hoursTrend: DashboardSeries;
   statusBreakdown: DashboardBreakdown;
-  blockerBreakdown: DashboardBreakdown;
-  topProjectsByHours: DashboardRankedList;
+  /** Null without `VIEW_BLOCKERS`. */
+  blockerBreakdown: DashboardBreakdown | null;
+  /** Null without `VIEW_TIME_ENTRIES`. */
+  topProjectsByHours: DashboardRankedList | null;
   /** Null for a caller with no business seeing a colleague leaderboard. */
   topContributors: DashboardRankedList | null;
-  projects: DashboardProject[];
+  projectBoard: DashboardProjectBoard;
   projectTotal: number;
   attention: DashboardAttention;
-  standupComplianceToday: DashboardCompliance;
+  /** Null without `VIEW_WORK_REPORTS`. */
+  standupComplianceToday: DashboardCompliance | null;
   /** Null for a caller who cannot track time. */
   myDay: DashboardMyDay | null;
 };

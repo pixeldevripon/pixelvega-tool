@@ -9,7 +9,6 @@ import { HugeiconsIcon } from '@hugeicons/react';
 
 import { EnumBadge } from '@/components/common/enum-badge';
 import { IconTile } from '@/components/common/stats/icon-tile';
-import { MiniBars } from '@/components/common/stats/mini-bars';
 import { Card, CardHeader, CardTitle } from '@/components/ui/card';
 import type { DashboardMyDay } from '@/types/dashboard';
 
@@ -23,6 +22,15 @@ import type { DashboardMyDay } from '@/types/dashboard';
  * `elapsedMinutes` is a server figure and this renders it as given. Counting up
  * live would mean the browser's clock deciding how long someone has worked.
  *
+ * ── The personal sparkline is gone ──
+ *
+ * `myHoursTrend` still arrives and is still the honest per-person series (it is
+ * the one place `dailyTarget` means anything), but a strip of bars here was a
+ * third chart on a page whose widest card is already the team's hours. Dropping
+ * it is what let this card match the two beside it: at 433 pixels it was the
+ * tallest thing in its row and held both of them open with a hole in each. Every
+ * figure it summarised is still here as a number.
+ *
  * ── The week bar clips, it does not clamp ──
  *
  * `weekProgressRate` is uncapped: sixty hours into a forty eight hour week reads
@@ -33,15 +41,15 @@ import type { DashboardMyDay } from '@/types/dashboard';
  */
 export function MyDayCard({ myDay }: { myDay: DashboardMyDay }) {
     return (
-        <Card className='flex h-full flex-col gap-4'>
+        <Card size='sm' className='flex flex-col gap-3'>
             <CardHeader className='gap-0'>
-                <CardTitle className='text-base'>My day</CardTitle>
+                <CardTitle className='text-sm'>My day</CardTitle>
                 <p className='text-xs text-content-subtle'>
                     Against a {myDay.weekTargetLabel} week
                 </p>
             </CardHeader>
 
-            <div className='flex flex-1 flex-col gap-4 px-6 pb-6'>
+            <div className='flex flex-1 flex-col gap-3 px-4 pb-4'>
                 {myDay.activeTimer ? (
                     <div className='flex items-center gap-2.5 rounded-md border border-primary/40 bg-primary-subtle px-3 py-2.5'>
                         <HugeiconsIcon
@@ -108,21 +116,6 @@ export function MyDayCard({ myDay }: { myDay: DashboardMyDay }) {
                         </div>
                     </div>
                 )}
-
-                {/* Captioned, because an unlabelled strip of bars is decoration.
-                    Not `mt-auto`: pushing it to the floor of a card that shares
-                    a grid row with taller siblings left a hole above it. */}
-                <div className='flex flex-col gap-1.5'>
-                    <div className='flex items-baseline justify-between text-2xs'>
-                        <span className='text-content-subtle'>
-                            {myDay.myHoursTrend.label}
-                        </span>
-                        <span className='font-medium tabular-nums text-content-muted'>
-                            {myDay.myHoursTrend.totalLabel}
-                        </span>
-                    </div>
-                    <MiniBars points={myDay.myHoursTrend.points} />
-                </div>
 
                 <div className='mt-auto flex flex-col gap-2 border-t border-line pt-3'>
                     <div className='flex items-center gap-2.5 text-sm'>

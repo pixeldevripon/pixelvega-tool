@@ -29,6 +29,10 @@ import {
 import { toDateOnly } from '@/common/working-day/working-day.util';
 import { PrismaService } from '@/prisma/prisma.service';
 import {
+  daysUntilDeadline,
+  TERMINAL_STATUSES,
+} from '@/projects/project.mapper';
+import {
   compareForDashboard,
   DASHBOARD_ACTIVE_STATUSES,
 } from '@/projects/projects.service';
@@ -45,12 +49,14 @@ import {
   toDashboardHours,
   toDashboardProject,
   toMetric,
+  toProjectBoard,
   toRankedRow,
   toRate,
   toSeries,
   type DashboardAttentionCounts,
 } from './dashboard.mapper';
 import type {
+  DashboardMetricDto,
   DashboardResponseDto,
   QueryDashboardDto,
 } from './dto/dashboard.dto';
@@ -63,7 +69,22 @@ import type {
  * into the heaviest query in the app. `projectTotal` says how many exist in
  * scope, so a card list that is cut short can say so and link to the full list.
  */
-const PROJECT_CARD_LIMIT = 12;
+/**
+ * Cards per board column.
+ *
+ * Per COLUMN, not per board, and that is the change that made the board work. A
+ * flat limit of twelve picked the twelve highest-priority projects in the whole
+ * scope, and since the ordering puts active work first, the Closed column came
+ * back empty on a workspace with sixty finished projects. Four per lane is what
+ * fits a column without scrolling it.
+ */
+const PROJECT_CARDS_PER_COLUMN = 4;
+
+/**
+ * Rows on a client's overview. A flat list rather than a board: a client has a
+ * handful of projects and no interest in our lifecycle phases.
+ */
+const CLIENT_PROJECT_LIMIT = 12;
 
 /** Rows in each "top N" list. */
 const RANKED_LIMIT = 5;
@@ -203,7 +224,7 @@ export class DashboardService {
       where: { clientId: actorId, archivedAt: null },
       select: { id: true, name: true, status: true, deadline: true },
       orderBy: [{ deadline: 'asc' }, { createdAt: 'desc' }],
-      take: PROJECT_CARD_LIMIT,
+      take: CLIENT_PROJECT_LIMIT,
     });
 
     // The one thing a client can act on: a project sitting in Waiting For
@@ -325,40 +346,48 @@ export class DashboardService {
       );
     }
 
-    // ── The cards ──
-    const cards = projects
-      .slice()
-      .sort(compareForDashboard)
-      .slice(0, PROJECT_CARD_LIMIT)
-      .map((project) => {
-        const memberships = project.members.filter(
-          (member) => member.leftAt === null,
-        );
-        const mine = memberships.filter((member) => member.userId === actor.id);
+    // ── The board ──
+    //
+    // Sorted ONCE, here, and the grouping preserves that order inside each
+    // column. `toProjectBoard` deliberately does not sort: one ordering for the
+    // whole screen means the board and any list built from the same rows agree.
+    const ordered = projects.slice().sort(compareForDashboard);
 
-        return toDashboardProject(
-          project,
-          {
-            blockers: tallyOpenBlockers(
-              blockersByProject.get(project.id) ?? [],
+    const toCard = (project: (typeof projects)[number]) => {
+      const memberships = project.members.filter(
+        (member) => member.leftAt === null,
+      );
+      const mine = memberships.filter((member) => member.userId === actor.id);
+
+      return toDashboardProject(
+        project,
+        {
+          blockers: tallyOpenBlockers(blockersByProject.get(project.id) ?? []),
+          minutesInRange: minutesByProject.get(project.id) ?? 0,
+          lastWorkedAt: lastWorkedByProject.get(project.id) ?? null,
+          capabilities: buildDashboardProjectCapabilities({
+            permissions,
+            isMember: mine.length > 0,
+            isProjectManagerOfThis: mine.some(
+              (member) => member.role === ProjectRole.PROJECT_MANAGER,
             ),
-            minutesInRange: minutesByProject.get(project.id) ?? 0,
-            lastWorkedAt: lastWorkedByProject.get(project.id) ?? null,
-            capabilities: buildDashboardProjectCapabilities({
-              permissions,
-              isMember: mine.length > 0,
-              isProjectManagerOfThis: mine.some(
-                (member) => member.role === ProjectRole.PROJECT_MANAGER,
-              ),
-            }),
-          },
-          now,
-        );
-      });
+          }),
+        },
+        now,
+      );
+    };
 
     const statusCounts = new Map<ProjectStatus, number>(
       statusGroups.map((group) => [group.status, group._count._all]),
     );
+
+    const projectBoard = toProjectBoard({
+      rows: ordered,
+      statusTotals: statusCounts,
+      perColumn: PROJECT_CARDS_PER_COLUMN,
+      toCard,
+    });
+
     // The shared constant, not a second literal list: this is the same
     // definition of "active" that decides the card ordering.
     const activeCount = projects.filter((project) =>
@@ -366,50 +395,101 @@ export class DashboardService {
     ).length;
 
     const totalMinutes = [...minutesByDay.values()].reduce((a, b) => a + b, 0);
-    const atRiskCount = cards.filter((card) => card.isAtRisk).length;
+
+    /**
+     * At risk, across EVERY project in scope.
+     *
+     * This counted the cards, which were a bounded slice, so a workspace with
+     * thirty at-risk projects reported twelve and the tile silently capped
+     * itself at the board size. The predicate is the mapper's, restated over
+     * the raw rows rather than over mapped cards: overdue or blocked, and never
+     * a finished project, because there is no risk left to manage on one.
+     */
+    const atRiskCount = projects.filter((project) => {
+      if (TERMINAL_STATUSES.includes(project.status)) return false;
+      const daysLeft = daysUntilDeadline(project.deadline, now);
+      const isOverdue = daysLeft !== null && daysLeft < 0;
+      return isOverdue || (blockersByProject.get(project.id)?.length ?? 0) > 0;
+    }).length;
+
+    /**
+     * The headline tiles the caller is entitled to.
+     *
+     * Filtered rather than conditionally spread: a `...(x && [tile])` inside an
+     * array literal puts `false` in the array when the condition fails, and the
+     * frontend maps over it. Declaring each tile with its gate and filtering
+     * once keeps the array typed and keeps the rule beside the tile it governs.
+     *
+     * A tile the caller may not see is ABSENT, not zeroed. Zero is a measured
+     * result and would read as "there are no open blockers", which is a
+     * different and possibly false claim.
+     */
+    const gatedHeadline = (
+      tiles: { gate: Permission | null; tile: DashboardMetricDto }[],
+    ) =>
+      tiles
+        .filter(({ gate }) => gate === null || held.has(gate))
+        .map(({ tile }) => tile);
 
     return {
-      headline: [
-        toMetric({
-          key: 'activeProjects',
-          label: 'Active projects',
-          caption: 'Ready for work or in progress',
-          value: activeCount,
-          valueLabel: String(activeCount),
-          // No historical snapshot of "how many were active a fortnight ago"
-          // exists, and inventing one from status-change activity would be a
-          // different number with the same name. Null is the honest answer.
-          previousValue: null,
-          direction: 'neutral',
-        }),
-        toMetric({
-          key: 'hoursLogged',
-          label: 'Hours logged',
-          caption: range.label,
-          value: totalMinutes,
-          valueLabel: formatDuration(totalMinutes) as string,
-          previousValue: previousTotalMinutes,
-          direction: 'up-is-good',
-        }),
-        toMetric({
-          key: 'openBlockers',
-          label: 'Open blockers',
-          caption: 'Unresolved',
-          value: openBlockers.length,
-          valueLabel: String(openBlockers.length),
-          previousValue: null,
-          direction: 'up-is-bad',
-        }),
-        toMetric({
-          key: 'atRisk',
-          label: 'At risk',
-          caption: 'Overdue or blocked',
-          value: atRiskCount,
-          valueLabel: String(atRiskCount),
-          previousValue: null,
-          direction: 'up-is-bad',
-        }),
-      ],
+      headline: gatedHeadline([
+        {
+          // Every caller who reaches this dashboard may see their own projects,
+          // which is what this counts.
+          gate: null,
+          tile: toMetric({
+            key: 'activeProjects',
+            label: 'Active projects',
+            caption: 'Ready for work or in progress',
+            value: activeCount,
+            valueLabel: String(activeCount),
+            // No historical snapshot of "how many were active a fortnight ago"
+            // exists, and inventing one from status-change activity would be a
+            // different number with the same name. Null is the honest answer.
+            previousValue: null,
+            direction: 'neutral',
+          }),
+        },
+        {
+          gate: Permission.VIEW_TIME_ENTRIES,
+          tile: toMetric({
+            key: 'hoursLogged',
+            label: 'Hours logged',
+            caption: range.label,
+            value: totalMinutes,
+            valueLabel: formatDuration(totalMinutes) as string,
+            previousValue: previousTotalMinutes,
+            direction: 'up-is-good',
+          }),
+        },
+        {
+          gate: Permission.VIEW_BLOCKERS,
+          tile: toMetric({
+            key: 'openBlockers',
+            label: 'Open blockers',
+            caption: 'Unresolved',
+            value: openBlockers.length,
+            valueLabel: String(openBlockers.length),
+            previousValue: null,
+            direction: 'up-is-bad',
+          }),
+        },
+        {
+          // Not gated on VIEW_BLOCKERS even though a blocker can put a project
+          // at risk: the tile says how many of the caller's own projects are in
+          // trouble, without naming a blocker or counting them.
+          gate: null,
+          tile: toMetric({
+            key: 'atRisk',
+            label: 'At risk',
+            caption: 'Overdue or blocked',
+            value: atRiskCount,
+            valueLabel: String(atRiskCount),
+            previousValue: null,
+            direction: 'up-is-bad',
+          }),
+        },
+      ]),
 
       hoursTrend: toSeries({
         label: 'Hours logged',
@@ -434,19 +514,27 @@ export class DashboardService {
         counts: statusCounts,
       }),
 
-      blockerBreakdown: toBreakdown({
-        label: 'Open blockers by severity',
-        unit: 'blockers',
-        display: BLOCKER_SEVERITY_DISPLAY,
-        counts: severityCounts,
-      }),
+      // Null, not an empty breakdown. An empty one claims a measured result of
+      // no blockers; null says this caller does not get the card.
+      blockerBreakdown: held.has(Permission.VIEW_BLOCKERS)
+        ? toBreakdown({
+            label: 'Open blockers by severity',
+            unit: 'blockers',
+            display: BLOCKER_SEVERITY_DISPLAY,
+            counts: severityCounts,
+          })
+        : null,
 
-      topProjectsByHours: this.buildTopProjects(
-        projects,
-        minutesByProject,
-        previousByProject,
-        range.label,
-      ),
+      // An hours leaderboard is time data, so it answers to the same permission
+      // as the time screen it links to.
+      topProjectsByHours: held.has(Permission.VIEW_TIME_ENTRIES)
+        ? this.buildTopProjects(
+            projects,
+            minutesByProject,
+            previousByProject,
+            range.label,
+          )
+        : null,
 
       // Null rather than empty for a caller with no business seeing a
       // leaderboard of colleagues. Empty would claim the team logged no hours.
@@ -459,10 +547,12 @@ export class DashboardService {
             )
           : null,
 
-      projects: cards,
+      projectBoard,
       projectTotal: projects.length,
       attention: toAttention(attention),
-      standupComplianceToday: compliance,
+      standupComplianceToday: held.has(Permission.VIEW_WORK_REPORTS)
+        ? compliance
+        : null,
       myDay: hasMyDay(permissions)
         ? await this.buildMyDay(actor.id, range, now, projectIds)
         : null,
@@ -477,6 +567,7 @@ export class DashboardService {
       select: {
         id: true,
         name: true,
+        description: true,
         status: true,
         priority: true,
         deadline: true,
