@@ -12,6 +12,7 @@ import { ProfilesService } from '@/profiles/profiles.service';
 import { AuditLogService } from '@/audit-logs/audit-log.service';
 import { auth } from '@/auth/instance/auth.instance';
 import { generateUnusedPassword } from '@/common/utils/password.util';
+import { splitName } from '@/common/utils/name.util';
 import { paginate } from '@/common/utils/pagination.util';
 import { toUserResponse } from '@/users/user.mapper';
 import { QueryUsersDto } from '@/users/dto/user.dto';
@@ -142,7 +143,14 @@ export class UsersService {
 
     const user = await this.prisma.user.update({
       where: { id },
-      data: dto,
+      data: {
+        ...dto,
+        // An admin writing a full name here has to leave the two halves the
+        // account screen edits consistent with it, or that screen opens showing
+        // a name the rest of the app disagrees with. `name.util.ts` documents
+        // both directions of this; `ProfilesService` walks the other one.
+        ...(dto.name !== undefined && splitName(dto.name)),
+      },
       select: USER_SELECT,
     });
 
@@ -242,6 +250,10 @@ export class UsersService {
         status: 'INVITED',
         mustResetPassword: true,
         createdById: invitedById,
+        // better-auth's sign-up wrote `name`; it knows nothing about the two
+        // halves. Splitting here means an invited person opens the account
+        // screen with their name already in the right two boxes.
+        ...splitName(dto.name),
       },
     });
 

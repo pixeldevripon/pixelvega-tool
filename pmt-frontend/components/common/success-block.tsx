@@ -2,7 +2,7 @@
  * The "it worked, check your inbox" panel.
  *
  * Lives in `common/` because BOTH the login doors and the profile's change-email
- * dialog show it, and `components/profile/` may not import another module's
+ * dialog show it, and `components/account/` may not import another module's
  * folder (D3). It was in `components/login/login-ui.tsx` until that import
  * became a dependency-direction error.
  */

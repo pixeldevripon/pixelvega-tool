@@ -10,6 +10,7 @@ import {
   VOLUME,
 } from './config';
 import { Rand, addDays } from './random';
+import { splitName } from '../../src/common/utils/name.util';
 import {
   BIOS,
   COMPANY_PREFIXES,
@@ -20,6 +21,45 @@ import {
   TIMEZONES,
   USER_AGENTS,
 } from './pools';
+
+/**
+ * Where this agency's people are, not the whole ISO list.
+ *
+ * A seed that spread accounts uniformly across 249 countries would exercise the
+ * select and describe nobody. These are the places a Dhaka-based agency's staff
+ * and clients actually sit.
+ */
+const SEED_COUNTRIES = [
+  'BD',
+  'US',
+  'GB',
+  'CA',
+  'AU',
+  'DE',
+  'AE',
+  'IN',
+] as const;
+
+const SEED_GENDERS = [
+  'MALE',
+  'FEMALE',
+  'NON_BINARY',
+  'PREFER_NOT_TO_SAY',
+] as const;
+
+/**
+ * Nought to three links, keyed off the local part of the email so a seeded
+ * profile reads like one person rather than like random strings.
+ */
+function seedSocialUrls(email: string, rand: Rand): string[] {
+  const handle = email.split('@')[0].replace(/[^a-z0-9]/gi, '');
+  const candidates = [
+    `https://github.com/${handle}`,
+    `https://www.linkedin.com/in/${handle}`,
+    `https://x.com/${handle}`,
+  ];
+  return candidates.slice(0, rand.int(0, candidates.length));
+}
 
 export type SeededUser = {
   id: string;
@@ -403,6 +443,28 @@ export async function seedUsers(
       createdAt: user.createdAt,
       updatedAt: user.createdAt,
     });
+  }
+
+  // The account screen's personal fields, filled here rather than at each of
+  // the four `userRows.push` sites above. Every one of those already writes
+  // `name`, and the two halves are derived from it by the same `splitName` the
+  // API uses, so the seeded data is consistent with what the app would produce
+  // rather than merely plausible.
+  //
+  // Not every account gets a country, a gender or a link. A dataset where every
+  // optional field is populated tests nothing: the empty state of each control
+  // is exactly what a screen gets wrong.
+  for (const row of userRows) {
+    const { firstName, lastName } = splitName(row.name as string);
+    row.firstName = firstName;
+    row.lastName = lastName;
+    if (rand.int(1, 10) > 2) {
+      row.country = rand.pick(SEED_COUNTRIES);
+    }
+    if (rand.int(1, 10) > 3) {
+      row.gender = rand.pick(SEED_GENDERS);
+    }
+    row.socialUrls = seedSocialUrls(row.email as string, rand);
   }
 
   await prisma.user.createMany({ data: userRows });

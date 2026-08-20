@@ -307,7 +307,11 @@ describe('better-auth surface (e2e)', () => {
     it('emails a set-password link, and the token works', async () => {
       const prisma = app.get(PrismaService);
       const created = await auth.api.signUpEmail({
-        body: { email, password: 'a-password-nobody-is-told', name: 'Invitee' },
+        body: {
+          email,
+          password: 'A-Password-Nobody-Is-Told-9!',
+          name: 'Invitee',
+        },
       });
       userId = created.user.id;
 
@@ -329,12 +333,12 @@ describe('better-auth surface (e2e)', () => {
       // The token is a real one: it sets a password that then signs in.
       await request(app.getHttpServer())
         .post('/api/auth/reset-password')
-        .send({ token, newPassword: 'the-chosen-password-1' })
+        .send({ token, newPassword: 'The-Chosen-Password-1!' })
         .expect(200);
 
       await request(app.getHttpServer())
         .post('/api/auth/sign-in/email')
-        .send({ email, password: 'the-chosen-password-1' })
+        .send({ email, password: 'The-Chosen-Password-1!' })
         .expect(200);
 
       const after = await prisma.user.findUniqueOrThrow({
@@ -346,7 +350,11 @@ describe('better-auth surface (e2e)', () => {
 
     it('sends the reset copy, not the invite copy, for a real forgot-password', async () => {
       const created = await auth.api.signUpEmail({
-        body: { email, password: 'a-password-nobody-is-told', name: 'Invitee' },
+        body: {
+          email,
+          password: 'A-Password-Nobody-Is-Told-9!',
+          name: 'Invitee',
+        },
       });
       userId = created.user.id;
 
@@ -511,7 +519,7 @@ describe('better-auth surface (e2e)', () => {
 
       await request(app.getHttpServer())
         .post('/api/auth/reset-password')
-        .send({ token, newPassword: 'a-brand-new-password-1' })
+        .send({ token, newPassword: 'A-Brand-New-Password-1!' })
         .expect(200);
 
       const after = await prisma.user.findUniqueOrThrow({

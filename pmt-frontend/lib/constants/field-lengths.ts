@@ -40,6 +40,9 @@ export const PASSWORD_MAX = 128;
  * shape of the text. Read them off `profiles/dto/profile.dto.ts` when changing.
  */
 export const PROFILE_NAME = 120;
+/** Half of a person's name, so the two can never join into more than PROFILE_NAME. */
+export const NAME_PART = 60;
+export const SOCIAL_URL = 300;
 export const PROFILE_DESIGNATION = 120;
 export const PROFILE_PHONE = 40;
 export const PROFILE_TIMEZONE = 64;

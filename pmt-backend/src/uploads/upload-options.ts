@@ -92,9 +92,19 @@ export function uploadOptions(rules: UploadRules): MulterOptions {
   };
 }
 
+/**
+ * The avatar size cap, in megabytes.
+ *
+ * Exported because the account screen quotes it in copy ("Pick a photo up to
+ * 5MB") and `GET /profiles/options` serves it from here. A number typed into a
+ * sentence in a browser is a promise nobody checks against the multer limit that
+ * actually enforces it, and the two drift the first time either moves.
+ */
+export const AVATAR_MAX_SIZE_MB = 5;
+
 /** A single image, for avatars. */
 export const imageUploadOptions = uploadOptions({
-  maxSizeMb: 5,
+  maxSizeMb: AVATAR_MAX_SIZE_MB,
   allow: IMAGE_TYPES,
 });
 

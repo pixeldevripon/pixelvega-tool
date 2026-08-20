@@ -57,7 +57,7 @@ export interface HeaderUser {
  *
  * ── Why there is one link ──
  *
- * `/profile` is the only authenticated route that exists today. The reference
+ * `/account` is the only authenticated route that exists today. The reference
  * screenshot has four items, and three of them would be links to 404s. They
  * arrive as their screens do.
  */
@@ -88,7 +88,7 @@ export default function ProfileDropdown({
         (event: KeyboardEvent) => {
             if (event.metaKey && event.key === '/') {
                 event.preventDefault();
-                if (!pathname.includes('/profile')) router.push('/profile');
+                if (!pathname.includes('/account')) router.push('/account');
             }
         },
         [pathname, router],
@@ -151,7 +151,7 @@ export default function ProfileDropdown({
 
                 <DropdownMenuGroup>
                     <DropdownMenuItem asChild>
-                        <Link href='/profile'>
+                        <Link href='/account'>
                             <HugeiconsIcon icon={UserAccountIcon} />
                             My account
                             <DropdownMenuShortcut>⌘ /</DropdownMenuShortcut>

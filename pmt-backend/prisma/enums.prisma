@@ -19,6 +19,17 @@ enum Role {
 }
 
 
+// Optional on User, and PREFER_NOT_TO_SAY is a real answer rather than the
+// absence of one: "never asked" and "asked, declined" are different facts, and
+// only a nullable column plus this member can express both.
+enum Gender {
+  MALE
+  FEMALE
+  NON_BINARY
+  PREFER_NOT_TO_SAY
+}
+
+
 enum EmployeeWorkStatus {
   WORKING
   ON_LEAVE
@@ -367,6 +378,13 @@ enum Permission {
   VIEW_OWN_PERMISSIONS
   VIEW_OWN_NOTIFICATIONS
   MANAGE_OWN_NOTIFICATIONS
+  VIEW_OWN_SESSIONS
+  MANAGE_OWN_SESSIONS
+  // Deleting your own account is destructive and irreversible from the API, so
+  // it gets its own permission rather than riding on EDIT_OWN_PROFILE. The
+  // service refuses it for SYSTEM_ADMIN regardless: there must always be a root
+  // account, and a permission cannot express "everyone except the one row".
+  DELETE_OWN_ACCOUNT
 
   // Reference data every employee reads
   VIEW_HOLIDAYS

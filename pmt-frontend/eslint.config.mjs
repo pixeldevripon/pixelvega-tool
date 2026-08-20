@@ -70,6 +70,7 @@ const NO_INLINE_STYLE = {
 };
 
 const COMPONENT_MODULES = [
+  "account",
   "attributes",
   "bookings",
   "categories",
@@ -94,6 +95,7 @@ const COMPONENT_MODULES = [
 const SHARED_COMPONENTS = ["common", "ui", "providers", "skeletons", "data-table"];
 
 const HOOK_DOMAINS = [
+  "account",
   "attributes",
   "bookings",
   "categories",

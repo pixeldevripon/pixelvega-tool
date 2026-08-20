@@ -194,6 +194,10 @@ an email belongs to before anyone has authenticated.
 - [x] `/first-password` — the forced replacement of an invite's temporary password, while signed in. Needed because that person has a SESSION and no token, so `reset-password` cannot serve them: only `change-password` accepts a current password
 - [x] `/account-suspended` — where a SUSPENDED account lands, instead of a shell of 403s
 - [x] Profile password change, on `POST /api/auth/change-password`, revoking other sessions
+- [x] `/account` — Account & User Management, replacing `/profile` (a 308 redirect). General (Personal Information, Email & Password, Connect Accounts, Social URLs, Danger Zone) and Security (active sessions). Spec and decisions: [`04-account-and-profile.md`](./04-account-and-profile.md)
+- [x] The password policy is SERVED by `GET /profiles/options` and enforced by a `hooks.before` on all three better-auth paths that set a password, so the requirement checklist describes a real gate
+- [x] `firstName` / `lastName` on `User`, with `name` recomposed on write and re-split when an admin writes it. Both directions in `common/utils/name.util.ts`
+- [x] Self-service account deletion: soft delete plus session revocation in one transaction, refused for the SYSTEM_ADMIN
 - [x] `proxy.ts` rewritten: one gate, `?next=` carried, malformed cookies stripped to break the redirect loop, and the emailed token routes left unguarded because the token IS the credential
 - [x] `app/(app)/layout.tsx` gates on `status.value === 'SUSPENDED'` then `mustResetPassword`, in that order
 - [x] `lib/server/app-session.ts` — one parallel wave: `getSession`, `/users/me`, `/users/me/permissions`

@@ -107,7 +107,7 @@ describe('the menu', () => {
 
         expect(screen.getByRole('menuitem', { name: /my account/i })).toHaveAttribute(
             'href',
-            '/profile',
+            '/account',
         );
     });
 
@@ -152,7 +152,7 @@ describe('the profile shortcut', () => {
 
         await userEvent.keyboard('{Meta>}/{/Meta}');
 
-        expect(push).toHaveBeenCalledWith('/profile');
+        expect(push).toHaveBeenCalledWith('/account');
     });
 
     it('leaves Cmd+H to the operating system', async () => {

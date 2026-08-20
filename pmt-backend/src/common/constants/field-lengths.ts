@@ -53,3 +53,46 @@ export const EMAIL = 254;
  * way to make the server do unbounded work on an unauthenticated route.
  */
 export const PASSWORD_MAX = 128;
+
+/**
+ * ── Per-field bounds, where the shared ones are the wrong shape ──
+ *
+ * These were inline numbers on `profile.dto.ts` until the account screen needed
+ * the frontend to quote the same values back. `lib/constants/field-lengths.ts`
+ * mirrors this file name for name, so the two move together instead of drifting
+ * apart one literal at a time.
+ */
+export const PROFILE_NAME = 120;
+export const PROFILE_DESIGNATION = 120;
+export const PROFILE_PHONE = 40;
+export const PROFILE_TIMEZONE = 64;
+export const PROFILE_BIO = 2_000;
+export const CLIENT_COMPANY_NAME = 160;
+
+/**
+ * Half of a person's name.
+ *
+ * Half of `PROFILE_NAME` (120) rather than a fresh judgment, so the two halves
+ * can never join into a `name` longer than the column that has always held it.
+ */
+export const NAME_PART = 60;
+
+/** ISO 3166-1 alpha-2. Exactly two characters, and the allowlist is the real check. */
+export const COUNTRY_CODE = 2;
+
+/**
+ * One social link.
+ *
+ * Generous for a profile URL and far short of the 2,000-odd characters a browser
+ * will accept, because nothing here needs a URL carrying a session in its query
+ * string.
+ */
+export const SOCIAL_URL = 300;
+
+/**
+ * How many links one person may list.
+ *
+ * A cap is required rather than tidy: without one this is an unbounded array of
+ * 300-character strings on a row every list query reads.
+ */
+export const MAX_SOCIAL_URLS = 5;

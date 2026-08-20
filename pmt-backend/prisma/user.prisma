@@ -7,7 +7,36 @@ model User {
   email             String     @unique
   emailVerified     Boolean    @default(false)
   password          String? // managed by better-auth via Account, not used directly
-  name              String
+
+  /**
+   * `name` is the full name every other table, email and audit row reads, and
+   * it stays the authoritative one. firstName and lastName are the two halves
+   * the account screen edits, and the two representations are kept in step by
+   * `common/utils/name.util.ts`: writing either half recomposes `name`, and
+   * writing `name` (an admin, through PATCH /users/:userId) re-splits it. Both
+   * doors therefore leave the row consistent, which is why `name` is not simply
+   * derived at read time: 30-odd queries select it and none of them should have
+   * to know it is computed.
+   */
+  name      String
+  firstName String?
+  lastName  String?
+
+  /** ISO 3166-1 alpha-2. Not an enum: the list belongs to a standard that
+   *  changes without a schema migration, and 249 members in a Postgres enum is
+   *  a type nobody can alter safely. `common/constants/countries.ts` is the
+   *  allowlist and the source of the labels. */
+  country String?
+  gender  Gender?
+
+  /**
+   * Personal links, in the order the person arranged them, bounded by the DTO.
+   * A scalar list rather than a table because there is nothing else to say
+   * about one: no label, no verification, no per-row permission. A join table
+   * would buy ordering, and `String[]` already has it.
+   */
+  socialUrls String[] @default([])
+
   avatarUrl         String?
   avatarPublicId    String? // Cloudinary public_id, used to delete the old asset on replace
   slackUserId       String? // cached from users.lookupByEmail on first successful resolution
