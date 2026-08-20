@@ -23,6 +23,7 @@ import { SlackModule } from '@/slack/slack.module';
 import { NotificationsModule } from '@/notifications/notifications.module';
 import { auth } from '@/auth/instance/auth.instance';
 import { LoginStatusHook } from '@/auth/instance/login-status.hook';
+import { SignUpGuardHook } from '@/auth/instance/sign-up-guard.hook';
 import { PermissionsModule } from '@/auth/permissions/permissions.module';
 import { PermissionsGuard } from '@/auth/permissions/permissions.guard';
 
@@ -62,6 +63,7 @@ import { PermissionsGuard } from '@/auth/permissions/permissions.guard';
     // The hook better-auth calls on sign-in. It needs Nest DI, so it is
     // provided here rather than inside auth.instance.ts.
     LoginStatusHook,
+    SignUpGuardHook,
     // Registered here, not in AuthModule, because Nest processes a module's own
     // providers AFTER every module it imports. That is what puts this LAST in
     // the guard chain, behind AuthGuard, whose request.user it reads.
