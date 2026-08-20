@@ -1,0 +1,674 @@
+# Dashboard v1: checklist
+
+The work in [`01-plan.md`](./01-plan.md) as tickable items, with the requirement each one satisfies
+from [`00-requirements.md`](./00-requirements.md).
+
+**Tick this file in the same PR as the work, from evidence.** The command that passed, the file that
+now exists. Never from memory of having intended to do it. When an item is half done, say which half.
+A stale checklist is worse than no checklist, because the next person trusts it.
+
+## Progress
+
+| Phase | What                                        | Items   | Done   | Status      |
+| ----- | ------------------------------------------- | ------- | ------ | ----------- |
+| ~     | Decisions to make first                     | 9       | 0      | not started |
+| D0    | Mirror, then prune                          | 99      | 68     | in progress |
+| D1    | The module kit                              | 29      | 0      | not started |
+| D2    | Backend, the dashboards                     | 15      | 0      | not started |
+| D3    | Frontend, the four dashboards               | 11      | 0      | not started |
+| D4    | Backend, the contract gaps                  | 7       | 0      | not started |
+| D5    | Projects, list to detail                    | 33      | 0      | not started |
+| D6    | Time tracking and standups                  | 20      | 0      | not started |
+| D7    | Blockers, requirements, reviews, feedback   | 29      | 0      | not started |
+| D8    | People, leave, notifications, audit, client | 29      | 0      | not started |
+| D9    | The AI module                               | 24      | 0      | not started |
+| D10   | The named gaps                              | 30      | 0      | not started |
+| D11   | Hardening and close                         | 16      | 0      | not started |
+|       | **Total**                                   | **351** | **68** |             |
+
+Regenerate the counts with
+`awk '/^## /{if(s!="")print s": "n; s=$0; n=0} /^- \[ \]|^- \[x\]/{n++} END{print s": "n}' 02-checklist.md`
+rather than adjusting them by hand.
+
+## Decisions to make first
+
+Six conflicts and three questions block work downstream. None is a research task: each needs someone
+to choose. Record each as an ADR under `docs/decisions/`.
+
+- [ ] **X1 Archiving.** Independent of status (`Project Module.md`) or Completed and Cancelled only (`features.md`, and what the backend does today). Blocks D5
+- [ ] **X2 Client documents.** Deliverable only (`Project Module.md`) or none at all (`features.md`). Blocks D5 and D8
+- [ ] **X3 Reopening.** Add an Admin-only reopen with a reason, or keep Completed and Cancelled final. Blocks D5 and D10
+- [ ] **X4 Two timers.** One per person in total. Confirm, since the backend already enforces it
+- [ ] **X5 Estimated hours.** AI suggests and the PM confirms, with the PM's number stored. Confirm
+- [ ] **X6 Who reports a blocker.** Anyone assigned plus Admins on any project, which is what the backend does. Confirm
+- [ ] **Dashboard shape.** One endpoint with an `audience` discriminator, or four routes. Blocks D2
+- [ ] **Auto-closed timers.** Record the true elapsed time, or cap at 6pm. Blocks D10
+- [ ] **Design annotation (K8).** Schedule it, or drop it from v1 on the record
+
+---
+
+## Phase D0: mirror, then prune
+
+`pmt-frontend` **is** `tripwheel-x-islandtours-dashboard`, copied whole. This phase removes the
+reference's domain, folds PMT's API contract in, and rebrands. **No PMT feature screens yet.**
+
+The rule, for every item below: a kept file changes for three reasons only. It referenced a deleted
+domain, it needed the PMT contract, or it carried Island Tours branding. Anything else is a separate
+decision, not a "while I am in here".
+
+### The copy, done
+
+- [x] Branch `feat/dashboard-mirror-tripwheel` off `refactor/phase-7-frontend-foundations`
+- [x] Confirmed the old `pmt-frontend` was clean at `735de54`, so the deletion is recoverable
+- [x] Old `pmt-frontend` deleted
+- [x] Reference copied with `rsync -a`, excluding `.git`, `node_modules`, `.next`, `.env.local`, `tsconfig.tsbuildinfo`, `.DS_Store`, `.conductor`, `undefined/`, `dashboard-extraction/`, `public/videos/`, and the three generated `e2e/` artifact folders
+- [x] `.env.local` **not** copied. It holds another product's live `INTERNAL_API_SECRET`, revalidation secret and backend URL
+- [x] `package.json` renamed to `pmt-frontend`, `dev` and `start` on port 3000, `typecheck` script added
+- [x] PMT's `CLAUDE.md`, `.env.example` and `.env.local` restored over the copy's
+- [x] Displaced PMT files quarantined in `reference-notes/` with a README explaining each and when it dies
+- [x] `reference-notes/` excluded from `tsconfig.json` and `vitest.config.ts`, with the reason in a comment
+- [x] `pnpm install`
+- [x] Baseline verified on the verbatim copy: `typecheck` 0 errors · `test` 31 files 227 passing · `build` succeeds with partial prerendering · `lint` 16 errors and 48 warnings, all inherited
+
+### Fold PMT's API contract in, before anything else
+
+Every later step compiles against this, so it goes first.
+
+- [x] `lib/api/fetch.ts`: the reference's 106 line client, **plus** PMT's 15 second timeout (the reference has no timeout at all), **minus** `revalidatePublicForPath`. Keep its retry backoff on 429 and 503, which PMT's client lacks. Both of PMT's fixed defects are already absent there, checked by reading it
+- [ ] `lib/api/humane-error.ts`: keep the markup-is-not-prose case, so a proxy's 502 does not reach a user as "Unexpected token '<'"
+- [ ] `types/permissions.ts`: PMT's 59 permissions, checked member for member against the published enum
+- [ ] `types/auth.ts` and `types/users.ts`, verified against `/api/docs-json`
+- [ ] **Fix the recorded defect while doing it**: `role` and `status` are `{ value, label, tone }`, not strings. Refactor Phase 7 logged this as knowingly unfixed
+- [x] `contexts/role-context.tsx`: PMT's, reading `GET /users/me/permissions` and failing closed. No static role to permission map survives
+- [ ] Run every spec that came with those files, and keep them
+
+### Point the app at the PMT API
+
+- [ ] `next.config.ts` for backend `:5050` and frontend `:3000`
+- [ ] `proxy.ts`: the reference's structure, PMT's cookie shape and route guard
+- [x] Delete the cache revalidation path and `lib/cache-tags.ts`. There is no public site to revalidate here
+- [ ] `.env.local.example` and `.env.production.example` rewritten for PMT's variables, keeping the reference's comments-explaining-why style
+- [ ] **Checked against the running backend, not a mock**: no cookie plus a deep link gives a redirect to login carrying `next`; a cookie plus `/login` redirects into the app; `_next/*` is untouched by the matcher
+
+### Navigation, from PMT's permissions
+
+- [x] `navigations/navigations.ts` rewritten for PMT's routes and its 59 permissions, keeping the grouping-by-task-frequency structure
+- [x] The command palette reads the same tree, so the two surfaces cannot drift
+- [x] `navigations.test.ts` updated: an item without the permission is dropped, and a group left empty is dropped with it
+
+### Delete the reference's domain, one folder per commit
+
+After each, `typecheck` names every orphaned import.
+
+- [x] `attributes` · `availability` · `bookings` · `calendar` · `cancellation-requests`
+- [x] `categories` · `collections` · `customers` · `destinations`
+- [x] `email-centre` · `homepage` · `hubs` · `locals-favourites`
+- [x] `media` · `pages` · `payments` · `recommendations`
+- [x] `reviews` · `settlements` · `spotlight` · `submissions`
+- [x] `translations` · `trips` · `operators`
+- [x] Each domain's `hooks/<domain>/`, `lib/api/<domain>.ts`, `types/<domain>.ts` and `app/(app)/<domain>/` go with it
+- [x] The domain libraries under `lib/`: `analytics`, `bookings`, `email-centre`, `emails`, `home-page`, `media`, `operators`, `recommendations`, `settings`, `tours`, `trips`
+- [x] `lib/public-site.ts` · `lib/island-time.ts` · `lib/translatable-schema.ts`
+- [ ] Reshape the route groups for PMT: `(app)` is the authenticated shell, `(login)` the staff and client door, `(onboarding)` the forced password change and profile completion
+
+### Keep, and confirm untouched
+
+- [x] `components/shell/*` · `components/ui/*` (all 33) · `components/data-table/*` · `components/skeletons/*`
+- [x] `components/common/*` minus the domain files
+- [ ] `components/statistics.tsx` and `page-components.tsx`, rewritten for PMT figures in D3 with **the shape unchanged**
+- [x] `components/providers/query-provider.tsx`, exactly as configured
+- [x] `components/onboarding/*` · `components/login/*` · `components/profile/*` · `components/staff/*`
+- [x] `lib/stores/` · `lib/async/` · `lib/motion.ts` · `lib/utils.ts` · `lib/constants/` · `lib/validations/` · `lib/server/` · `lib/currency/` · `lib/config/`
+- [x] `hooks/use-mobile.ts` · `use-drag-scroll.ts` · `use-sync-form-when-pristine.ts` · `use-unsaved-guard.ts` · `use-visible-section.ts`
+- [x] `zustand`, `@hugeicons/*`, `framer-motion`, `recharts`, `date-fns`, `react-day-picker`, `cmdk` all stay, **because the reference uses them.** User decision, on the record
+- [x] The verification apparatus: `e2e/` harness · `playwright.config.ts` · `vitest.config.ts` · `eslint.config.mjs` · `scripts/contrast-gate.mjs`
+
+### Prune the dependencies only the deleted domains used
+
+- [x] `leaflet` · `react-leaflet` · `@types/leaflet`
+- [ ] `react-easy-crop`
+- [x] `@codemirror/lang-html` · `@uiw/react-codemirror` · `@uiw/codemirror-theme-github`
+- [x] `@tiptap/*`
+- [ ] `input-otp`, **only if** PMT's forgot-password flow sends a link rather than a code. `features.md` says a code, which needs the field
+- [x] Reinstall and rebuild
+
+### Rebrand
+
+- [ ] `public/logo/`: PixelVega marks, light and dark. `app-sidebar.tsx` reads both
+- [ ] Prune `public/`: about 30MB of another product's art across `images/`, `auth/`, `footer/`, `icons/`. Delete what nothing references
+- [ ] The `frontend-root` login token fork: Island Tours palette out, PixelVega in
+- [ ] Brand wording across the app
+- [ ] `README.md` for PMT, using `reference-notes/README.reference.md` as the model
+
+### The purple palette, applied
+
+The user supplied a token set and asked for the VALUES to be mapped onto the existing token
+architecture, keeping every token name. Done, with three deviations, each recorded next to the value
+it governs in `app/globals.css`.
+
+- [x] Brand ramp is PURPLE at hue ~324, anchored so `--color-brand-600` is the given light primary (`oklch(0.37 0.14 323)`) and `--color-brand-400` the given dark primary (`oklch(0.58 0.14 327)`)
+- [x] Neutral ramp is near-achromatic, matching the given neutrals. The darkest three keep a whisper of the brand hue, where the given foreground puts it
+- [x] Light surface model INVERTED to match the given palette: the canvas is white and cards sit one step darker, where before the canvas was tinted and cards rose toward white
+- [x] Dark canvas is the given `oklch(0.23 0.01 256)` slate, not the previous 0.09 near-black
+- [x] `--secondary` and `--accent` given their own semantic tokens (`--surface-secondary`, `--surface-accent`), because the palette gives them different values and both used to alias `--surface-inset`. Every compat alias still points at exactly one semantic token
+- [x] Focus ring is the primary, as the given `--ring` states
+- [x] White primary ink in BOTH modes, as the given `--primary-foreground` states. Verified rather than assumed: the gate measures 4.60:1 in dark, so it clears 4.5:1
+- [x] `--danger-solid` is the given `--destructive`, the same value in both modes
+- [x] Shadow scale taken from the given `--shadow-*`
+- [x] `scripts/contrast-gate.mjs` updated in lockstep, which its own header requires
+- [x] `pnpm gate:contrast` GREEN
+
+**Deviation 1: chart order.** The given light set opens with two purples one step apart, which are
+indistinguishable and worse under protanopia. With purple first, the given second colour also
+collapsed to 1.14:1 against the lighter dark-mode purple. The set was REORDERED, not changed: amber
+(already in the set) moves to position two and clears both modes at 2.16:1 and 5.37:1. The order is
+the same in light and dark, so a series does not change colour when the theme is toggled.
+
+**Deviation 2: dark `--content-subtle`.** 0.60 measured 4.28:1 against the new slate canvas and
+failed. Raised to 0.64.
+
+**Deviation 3: dark shadows.** The given tokens repeat the light shadow block unchanged under
+`.dark`, where a 10% black shadow is invisible against a 0.23 canvas. Same geometry, alpha raised
+until the card edge reads.
+
+**Not applied, needs a decision:**
+
+- [ ] **Typography.** The given tokens set `--font-heading: var(--font-lato)`, `--font-body: var(--font-merriweather)` and `--font-mono: var(--font-roboto-mono)`, plus an h1 to h6 ramp. Not applied: Merriweather is a SERIF, and this is a dense table-heavy dashboard, so it is a bigger call than a colour swap and needs `next/font` wiring in `app/layout.tsx`. The current ramp (DM Sans headings, Geist body, IBM Plex Mono) is untouched. Say the word and it goes in
+- [ ] **Radius.** The given `@theme inline` computes every radius as `calc(var(--radius) * n)` but never defines `--radius`, so adopting it verbatim would collapse every corner to zero. The existing fixed ladder is kept
+
+### Auth, end to end and driven against the live API
+
+The user's direction: "start with login, and auth management fully like reset password,
+forgot-password and all others regarding auth." Done, and verified by signing in as real seeded
+accounts rather than by mocking.
+
+**One gate, not three.** The reference had `/portal`, `/staff` and a traveller door. All six PMT
+roles sign in at `/login`, and what they may then see comes from `GET /users/me/permissions`. A
+second door would be a second place for the redirect rules to disagree, and it leaks which audience
+an email belongs to before anyone has authenticated.
+
+- [x] `/login` — sign in, with `?next=` honoured through `safeRedirect`
+- [x] `/login/forgot` — request a reset, enumeration-proof (the success state is unconditional; only rate limiting is named)
+- [x] `/reset-password?token=` — from a forgot email
+- [x] `/set-password?token=` — from an invite email. **Both paths are fixed by the backend**, which builds the link as `${APP_URL}/<path>?token=`; renaming either breaks every email already in an inbox
+- [x] `/first-password` — the forced replacement of an invite's temporary password, while signed in. Needed because that person has a SESSION and no token, so `reset-password` cannot serve them: only `change-password` accepts a current password
+- [x] `/account-suspended` — where a SUSPENDED account lands, instead of a shell of 403s
+- [x] Profile password change, on `POST /api/auth/change-password`, revoking other sessions
+- [x] `proxy.ts` rewritten: one gate, `?next=` carried, malformed cookies stripped to break the redirect loop, and the emailed token routes left unguarded because the token IS the credential
+- [x] `app/(app)/layout.tsx` gates on `status.value === 'SUSPENDED'` then `mustResetPassword`, in that order
+- [x] `lib/server/app-session.ts` — one parallel wave: `getSession`, `/users/me`, `/users/me/permissions`
+- [x] `contexts/role-context.tsx` carries `role` as `{ value, label, tone }`, not a string. **This fixes the defect refactor phase 7 logged and left**: eight call sites indexed `roleLabels[user.role]` with an object and rendered an empty badge
+- [x] `lib/config/rbac.ts` mirrors the backend's 59 permissions and `ROLE_PERMISSIONS`. Verified: ADMIN and SYSTEM_ADMIN hold all 59, ADMIN is a strict superset of every lower role
+- [x] `lib/safe-redirect.ts` rewritten for a root-mounted app, with 24 specs covering protocol-relative, backslash, control-character and auth-route cases
+
+### Four defects found and fixed, three of them only findable by running it
+
+| Found                                                                                                                                                                                                                         | Why nothing else caught it                                                                                                         |
+| ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------- |
+| **Every API call 404'd.** The copied client appended `/api/v1`; PMT's global prefix is `api`                                                                                                                                  | `typecheck` and `build` both pass. Found by starting the backend and reading its route table                                       |
+| **The sign-in button stuck on "Signing in…" forever, silently.** `signIn.email` REJECTS rather than returning `{ error }` when the failure is below the API, and the handler had no `catch`, so `setLoading(false)` never ran | Found by driving the real form. The same hole was in all four other auth cards and in sign-out; all fixed with `try/catch/finally` |
+| **`apiFetch` forced `Content-Type: application/json` on a `FormData` body**, so the boundary never reached the server and every multipart upload arrived unparseable                                                          | Nothing uploaded a file yet. This product uploads avatars and project documents                                                    |
+| **A Suspense fallback that read `useSearchParams`.** Passing the real card as its own fallback put a dynamic read inside the boundary's fallback                                                                              | Caught by `next build` under `cacheComponents: true`, which is exactly what that flag is for                                       |
+
+### One deliberate difference from `features.md`
+
+`features.md` says a person who forgets their password "gets a code by email". The backend sends a
+**link with a token**, built by better-auth's `sendResetPassword`. The backend is the authority, so
+the screens implement the link flow. Worth confirming which was intended: a code needs a backend
+change, not a frontend one, and `input-otp` is still installed for the day it is.
+
+### The product has a name
+
+`Vega`, in `lib/constants/product.ts`, alongside `COMPANY_NAME` ("PixelVega") and a tagline. Every
+surface that says the name reads it from there: the browser title template, the login door, the
+sidebar. **PixelVega is the company; Vega is the tool.** Renaming it is one edit.
+
+- [x] Logo downloaded from the URL the user supplied and served from `public/logo/` in three variants: white for dark grounds, brand purple for light, and a `currentColor` version for inline SVG use
+- [x] `app/icon.svg` is a square purple mark, because the wordmark is 181x24 and smears at 16px. The V is drawn as strokes, not set as text, so it does not depend on a webfont
+- [x] The `--it-*` login token fork is deleted: 83 class replacements onto the main palette across 13 files, so the door and the app share one purple
+- [x] Every "Island Tours", "Tripwheel", "operator", "portal" and "traveller" string is gone from shipped code, including the user-visible "Welcome to Tripwheel" in the site header
+- [x] `TOUR_OPERATOR` is gone: `types/profile.ts` now carries PMT's `EmployeeProfile` and `ClientProfile` shapes with `role` as an `EnumDisplay`
+
+### Verified by running it, not by mocking
+
+| Checked                                         | Result                                                                                |
+| ----------------------------------------------- | ------------------------------------------------------------------------------------- |
+| Backend boots and serves 99 documented paths    | Yes, on `:5050`, against local Postgres and Redis                                     |
+| `POST /api/auth/sign-in/email`                  | 200, returns the session token and the user                                           |
+| Sign in as `admin@pixelvega.com` in the browser | Lands on `/`, shell renders, all five nav groups                                      |
+| Sign in as `client@pixelvega.com`               | **Exactly two rows: Overview and Projects.** No Deliver, Insight, People or Configure |
+| Console                                         | No errors                                                                             |
+| Dark mode                                       | Slate canvas, white wordmark, purple active row                                       |
+
+### Close the phase
+
+- [ ] Read `reference-notes/CLAUDE.reference.md` for the cross-repo coupling notes and `TEST-AND-HARDENING-CHANGELOG.md` for defects already fixed there, so none is reintroduced
+- [ ] **Delete `reference-notes/` entirely**
+- [ ] Remove its exclude entry from `tsconfig.json`
+- [ ] Remove its exclude entry from `vitest.config.ts`
+- [x] Fix the inherited lint errors that survive in kept files
+
+### Exit criteria, D0
+
+- [ ] No reference domain remains in `app/`, `components/`, `hooks/`, `lib/` or `types/`
+- [ ] `reference-notes/` is gone, and nothing excludes it
+- [ ] Every call goes to the PMT API, and a real session works end to end against `:5050`
+- [ ] Sidebar and palette both built from PMT's permissions
+- [ ] No Island Tours asset, colour or wording remains
+- [ ] `lint` at **0 errors** · `typecheck` · `test` · `build` all green
+- [ ] `pnpm gate:contrast` passes
+
+## Phase D1: the module kit
+
+### Types, verified against `/api/docs-json`
+
+- [ ] `types/projects.ts` · `types/members.ts` · `types/documents.ts`
+- [ ] `types/time-entries.ts` · `types/work-reports.ts`
+- [ ] `types/blockers.ts` · `types/requirements.ts` · `types/reviews.ts` · `types/feedback.ts`
+- [ ] `types/leave.ts` · `types/holidays.ts` · `types/notifications.ts`
+- [ ] `types/reports.ts` · `types/ai.ts` · `types/dashboard.ts`
+- [ ] Every type is a `type` alias, not an `interface`, for TanStack Table 9's generic constraint
+
+### API clients on `apiFetch`
+
+- [ ] `members` · `documents` · `time-entries` · `notifications`
+- [ ] `ai-templates` · `ai-jobs` · `project-summary` · `status-reports`
+- [ ] `blocker-reasons` · `holidays` · `leave-types` · `leave-balances`
+- [ ] `project-reports` · `developer-reports` · `dashboard`
+
+### Hooks with key factories
+
+- [ ] One `hooks/<domain>/use-<domain>.ts` per client above, key factory first
+- [ ] Every invalidation goes through the factory. No inline key array anywhere
+- [ ] Paginated lists set `placeholderData: keepPreviousData`
+
+### The presentational kit under `components/common/`
+
+- [ ] `enum-badge.tsx`. Takes `{ value, label, tone }`. **The only place tone becomes a class**
+- [ ] `capability-gate.tsx`. Gates a row from its own flags, a screen from `usePermissions()`
+- [ ] `stats/stat-card.tsx` · `trend-badge.tsx` · `donut-stat.tsx` · `chart-empty.tsx` · `breakdown-row.tsx`, each taking already-computed props
+- [ ] `date-range-control.tsx`
+- [ ] `filter-bar.tsx`, wired to `useTableState`
+- [ ] `timeline.tsx`, shared by project activity, review rounds and feedback rounds
+- [ ] `reason-dialog.tsx`, shared by on hold, cancel, reject, changes required and reopen
+- [ ] `page-header.tsx` · `entity-detail-shell.tsx` · `entity-tabs.tsx`
+- [ ] `view-states.tsx`: loading, empty, error, loaded
+- [ ] `export-button.tsx`, built here and wired in D10
+- [ ] `skeletons/`: list, detail and dashboard
+
+### Lint, as `warn`
+
+- [ ] Design token group at `warn`, with the violation count written down
+- [ ] Dependency direction group at `warn`, with the count
+- [ ] Presentation only group at `warn`, with the count: no `.sort(` / `.reduce(` / `.filter(` under `components/**`, no locally declared status or priority label and tone map
+
+### Exit criteria, D1
+
+- [ ] No screen fetches without a hook
+- [ ] No local tone or label map exists anywhere in the app
+
+---
+
+## Phase D2: backend, the dashboards (Q1 to Q9)
+
+- [ ] ADR `0005-the-dashboard-is-one-endpoint-with-an-audience-discriminator.md`, or the alternative if X-decision says four routes
+- [ ] `VIEW_DASHBOARD` in `prisma/enums.prisma`, granted to all six roles in `ROLE_PERMISSIONS`
+- [ ] Hand-write the migration folder and `migration.sql`, then `prisma migrate deploy`. `migrate dev` needs a TTY
+- [ ] `src/dashboard/` following the module shape: one `dto/dashboard.dto.ts`, `spec/`, `dashboard.swagger.ts`, service, controller, module
+- [ ] Register it in `AppModule.imports`
+- [ ] `GET /dashboard` returns an `audience` discriminator plus exactly one populated block
+- [ ] The admin block (Q2, Q9)
+- [ ] The manager block (Q3)
+- [ ] The staff block (Q4, Q5)
+- [ ] The client block (Q8)
+- [ ] **Ordering is server side** (Q6, Q7): priority, then deadline, then planned start date, with Ready For Work and In Progress ahead of completed or inactive
+- [ ] Every figure carries its display label alongside the exact value (ADR 0003)
+- [ ] A rate is `null`, never zero, when its denominator is zero
+- [ ] Service specs: every audience branch, and the ordering rule asserted on a fixture that would fail under any other order
+- [ ] Swagger published, and the shape checked against `/api/docs-json`
+
+---
+
+## Phase D3: frontend, the four dashboards (Q1 to Q9)
+
+- [ ] `types/dashboard.ts` and `lib/api/dashboard.ts` verified against the live shape
+- [ ] `hooks/dashboard/use-dashboard.ts`
+- [ ] `components/home/home-view.tsx`, reading `audience` and rendering one block
+- [ ] `components/home/admin-dashboard.tsx`
+- [ ] `components/home/manager-dashboard.tsx`
+- [ ] `components/home/staff-dashboard.tsx`
+- [ ] `components/home/client-dashboard.tsx`
+- [ ] `app/(dashboard)/dashboard/page.tsx` stays a Server Component: title plus the view
+- [ ] **Delete `dashboard-overview.tsx`**, and grep the whole frontend for a remaining hardcoded figure
+- [ ] Loading, empty and error states on every card. An empty dashboard is the common case on a fresh install
+- [ ] Tests for the four view states per block, and one asserting the list renders in the order it arrived
+
+---
+
+## Phase D4: backend, the contract gaps
+
+### A plain English explanation on every status (E3)
+
+- [ ] Add `description` to `EnumDisplayEntry` in `src/common/utils/enum-display.util.ts`
+- [ ] Add `description` to `EnumDisplayDto`. A contract change every consumer sees, so its own PR
+- [ ] One sentence for each of the ten project statuses
+- [ ] One sentence for each of the five priorities
+- [ ] Confirm the build fails until every member of every `Record<TheEnum, EnumDisplayEntry>` has one
+
+### A readiness block on the project response (D3)
+
+- [ ] `{ hasProjectManager, hasDeveloperOrDesigner, isReadyToLeavePlanning, blocking: [{ code, message }] }`
+- [ ] Spec: the block agrees with the transition guard in every case, so the screen cannot promise something the guard refuses
+
+---
+
+## Phase D5: projects, list to detail
+
+Four PRs, strictly ordered. PR 3 is a pure move: if its diff shows logic changes, it is wrong.
+
+### PR 1, the list
+
+- [ ] `types/projects.ts` · `lib/api/projects.ts` · `hooks/projects/use-projects.ts` with its key factory
+- [ ] `projects-list-view.tsx` · `-table.tsx` · `-columns.tsx` · `-row-actions.tsx`
+- [ ] Filters, sort and paging are query params through `useTableState`, never array methods
+- [ ] Status and priority through `EnumBadge` (E1, D5)
+- [ ] Hours spent and remaining against the estimate, straight off the response (D7, D8)
+- [ ] Row actions gated from each row's own `capabilities`, never from a role
+- [ ] Tests: four view states, and one asserting no client-side sort
+
+### PR 2, create (C1 to C4)
+
+- [ ] `project-form.tsx`, React Hook Form plus Zod mirroring the DTO
+- [ ] Name, client and at least one project type required (C2)
+- [ ] All seven project types, multi-select (C3)
+- [ ] Description, start date and deadline optional (C4)
+- [ ] Tests: every required-field rule, and one asserting the backend's 400 surfaces through `humaneError`
+
+### PR 3, the split, no behaviour change
+
+- [ ] `project-detail-shell.tsx` plus `entity-tabs`
+- [ ] One file per tab, moved verbatim
+- [ ] **`project-detail-view.tsx` deleted**, and no file over 400 lines
+- [ ] Confirmed by review that the diff contains no logic changes
+
+### PR 4 onward, one tab per PR
+
+- [ ] **Overview**: the readiness checklist (D3), hours against estimate (D7, D8), the status explanation (E3), archive (E13)
+- [ ] **Team**: assign (D1), the workload warning the members endpoint returns (D2, C7), former members shown separately (D4), several of each role (D11)
+- [ ] **Team**: a new member sees the full history but cannot modify historical records (D13)
+- [ ] **Status**: the fixed route with no skipping (E2), who may advance (E4), Admin-only cancel (E5)
+- [ ] **Status**: On Hold and Cancelled capture a reason through `ReasonDialog` (E6)
+- [ ] **Status**: reopen, if X3 resolved to add it (E12)
+- [ ] **Documents**: upload a file or type text (F1, F2), all six types
+- [ ] **Documents**: a credential is typed text only (F5), and a file shows its type, size and format (F6)
+- [ ] **Documents**: soft delete is hidden rather than destroyed (F4)
+- [ ] **Documents**: the client's reduced view, per X2 (F7)
+- [ ] **Priority**: Low to Critical, and Urgent or Critical forces a reason (D5, D6)
+- [ ] **Estimated hours**: set and edit (D7)
+- [ ] **Activity**: moved onto the shared `Timeline` (D9)
+- [ ] **Reports**: the existing project report endpoint (R1)
+- [ ] **Slack**: connected state, link, and re-send an invite (N1 to N4)
+- [ ] Tests per tab: four view states plus every form rule
+- [ ] Handover view: a reassigned developer lands on history, logs and assets (D14)
+
+---
+
+## Phase D6: time tracking and standups
+
+### The global timer (G1 to G6)
+
+- [ ] `components/time/active-timer.tsx`, **mounted at the shell, not per page**. One active timer per person is a global fact, and a page-level mount loses it on navigation
+- [ ] Start, pause, resume, stop (G2 to G4)
+- [ ] A note explaining what the time was spent on (G5)
+- [ ] Start is gated from the project's capability flag, so only an assigned Developer or Designer sees it (G1)
+- [ ] The one-timer rule surfaces as a clear message, never as a raw 409 (G6)
+- [ ] Tests: every state transition, and the refusal path
+
+### The rest of time tracking
+
+- [ ] Who is working right now, and on what (G7)
+- [ ] Totals per project, per day and across all projects (G8)
+- [ ] The meeting timer, separate from project time (G10)
+- [ ] Clients reach none of it (G9)
+
+### Standups and wrap-ups (H1 to H7)
+
+- [ ] `types/work-reports.ts` · `lib/api/daily-work-reports.ts` · `hooks/work-reports/`
+- [ ] The plan form: one submission covering all of a person's projects for the day (H1, H3)
+- [ ] The wrap-up form, on the same projects (H2)
+- [ ] Today's state visible at a glance, so a person knows what they still owe (H4)
+- [ ] The PM review queue, with a comment per entry (H5)
+- [ ] Scoped so a PM sees only entries for projects they manage (H7)
+- [ ] Filters by person, date range and type (H6)
+- [ ] Tests: four view states, the multi-project submit, and the review comment asserted on the value sent
+
+### Exit criteria, D6
+
+- [ ] A developer can run a full day through the tool: timer, standup, pause, resume, wrap-up, stop
+- [ ] A PM can read and comment on every entry they own
+
+---
+
+## Phase D7: blockers, requirements, reviews and feedback
+
+### Blockers (I1 to I13)
+
+- [ ] Module recipe: types, client, hook with key factory
+- [ ] The cross-project list with filters by status, severity, project and owner (I11)
+- [ ] Report a blocker, severity and a reason from the list (I1 to I3)
+- [ ] The reason list admin screen (I4)
+- [ ] Open, In Progress, Resolved (I5), assignment (I6), days open (I7)
+- [ ] Resolution notes (I8) and deadline impact days (I9)
+- [ ] The per-project deadline impact screen the endpoint already serves (I10)
+- [ ] Blockers surface to the PM (I13)
+- [ ] Clients reach none of it (I12)
+- [ ] Tests: four view states plus every form rule
+
+### Additional requirements (J1 to J8)
+
+- [ ] Module recipe
+- [ ] The PM inbox, with out of scope items visible (J7)
+- [ ] Create with a source channel (J1, J2)
+- [ ] Approve or reject (J3), with extra hours and the days the deadline moves (J4)
+- [ ] The permanent record of who approved it and when (J5)
+- [ ] Tests
+
+### Internal reviews (K1 to K6)
+
+- [ ] Module recipe
+- [ ] Submit a round: decision plus comments (K2)
+- [ ] The round history, so a second round reads against the first (K3, K6)
+- [ ] Pass moves to Ready For Client, changes required moves to Ready For Work (K4, K5)
+- [ ] A Developer or Designer submits the project into Internal Review (K1)
+- [ ] Tests
+
+### Client feedback (L4 to L8)
+
+- [ ] Module recipe
+- [ ] The client's own Approved or Changes Requested action (L4)
+- [ ] The PM recording it on the client's behalf (L5)
+- [ ] The round history with its incrementing round number (L6)
+- [ ] Tests
+
+### Shared
+
+- [ ] Every written reason in this phase goes through the same `ReasonDialog`
+- [ ] Every round-based history renders through the same `Timeline`
+
+---
+
+## Phase D8: people, leave, notifications, audit and the client portal
+
+### People (B4 to B9, D14)
+
+- [ ] Profile: view and update, with a photo (B4)
+- [ ] Work status: sick, casual, WFH, onsite (B6)
+- [ ] Availability: ready or occupied (B7)
+- [ ] How many and which projects each developer is on (B8)
+- [ ] Users admin: invite, edit, delete across all roles (B1, B9)
+- [ ] An Admin opens any person's record (B5)
+- [ ] Tests
+
+### Leave (M1 to M8)
+
+- [ ] Module recipe: types, clients for requests, types, holidays and balances, hooks
+- [ ] Request leave, including as an Admin. Clients cannot (M1)
+- [ ] Own remaining balance (M4)
+- [ ] Cancel your own pending request (M7)
+- [ ] The leave types admin screen (M2)
+- [ ] The public holiday calendar admin screen (M3)
+- [ ] The PM's queue: sees everything, opens anything, **cannot approve or reject** (M5). Gated from `REVIEW_LEAVE_REQUEST`, never from the role
+- [ ] The Admin's approve and reject (M6)
+- [ ] The summary and its CSV export (M8)
+- [ ] Tests, including one asserting a PM is shown no approve control
+
+### Notifications (O1, O2)
+
+- [ ] `types/notifications.ts` · `lib/api/notifications.ts` · `hooks/notifications/`
+- [ ] A bell with an unread count in the site header
+- [ ] The inbox: mark one read, mark all read
+- [ ] Tests
+
+### Audit log (P1)
+
+- [ ] Move the existing screen onto the module recipe
+- [ ] Tests
+
+### The client portal (L1 to L3, L9, L10)
+
+- [ ] Own projects only, never anyone else's (L2)
+- [ ] Status and deadline, and nothing else (L3)
+- [ ] Deliverable documents, per X2 (L10)
+- [ ] A notice when a project's status changes (L9)
+- [ ] Tests, including one asserting no internal field reaches a client view
+
+### Exit criteria, D8
+
+- [ ] Sign in as each of the six roles and reach every screen that role should have, and none it should not
+
+---
+
+## Phase D9: the AI module
+
+### Frontend for what the backend already serves
+
+- [ ] `types/ai.ts` · `lib/api/ai-templates.ts` · `ai-jobs.ts` · `project-summary.ts` · `status-reports.ts` · hooks for each
+- [ ] Templates CRUD, two kinds, staff readable and Admin writable (R3)
+- [ ] Only one template of each kind can be the default, enforced visibly (R3)
+- [ ] The scope check request, and **it is never automatic**: a PM asks for it explicitly (R4)
+- [ ] The verdict panel: in scope, out of scope or unclear, with confidence and the written reason (R5)
+- [ ] The suggested extra hours shown as a suggestion, with the PM's own number the one that is stored (R6)
+- [ ] A re-run replaces the previous answer, and the UI does not imply a history (R7)
+- [ ] **Approve and reject work regardless of what the scope check said** (R6). This is the rule that matters most to get right
+- [ ] A project with no PRD or Requirement documents still shows the recorded explanation, never an error (R5)
+- [ ] The live project summary: immediate, and **nothing in the UI implies it is saved** (R8)
+- [ ] The status report generator, with the period defaulting to since the last report or the last seven days (R11)
+- [ ] The status report history, never overwritten (R10)
+- [ ] Job polling for the two background features (R13)
+- [ ] Tests: the four view states, the polling states, and one asserting approve is enabled with an out of scope verdict
+
+### Backend additions
+
+- [ ] AI hours estimate (C6, R15), offered at creation and re-runnable, with the PM's value always the stored one (X5)
+- [ ] AI PRD generation (R14)
+- [ ] Sprint progress report (R16)
+- [ ] Project delivery report (R16)
+- [ ] Team workload report (R16)
+- [ ] Service specs for each, including the no-source-documents path
+- [ ] Swagger published for each
+
+### Frontend for the additions
+
+- [ ] The estimate offered at creation, and re-runnable from the project (C6)
+- [ ] PRD generation from the documents tab (R14)
+- [ ] The three new reports on the reports surface (R16)
+
+---
+
+## Phase D10: the named gaps
+
+### Timeline and Gantt (S1, S3, S4)
+
+- [ ] A timeline endpoint returning already-laid-out bars per member. The browser draws, it does not lay out
+- [ ] A per-week workload endpoint (S4)
+- [ ] The project timeline screen (S1)
+- [ ] The overlap view (S3)
+- [ ] Specs for both endpoints
+
+### Exports (T1, T3, T4, S2, R17)
+
+- [ ] CSV for project lists (T1)
+- [ ] CSV for blockers (T4)
+- [ ] CSV for time data (T4)
+- [ ] PDF for a report (T3, R17)
+- [ ] PDF for the timeline (S2)
+- [ ] Follow the existing leave summary export: it already sets `text/csv` and a `Content-Disposition` filename
+- [ ] Wire `ExportButton` from D1 into every list that has an export
+
+### Documents
+
+- [ ] Version history: a row per upload, with the current version resolved server side (F8)
+- [ ] A `CONTRACT` document type (F9)
+- [ ] The version history UI on the documents tab
+- [ ] Specs
+
+### Reopening a closed project (E12, X3)
+
+- [ ] Admin only, a required reason, recorded as a `ProjectActivity`
+- [ ] The UI action, through `ReasonDialog`
+- [ ] Specs, including that no lower role can reach it
+
+### The working window and the crons
+
+- [ ] Count only 9am to 6pm, Saturday to Thursday on a time entry (G12), using `src/common/working-day/`
+- [ ] Service specs on the boundary cases **before this touches real data**: a timer started at 5:55pm, a timer spanning a Friday, a timer started before 9am
+- [ ] A cron that closes a timer left running past the working day (G13, U4)
+- [ ] An auto-closed entry is visibly marked as auto-closed
+- [ ] A dry run that logs what it would change, before it changes anything
+- [ ] A cron that promotes a Scheduled project to Ready For Work when its planned start date arrives (E9, U3)
+- [ ] Specs for both crons, including the timezone. The existing three use `Asia/Dhaka`
+
+### A revision checklist on a review round (K7)
+
+- [ ] Revision items against a `ProjectInternalReview`, each markable done
+- [ ] The UI on the reviews tab
+- [ ] Specs
+
+### Scheduled reports (U5)
+
+- [ ] Depends on exports landing. Last item in the plan, and the first candidate to drop if time runs short
+
+---
+
+## Phase D11: hardening and close
+
+- [ ] Design token ESLint group flipped from `warn` to `error`
+- [ ] Dependency direction group flipped to `error`
+- [ ] Presentation only group flipped to `error`
+- [ ] Playwright, one journey per role, storage-state auth, under `pmt-frontend/e2e/tests/`
+- [ ] No component over 400 lines, verified by a line count over `components/`
+- [ ] No `useEffect` plus `fetch` remaining, verified by grep
+- [ ] No `.sort(`, `.reduce(` or `.filter(` under `components/`, verified by the lint group at `error`
+- [ ] `lib/api/client.ts` deleted once nothing imports it
+- [ ] `pnpm lint` green, both packages
+- [ ] `pnpm typecheck` green, both packages
+- [ ] `pnpm test` green, both packages
+- [ ] `pnpm test:e2e` green, both suites
+- [ ] `pnpm build` green, both packages
+- [ ] `pmt-frontend/CLAUDE.md` updated
+- [ ] `docs/refactor/02-checklist.md` and `03-progress.md` updated, and refactor Phase 8 marked as absorbed by this plan
+- [ ] ADRs written for the dashboard's audience discriminator and for every conflict resolved by judgment rather than by a document
+
+---
+
+## The rule this checklist runs under
+
+Before the security review and the code review in any phase, **ask**. Say what would be run and on
+what diff, and wait. Then do exactly what is instructed, and say in the report which reviews ran and
+which were declined. That applies however large the change and however obviously a review looks
+warranted: spending a review is the user's call.
+
+Security review is mandatory to offer for anything touching auth, permissions, ownership scoping,
+uploads, Slack, AI or an anonymous route. In this plan that is D2 (a new permission), D5 (documents and
+ownership scoping), D8 (the client portal and the PM's read-only leave queue), D9 (AI) and D10
+(exports and reopening).

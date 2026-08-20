@@ -179,6 +179,13 @@ Unchanged from the original plan, and now downstream of Phase 6.
 
 ### Phase 8: frontend module migration
 
+> **Absorbed by [`docs/dashboard/`](../dashboard/01-plan.md).** That plan covers the same frontend
+> files and adds the v1 feature build on top, so running both would migrate a screen and then
+> immediately rebuild it. The per-module discipline below is kept verbatim as that plan's module
+> recipe, and its exit criteria are the ones stated here. Track the work in
+> [`docs/dashboard/02-checklist.md`](../dashboard/02-checklist.md), not in the Phase 8 section of
+> this plan's checklist.
+
 One PR per module, ascending by size: `settings` (92), `reports` (293), `profile` (403), `blockers`
 (479 + 493), `users-admin` (527), `projects` (581), `audit-logs` (695), `daily-work-reports` (771),
 `leave-requests` (1,823), `project-detail` (3,339).

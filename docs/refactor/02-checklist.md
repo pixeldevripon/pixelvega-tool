@@ -419,6 +419,11 @@ the fix is to delete `roleLabels` and `lib/auth-meta.ts` rather than to patch th
 
 ## Phase 8: frontend module migration (D4)
 
+> **Absorbed by [`docs/dashboard/02-checklist.md`](../dashboard/02-checklist.md).** The items below
+> are covered there, inside the phase that rebuilds each screen, so ticking them in two places would
+> put the two checklists out of step. Leave this section as it stands and tick the dashboard
+> checklist instead. The exit criteria at the bottom of this section still bind.
+
 One PR per module, ordered by ascending size so the pattern is proven cheaply first.
 
 - [x] `settings` (92 lines) Done in phase 7 as the proof screen. `components/settings/settings-view.tsx`, on `useCurrentUser()`, with 7 specs
