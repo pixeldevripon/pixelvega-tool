@@ -73,7 +73,7 @@ export class InternalReviewsService {
   // A PM reviewing work submitted for INTERNAL_REVIEW. APPROVED moves the
   // project on to READY_FOR_CLIENT, CHANGES_REQUIRED sends it back to
   // READY_FOR_WORK for another pass. This is the only path that can make
-  // either transition. The generic PATCH /projects/:id/status no longer
+  // either transition. The generic PATCH /projects/:projectId/status no longer
   // allows them, so a review record always exists for both.
   async create(
     projectId: string,

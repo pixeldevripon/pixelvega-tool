@@ -1,10 +1,10 @@
 import { Module } from '@nestjs/common';
 import { AiModule } from '@/ai/ai.module';
 import { TimeEntriesModule } from '@/projects/time-entries/time-entries.module';
-import { ProjectAiSummaryController } from '@/ai/summary/project-ai-summary.controller';
-import { ProjectAiSummaryService } from '@/ai/summary/project-ai-summary.service';
-import { ProjectStatusReportsController } from '@/ai/status-reports/project-status-reports.controller';
-import { ProjectStatusReportsService } from '@/ai/status-reports/project-status-reports.service';
+import { ProjectAiSummaryController } from '@/projects/ai/summary/project-ai-summary.controller';
+import { ProjectAiSummaryService } from '@/projects/ai/summary/project-ai-summary.service';
+import { ProjectStatusReportsController } from '@/projects/ai/status-reports/project-status-reports.controller';
+import { ProjectStatusReportsService } from '@/projects/ai/status-reports/project-status-reports.service';
 import { ProjectReportsController } from '@/projects/reports/project/project-reports.controller';
 import { ProjectReportService } from '@/projects/reports/project/project-report.service';
 

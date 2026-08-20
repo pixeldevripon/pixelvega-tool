@@ -14,7 +14,7 @@ export const ApiGetAiJobDocs = () =>
         'underlying feature would have required, so polling a job cannot reveal ' +
         'anything the caller could not have requested themselves.',
     }),
-    ApiParam({ name: 'id', description: 'The AI job id' }),
+    ApiParam({ name: 'jobId', description: 'The AI job id' }),
     ApiResponse({
       status: 200,
       description: 'The job and its current status',

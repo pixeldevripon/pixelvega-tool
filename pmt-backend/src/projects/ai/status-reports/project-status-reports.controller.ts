@@ -7,8 +7,8 @@ import { RequirePermissions } from '@/auth/permissions/require-permissions.decor
 import {
   ApiGenerateStatusReportDocs,
   ApiListStatusReportsDocs,
-} from '@/ai/status-reports/project-status-reports.swagger';
-import { CreateStatusReportDto } from '@/ai/status-reports/dto/project-status-report.dto';
+} from '@/projects/ai/status-reports/project-status-reports.swagger';
+import { CreateStatusReportDto } from '@/projects/ai/status-reports/dto/project-status-report.dto';
 
 @ApiTags('AI Status Reports')
 @ApiCookieAuth('better-auth.session_token')

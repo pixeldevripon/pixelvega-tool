@@ -31,34 +31,7 @@ jest.mock('@/auth/instance/auth.instance', () => ({ auth: { api: {} } }));
 
 import 'reflect-metadata';
 import { Permission as P } from '@prisma/client';
-import { AdditionalRequirementsController } from '@/projects/requirements/additional/additional-requirements.controller';
-import { AiJobsController } from '@/ai/jobs/ai-jobs.controller';
-import { AiTemplatesController } from '@/ai/templates/ai-templates.controller';
-import { ProjectStatusReportsController } from '@/ai/status-reports/project-status-reports.controller';
-import { ProjectAiSummaryController } from '@/ai/summary/project-ai-summary.controller';
-import { AuditLogController } from '@/audit-logs/audit-log.controller';
-import { BlockerReasonsController } from '@/projects/blockers/reasons/blocker-reasons.controller';
-import { BlockersController } from '@/projects/blockers/blockers.controller';
-import { ProjectBlockersController } from '@/projects/blockers/project-blockers.controller';
-import { ClientFeedbackController } from '@/projects/reviews/client/client-feedback.controller';
-import { InternalReviewsController } from '@/projects/reviews/internal/internal-reviews.controller';
-import { HolidaysController } from '@/leave/holidays/holidays.controller';
-import { LeaveRequestsController } from '@/leave/requests/leave-requests.controller';
-import { LeaveBalancesController } from '@/leave/balances/leave-balances.controller';
-import { LeaveTypesController } from '@/leave/types/leave-types.controller';
-import { NotificationsController } from '@/notifications/notifications.controller';
-import { ProfilesController } from '@/profiles/profiles.controller';
-import { ProjectDocumentsController } from '@/projects/documents/project-documents.controller';
-import { ProjectMembersController } from '@/projects/members/project-members.controller';
-import { DeveloperReportsController } from '@/reports/developers/developer-reports.controller';
-import { ProjectReportsController } from '@/projects/reports/project/project-reports.controller';
-import { ProjectsController } from '@/projects/projects.controller';
-import { ProjectTimeEntriesController } from '@/projects/time-entries/project/project-time-entries.controller';
-import { TimeEntriesController } from '@/projects/time-entries/time-entries.controller';
-import { MeetingTimeEntriesController } from '@/projects/time-entries/meetings/meeting-time-entries.controller';
-import { UsersController } from '@/users/users.controller';
-import { DailyWorkReportController } from '@/projects/daily-work-reports/daily-work-report.controller';
-import { ProjectDailyWorkReportsController } from '@/projects/daily-work-reports/project-daily-work-reports.controller';
+import { ALL_CONTROLLERS } from '@/app.controllers';
 import {
   collectRouteGating,
   type RouteGating,
@@ -70,37 +43,6 @@ const PUBLIC = Symbol('public');
 const any = (...permissions: P[]) => ({ any: permissions });
 
 type Expected = P[] | { any: P[] } | typeof PUBLIC;
-
-const CONTROLLERS = [
-  AdditionalRequirementsController,
-  AiJobsController,
-  AiTemplatesController,
-  ProjectStatusReportsController,
-  ProjectAiSummaryController,
-  AuditLogController,
-  BlockerReasonsController,
-  BlockersController,
-  ProjectBlockersController,
-  ClientFeedbackController,
-  InternalReviewsController,
-  HolidaysController,
-  LeaveRequestsController,
-  LeaveBalancesController,
-  LeaveTypesController,
-  NotificationsController,
-  ProfilesController,
-  ProjectDocumentsController,
-  ProjectMembersController,
-  DeveloperReportsController,
-  ProjectReportsController,
-  ProjectsController,
-  ProjectTimeEntriesController,
-  TimeEntriesController,
-  MeetingTimeEntriesController,
-  UsersController,
-  DailyWorkReportController,
-  ProjectDailyWorkReportsController,
-];
 
 /**
  * Route -> the permission(s) that gate it.
@@ -257,7 +199,7 @@ function describeActual(route: RouteGating): string {
 }
 
 describe('route permission matrix', () => {
-  const actual = CONTROLLERS.flatMap((controller) =>
+  const actual = ALL_CONTROLLERS.flatMap((controller) =>
     collectRouteGating(controller as never),
   ).sort((a, b) => a.route.localeCompare(b.route));
 
@@ -267,7 +209,7 @@ describe('route permission matrix', () => {
     // Counted from disk, so this cannot drift into agreeing with an outdated
     // number. AuthController is gone: better-auth owns that surface now.
     const controllerFiles = 28;
-    expect(CONTROLLERS).toHaveLength(controllerFiles);
+    expect(ALL_CONTROLLERS).toHaveLength(controllerFiles);
   });
 
   it('finds the expected number of routes', () => {

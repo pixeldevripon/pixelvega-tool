@@ -128,7 +128,7 @@ export const ApiGetAdditionalRequirementDocs = () =>
   applyDecorators(
     ApiOperation({ summary: 'Get one additional requirement' }),
     projectIdParam,
-    ApiParam({ name: 'id', description: 'The requirement id' }),
+    ApiParam({ name: 'requirementId', description: 'The requirement id' }),
     ApiResponse({
       status: 200,
       description: 'The requirement',
@@ -166,7 +166,7 @@ export const ApiReviewAdditionalRequirementDocs = () =>
         'when there is none. Both fields are rejected on a REJECTED decision.',
     }),
     projectIdParam,
-    ApiParam({ name: 'id', description: 'The requirement id' }),
+    ApiParam({ name: 'requirementId', description: 'The requirement id' }),
     ApiResponse({
       status: 200,
       description: 'The reviewed requirement',
@@ -189,7 +189,7 @@ export const ApiCheckRequirementScopeDocs = () =>
         'than a bare null.',
     }),
     projectIdParam,
-    ApiParam({ name: 'id', description: 'The requirement id' }),
+    ApiParam({ name: 'requirementId', description: 'The requirement id' }),
     ApiResponse({
       status: 202,
       description: 'The queued job id',

@@ -307,6 +307,14 @@ them.
 - [x] `route-permissions.spec.ts` regenerated from the real controllers 108 routes, which is what catches a rename that missed one
 - [x] The frontend API client follows, and three URLs it already had wrong are fixed `/api/reports/developer` was singular, `/api/users/me/password` no longer exists (better-auth serves it), and the `/api/auth-flows/*` trio was deleted in phase 6b
 
+Completed by a follow up PR the same day, after review of the first one:
+
+- [x] Every `@ApiParam` names the parameter its route takes, and none is called `id` 14 declarations across 10 swagger files still said `id`, so `/api/docs` published the wrong name for about thirty operations. `common/swagger/spec/route-params.spec.ts` pins it in both directions now
+- [x] The last two project scoped folders moved: `ai/summary` and `ai/status-reports` under `projects/ai/` The status report's job handler stays in `src/ai/`, so AiModule still does not depend on ProjectsModule
+- [x] `reports/developers` owns its own `dto/` and `.swagger.ts` and imports nothing from `projects/reports/` The two value objects both report domains share moved to `common/dto/report-values.dto.ts`, and `working-day/` to `common/working-day/`
+- [x] Dead imports left behind by the splits removed 13 across 9 files, found with `tsc --noUnusedLocals`: eslint's `no-unused-vars` is off in this repo, so the gate cannot see them
+- [x] A fourth folder mismatch decided rather than moved `time-entries/meetings` stays under `projects/`, with the reasoning recorded in `pmt-backend/CLAUDE.md` and in ADR 0004's amendment
+
 **Exit criteria.** Every module matches the template in [`../architecture/03-target-architecture.md`](../architecture/03-target-architecture.md). No service over 600 lines. No
 module with more than four controllers. `/api/docs` shows request and response schemas for every
 endpoint. The suite green throughout.

@@ -4,8 +4,8 @@ import { Permission, Role } from '@prisma/client';
 import { CurrentUser } from '@/common/decorators/current-user.decorator';
 import { DeveloperReportService } from '@/reports/developers/developer-report.service';
 import { RequirePermissions } from '@/auth/permissions/require-permissions.decorator';
-import { ApiGetDeveloperReportDocs } from '@/projects/reports/project-reports.swagger';
-import { QueryDeveloperReportDto } from '@/projects/reports/dto/project-report.dto';
+import { ApiGetDeveloperReportDocs } from '@/reports/developers/developer-reports.swagger';
+import { QueryDeveloperReportDto } from '@/reports/developers/dto/developer-report.dto';
 
 // Not project-nested: one person's activity across every project they
 // touched in the range, the same reason TimeEntriesController's

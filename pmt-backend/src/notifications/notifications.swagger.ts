@@ -44,7 +44,7 @@ export const ApiMarkNotificationReadDocs = () =>
         'Only the recipient can mark their own notification read. Marking an already ' +
         'read one is a harmless no-op.',
     }),
-    ApiParam({ name: 'id', description: 'The notification id' }),
+    ApiParam({ name: 'notificationId', description: 'The notification id' }),
     ApiResponse({
       status: 200,
       description: 'Marked read',

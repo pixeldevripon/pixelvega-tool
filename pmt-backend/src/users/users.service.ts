@@ -5,8 +5,6 @@ import {
   Logger,
   NotFoundException,
 } from '@nestjs/common';
-import type { Request } from 'express';
-import { fromNodeHeaders } from 'better-auth/node';
 import { Role } from '@prisma/client';
 import { PrismaService } from '@/prisma/prisma.service';
 import { MailService } from '@/mail/mail.service';
@@ -15,7 +13,6 @@ import { AuditLogService } from '@/audit-logs/audit-log.service';
 import { auth } from '@/auth/instance/auth.instance';
 import { generateUnusedPassword } from '@/common/utils/password.util';
 import { paginate } from '@/common/utils/pagination.util';
-import { PaginationQueryDto } from '@/common/dto/pagination-query.dto';
 import { toUserResponse } from '@/users/user.mapper';
 import { QueryUsersDto } from '@/users/dto/user.dto';
 import {

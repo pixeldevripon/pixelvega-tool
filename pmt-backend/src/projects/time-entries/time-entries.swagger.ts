@@ -34,7 +34,10 @@ const projectIdParam = ApiParam({
   name: 'projectId',
   description: 'The project id',
 });
-const entryIdParam = ApiParam({ name: 'id', description: 'The time entry id' });
+const entryIdParam = ApiParam({
+  name: 'timeEntryId',
+  description: 'The time entry id',
+});
 
 const dateRangeQuery = [
   ApiQuery({

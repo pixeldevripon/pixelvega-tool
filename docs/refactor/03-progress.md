@@ -449,3 +449,40 @@ entity was `:id` in one place and `:projectId` in another, `/leave-requests/:id/
 table: every parameter named for its entity, every static route ahead of its dynamic sibling
 (`me` before `:userId`, `deadline-impact` before `:blockerId`), and no route left on a path its
 folder does not name.
+
+### Follow up: what the review of 6c found
+
+Code review of the 6c PR found four things the rename had missed, all fixed on
+`fix/swagger-params-and-folder-placement`. Worth recording because three of them
+are the same shape: a mechanical sweep that stopped at the code and did not
+reach everything the code implies.
+
+| Found                                                                                                                                                                             | Why the gate missed it                                                                                                                                        | Fix                                                                                                                                                     |
+| --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 14 `@ApiParam({ name: 'id' })` declarations across 10 swagger files, documenting a parameter called `id` on operations whose real parameter is `projectId`, `reportId`, and so on | Nest matches path parameters by POSITION, so every route kept working. Only the published contract was wrong, and nothing read it                             | Renamed, plus `common/swagger/spec/route-params.spec.ts`, which pins the agreement in both directions and that no parameter anywhere is called `id`     |
+| `ApiReportBlockerDocs` and `ApiUpdateBlockerDocs` documented no `projectId` at all, having moved under the nested route                                                           | Same reason: a missing parameter in the docs breaks nothing at runtime                                                                                        | Both declare it, from one shared const rather than a literal per operation                                                                              |
+| 13 dead imports across 9 files, left by the controller splits                                                                                                                     | `@typescript-eslint/no-unused-vars` is `'off'` in this repo and `noUnusedLocals` is not set in `tsconfig.json`, so neither `lint` nor `typecheck` can see one | Removed. Found with a one off `tsc --noEmit --noUnusedLocals`, which reports 51 in total: the other 38 predate these refactors and are not touched here |
+| `src/ai/summary/` and `src/ai/status-reports/` still served `/projects/:projectId/ai/...`                                                                                         | Nothing checks a folder against its route. The review did it by hand                                                                                          | Both moved under `src/projects/ai/`. The status report's job handler stays in `src/ai/`, so AiModule still does not depend on ProjectsModule            |
+
+`ReportsModule` also still reached back into `projects/reports/` for its DTOs, its
+Swagger and the working day maths, which is most of what extracting it was meant
+to end. It now owns `dto/developer-report.dto.ts` and
+`developer-reports.swagger.ts`; the two response value objects both report
+domains share moved to `common/dto/report-values.dto.ts`, and `working-day/`
+(used by four modules in three domains) moved to `common/working-day/`.
+
+`src/app.controllers.ts` is new: one list of every controller, imported by the
+two specs that pin properties of the whole route surface. Both assert its length,
+so a controller that is registered in its module but not here fails rather than
+silently dropping out of coverage.
+
+### One unrelated defect, found while verifying
+
+`pnpm build && pnpm start:prod` could not boot: `Cannot find module 'express'`.
+`common/middleware/body-parsers.middleware.ts` imports `json` and `urlencoded`
+from express at RUNTIME (every other express import in the codebase is
+`import type`, which erases), but express was only ever a transitive dependency
+of `@nestjs/platform-express`, and pnpm's strict layout does not put a
+transitive dependency where the app can resolve it. It is now a declared
+dependency. Nothing in the gate covers this, because `lint`, `typecheck`, `test`
+and `build` all pass on code that cannot start.

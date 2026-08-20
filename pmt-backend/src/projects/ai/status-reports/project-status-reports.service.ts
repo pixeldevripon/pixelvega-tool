@@ -3,13 +3,13 @@ import {
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
-import { AiJobType, Prisma, ProjectRole, Role } from '@prisma/client';
+import { AiJobType, Prisma, Role } from '@prisma/client';
 import { PrismaService } from '@/prisma/prisma.service';
 import { AiJobsService } from '@/ai/jobs/ai-jobs.service';
 import { ProjectReportService } from '@/projects/reports/project/project-report.service';
 import { ProjectScopeService } from '@/projects/scope/project-scope.service';
-import { CreateStatusReportDto } from '@/ai/status-reports/dto/project-status-report.dto';
-import { toStatusReportResponse } from '@/ai/status-reports/project-status-report.mapper';
+import { CreateStatusReportDto } from '@/projects/ai/status-reports/dto/project-status-report.dto';
+import { toStatusReportResponse } from '@/projects/ai/status-reports/project-status-report.mapper';
 
 const MS_PER_DAY = 24 * 60 * 60 * 1000;
 const DEFAULT_PERIOD_DAYS = 7;

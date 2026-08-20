@@ -17,7 +17,7 @@ import {
 const targetedErrors = [...gatedErrors, notFound('User not found')];
 
 const userIdParam = ApiParam({
-  name: 'id',
+  name: 'userId',
   description: 'The user id',
   example: '3fa85f64-5717-4562-b3fc-2c963f66afa6',
 });

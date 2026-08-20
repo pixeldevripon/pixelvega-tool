@@ -7,10 +7,8 @@ import {
   Patch,
   Post,
   Query,
-  Req,
 } from '@nestjs/common';
 import { ApiCookieAuth, ApiTags } from '@nestjs/swagger';
-import type { Request } from 'express';
 import { Permission, Role } from '@prisma/client';
 import { RequirePermissions } from '@/auth/permissions/require-permissions.decorator';
 import { PermissionsService } from '@/auth/permissions/permissions.service';
@@ -38,7 +36,7 @@ import { UsersService } from './users.service';
  * decorator cannot express that. Documentation lives in users.swagger.ts.
  *
  * Static routes are declared above dynamic ones: `me` and `me/permissions` must
- * come before `:id`, or Nest matches them as an id.
+ * come before `:userId`, or Nest matches them as a user id.
  */
 @ApiTags('Users')
 @ApiCookieAuth('better-auth.session_token')

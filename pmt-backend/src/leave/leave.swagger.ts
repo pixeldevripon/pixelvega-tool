@@ -100,7 +100,7 @@ export const ApiCancelOwnLeaveDocs = () =>
         'Ownership and status are both checked in the service, not only at the route. ' +
         'Only the requester may cancel, and only while it is still PENDING.',
     }),
-    idParam('id', 'The leave request id'),
+    idParam('leaveRequestId', 'The leave request id'),
     ApiResponse({
       status: 200,
       description: 'The cancelled request',
@@ -173,7 +173,7 @@ export const ApiApproveLeaveDocs = () =>
         'The only place a balance is ever incremented. usedDays goes up by exactly the ' +
         "request's days, against the year the leave STARTS in.",
     }),
-    idParam('id', 'The leave request id'),
+    idParam('leaveRequestId', 'The leave request id'),
     ApiResponse({
       status: 200,
       description: 'The approved request',
@@ -192,7 +192,7 @@ export const ApiRejectLeaveDocs = () =>
         'Leaves the balance completely untouched. Only the requester is notified: a ' +
         'rejection changes nothing about their availability, so no PM is told.',
     }),
-    idParam('id', 'The leave request id'),
+    idParam('leaveRequestId', 'The leave request id'),
     ApiResponse({
       status: 200,
       description: 'The rejected request',
@@ -240,7 +240,7 @@ export const ApiUpdateLeaveTypeDocs = () =>
         'Changing defaultDaysPerYear affects balance rows created afterwards, not ones ' +
         'that already exist.',
     }),
-    idParam('id', 'The leave type id'),
+    idParam('leaveTypeId', 'The leave type id'),
     ApiResponse({
       status: 200,
       description: 'The updated leave type',
@@ -253,7 +253,7 @@ export const ApiUpdateLeaveTypeDocs = () =>
 export const ApiDeleteLeaveTypeDocs = () =>
   applyDecorators(
     ApiOperation({ summary: 'Delete a leave type' }),
-    idParam('id', 'The leave type id'),
+    idParam('leaveTypeId', 'The leave type id'),
     ApiResponse({
       status: 200,
       description: 'Deleted',
@@ -301,7 +301,7 @@ export const ApiCreateHolidayDocs = () =>
 export const ApiUpdateHolidayDocs = () =>
   applyDecorators(
     ApiOperation({ summary: 'Update a company holiday' }),
-    idParam('id', 'The holiday id'),
+    idParam('holidayId', 'The holiday id'),
     ApiResponse({
       status: 200,
       description: 'The updated holiday',
@@ -314,7 +314,7 @@ export const ApiUpdateHolidayDocs = () =>
 export const ApiDeleteHolidayDocs = () =>
   applyDecorators(
     ApiOperation({ summary: 'Delete a company holiday' }),
-    idParam('id', 'The holiday id'),
+    idParam('holidayId', 'The holiday id'),
     ApiResponse({
       status: 200,
       description: 'Deleted',

@@ -1,32 +1,12 @@
-import {
-  Body,
-  Controller,
-  Get,
-  Param,
-  Patch,
-  Post,
-  Query,
-} from '@nestjs/common';
+import { Controller, Get, Query } from '@nestjs/common';
 import { ApiCookieAuth, ApiTags } from '@nestjs/swagger';
 import { Permission, Role } from '@prisma/client';
 import { CurrentUser } from '@/common/decorators/current-user.decorator';
 import { BlockerService } from '@/projects/blockers/blocker.service';
 import { RequirePermissions } from '@/auth/permissions/require-permissions.decorator';
-import {
-  ApiListBlockersDocs,
-  ApiReportBlockerDocs,
-  ApiUpdateBlockerDocs,
-} from '@/projects/blockers/blockers.swagger';
-import {
-  AddBlockerDto,
-  QueryBlockersDto,
-  UpdateBlockerDto,
-} from '@/projects/blockers/dto/blocker.dto';
+import { ApiListBlockersDocs } from '@/projects/blockers/blockers.swagger';
+import { QueryBlockersDto } from '@/projects/blockers/dto/blocker.dto';
 
-// Deliberately not nested under projects/:projectId. A blocker can be
-// reported and updated from a single top level endpoint regardless of which
-// project it belongs to. The read scoped to one project (PM dashboard) lives
-// in ProjectBlockersController instead.
 /**
  * Blockers across every project. READ ONLY.
  *

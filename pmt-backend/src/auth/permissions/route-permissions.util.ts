@@ -9,7 +9,7 @@ import { IS_PUBLIC_KEY } from '@/auth/decorators/public.decorator';
 export type RouteGate = 'ALL' | 'ANY' | 'PUBLIC' | 'UNGATED';
 
 export interface RouteGating {
-  /** e.g. `GET /projects/:id` */
+  /** e.g. `GET /projects/:projectId` */
   route: string;
   handler: string;
   gate: RouteGate;

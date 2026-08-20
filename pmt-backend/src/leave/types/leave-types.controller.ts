@@ -8,7 +8,7 @@ import {
   Post,
 } from '@nestjs/common';
 import { ApiCookieAuth, ApiTags } from '@nestjs/swagger';
-import { Permission, Role } from '@prisma/client';
+import { Permission } from '@prisma/client';
 import { LeaveTypesService } from '@/leave/types/leave-types.service';
 import { CurrentUser } from '@/common/decorators/current-user.decorator';
 import { RequirePermissions } from '@/auth/permissions/require-permissions.decorator';
