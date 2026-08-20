@@ -109,6 +109,12 @@ Non negotiable, each one closed a real hole:
 - `basePath` is `AUTH_BASE_PATH`, the literal `/api/auth`, and the controller must resolve to it.
 - `auth.instance.ts` runs before DI: it needs `import 'dotenv/config'`, the mail **singleton**, and
   `authPrismaClient` rather than `PrismaService`. Its hooks are inline for the same reason.
+- **An invite emails a LINK, never a password.** `UsersService.invite` and the bootstrap create the
+  account with `generateUnusedPassword()`, which nobody is told, then call
+  `auth.api.requestPasswordReset({ body: { email } })` with NO headers. `sendResetPassword` reads
+  the missing `request` as "server initiated, so this is an invite" and sends the invite copy with a
+  `/set-password` link. A temporary password in an email is a working credential sitting in an inbox
+  in plain text with no expiry.
 - The `openAPI()` plugin is what documents the auth surface. `mergeBetterAuthSchema` merges the
   GENERATED schema into `/api/docs` and hides the routes this config does not enable. Never
   hand write auth paths: the list that did drifted to three of thirty.

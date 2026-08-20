@@ -155,24 +155,45 @@ export const auth = betterAuth({
       });
     },
 
-    sendResetPassword: ({ user, token }) => {
-      // The token comes from the callback argument, NOT from parsing `url`.
-      // better-auth builds `url` as `<baseURL>/reset-password/<token>?callbackURL=`,
-      // so the token is a PATH SEGMENT and reading a `token` query param off it
-      // returns null. Doing that shipped every reset email with an empty token
-      // and no reset could ever complete.
-      //
-      // `url` is ignored entirely: it points back at this API, and the page that
-      // collects the new password lives in the dashboard.
-      const resetUrl = `${appUrl}/reset-password?token=${encodeURIComponent(token)}`;
+    /**
+     * One token, two emails.
+     *
+     * A reset with NO `request` was started server side, which only the invite
+     * flow does (`UsersService.invite` and `SystemAdminBootstrapService`). A
+     * genuine forgot-password always arrives over HTTP and always carries one.
+     * That is the same distinction `refuseAnonymousSignUp` above rests on.
+     *
+     * Inviting by link rather than by temporary password is the point of the
+     * split. A temporary password in an email is a working credential sitting
+     * in an inbox in plain text with no expiry; this token expires in an hour
+     * and is consumed on first use.
+     *
+     * The token comes from the callback ARGUMENT, never from parsing `url`.
+     * better-auth builds `url` as `<baseURL>/reset-password/<token>?callbackURL=`,
+     * so the token is a PATH SEGMENT and reading a `token` query param off it
+     * returns null. Doing that shipped every reset email with an empty token
+     * and no reset could ever complete.
+     */
+    sendResetPassword: ({ user, token }, request) => {
+      const isInvite = !request;
+      const path = isInvite ? 'set-password' : 'reset-password';
+      const link = `${appUrl}/${path}?token=${encodeURIComponent(token)}`;
+      const expiresInMinutes = RESET_PASSWORD_TOKEN_TTL_SECONDS / 60;
 
       sendInBackground(
-        'password-reset',
-        mailService.sendPasswordResetEmail(
-          user.email,
-          resetUrl,
-          RESET_PASSWORD_TOKEN_TTL_SECONDS / 60,
-        ),
+        isInvite ? 'invite' : 'password-reset',
+        isInvite
+          ? mailService.sendInviteEmail(
+              user.email,
+              user.name ?? user.email,
+              link,
+              expiresInMinutes,
+            )
+          : mailService.sendPasswordResetEmail(
+              user.email,
+              link,
+              expiresInMinutes,
+            ),
       );
       return Promise.resolve();
     },

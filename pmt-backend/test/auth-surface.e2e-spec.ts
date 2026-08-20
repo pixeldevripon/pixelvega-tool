@@ -264,6 +264,105 @@ describe('better-auth surface (e2e)', () => {
     });
   });
 
+  describe('an invite sends a link, never a password', () => {
+    // The invite used to email a temporary password: a working credential in an
+    // inbox, in plain text, with no expiry. It now emails the same one time
+    // token the reset flow uses, and the account has no usable password until
+    // that link is followed.
+    const email = `invite-${Date.now()}@pixelvega.test`;
+    let userId: string;
+    let invites: { to: string; url: string; minutes: number }[] = [];
+    let resets: string[] = [];
+    let realInvite: typeof mailService.sendInviteEmail;
+    let realReset: typeof mailService.sendPasswordResetEmail;
+
+    beforeEach(() => {
+      invites = [];
+      resets = [];
+      realInvite = mailService.sendInviteEmail.bind(mailService);
+      realReset = mailService.sendPasswordResetEmail.bind(mailService);
+      mailService.sendInviteEmail = (to, _name, url, minutes) => {
+        invites.push({ to, url, minutes });
+        return Promise.resolve();
+      };
+      mailService.sendPasswordResetEmail = (_to, url) => {
+        resets.push(url);
+        return Promise.resolve();
+      };
+    });
+
+    afterEach(async () => {
+      mailService.sendInviteEmail = realInvite;
+      mailService.sendPasswordResetEmail = realReset;
+      if (userId) {
+        const prisma = app.get(PrismaService);
+        await prisma.auditLog.deleteMany({ where: { userId } });
+        await prisma.session.deleteMany({ where: { userId } });
+        await prisma.account.deleteMany({ where: { userId } });
+        await prisma.user.deleteMany({ where: { id: userId } });
+        userId = '';
+      }
+    });
+
+    it('emails a set-password link, and the token works', async () => {
+      const prisma = app.get(PrismaService);
+      const created = await auth.api.signUpEmail({
+        body: { email, password: 'a-password-nobody-is-told', name: 'Invitee' },
+      });
+      userId = created.user.id;
+
+      // No headers: a server side reset is what marks this an invite rather
+      // than a forgot-password.
+      await auth.api.requestPasswordReset({ body: { email } });
+      await new Promise((resolve) => setImmediate(resolve));
+
+      expect(resets).toEqual([]);
+      expect(invites).toHaveLength(1);
+      expect(invites[0].to).toBe(email);
+      expect(invites[0].minutes).toBe(60);
+
+      const link = new URL(invites[0].url);
+      expect(link.pathname).toBe('/set-password');
+      const token = link.searchParams.get('token');
+      expect(token).toBeTruthy();
+
+      // The token is a real one: it sets a password that then signs in.
+      await request(app.getHttpServer())
+        .post('/api/auth/reset-password')
+        .send({ token, newPassword: 'the-chosen-password-1' })
+        .expect(200);
+
+      await request(app.getHttpServer())
+        .post('/api/auth/sign-in/email')
+        .send({ email, password: 'the-chosen-password-1' })
+        .expect(200);
+
+      const after = await prisma.user.findUniqueOrThrow({
+        where: { id: userId },
+        select: { mustResetPassword: true },
+      });
+      expect(after.mustResetPassword).toBe(false);
+    });
+
+    it('sends the reset copy, not the invite copy, for a real forgot-password', async () => {
+      const created = await auth.api.signUpEmail({
+        body: { email, password: 'a-password-nobody-is-told', name: 'Invitee' },
+      });
+      userId = created.user.id;
+
+      // Over HTTP this time, which is what a genuine forgot-password is.
+      await request(app.getHttpServer())
+        .post('/api/auth/request-password-reset')
+        .send({ email })
+        .expect(200);
+      await new Promise((resolve) => setImmediate(resolve));
+
+      expect(invites).toEqual([]);
+      expect(resets).toHaveLength(1);
+      expect(new URL(resets[0]).pathname).toBe('/reset-password');
+    });
+  });
+
   describe('every auth route is in /api/docs', () => {
     // Built once: generating the schema walks every registered endpoint.
     let paths: Record<string, unknown>;

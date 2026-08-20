@@ -30,11 +30,16 @@ export class MailService {
     },
   });
 
-  async sendInviteEmail(to: string, name: string, tempPassword: string) {
+  async sendInviteEmail(
+    to: string,
+    name: string,
+    setPasswordUrl: string,
+    expiresInMinutes: number,
+  ) {
     const { subject, html, text } = inviteEmailTemplate({
       name,
-      tempPassword,
-      signInUrl: appUrl(),
+      setPasswordUrl,
+      expiresInMinutes,
     });
     await this.send(to, subject, html, text);
   }

@@ -4,18 +4,43 @@ import { passwordResetEmailTemplate } from '../templates/password-reset.template
 describe('inviteEmailTemplate', () => {
   const input = {
     name: 'Rezina Akter',
-    tempPassword: 'Temp-Pass-123',
-    signInUrl: 'https://app.pixelvega.com',
+    setPasswordUrl: 'https://app.pixelvega.com/set-password?token=abc123',
+    expiresInMinutes: 60,
   };
 
-  it('makes the temporary password the centrepiece, not a buried sentence', () => {
+  it('carries the set-password link', () => {
     const { html, text } = inviteEmailTemplate(input);
-    expect(html).toContain('Temp-Pass-123');
-    expect(text).toContain('Temp-Pass-123');
+    expect(html).toContain(
+      'https://app.pixelvega.com/set-password?token=abc123',
+    );
+    expect(text).toContain(
+      'https://app.pixelvega.com/set-password?token=abc123',
+    );
+  });
+
+  it('contains no password', () => {
+    // The whole point of the link. An earlier version put a temporary password
+    // in the body, which left a working credential in an inbox in plain text
+    // with no expiry.
+    const { html, text } = inviteEmailTemplate(input);
+    for (const body of [html.toLowerCase(), text.toLowerCase()]) {
+      expect(body).not.toContain('temporary password');
+      expect(body).not.toContain('sign in with the');
+    }
+  });
+
+  it('states the expiry, so the copy cannot outlive the token', () => {
+    const { html, text } = inviteEmailTemplate(input);
+    expect(html).toContain('60 minutes');
+    expect(text).toContain('60 minutes');
+    // A different TTL must reach the copy, not be hardcoded here.
+    expect(
+      inviteEmailTemplate({ ...input, expiresInMinutes: 15 }).text,
+    ).toContain('15 minutes');
   });
 
   it('escapes the name, which is user data', () => {
-    // The previous template interpolated this raw, so a display name could
+    // The original template interpolated this raw, so a display name could
     // carry markup into every recipient's inbox.
     const { html } = inviteEmailTemplate({
       ...input,
@@ -28,12 +53,6 @@ describe('inviteEmailTemplate', () => {
   it('sends the recipient to the dashboard, not to the API', () => {
     const { html } = inviteEmailTemplate(input);
     expect(html).toContain('https://app.pixelvega.com');
-  });
-
-  it('says the password is temporary, so nobody keeps it', () => {
-    expect(inviteEmailTemplate(input).text).toContain(
-      'choose your own password',
-    );
   });
 });
 

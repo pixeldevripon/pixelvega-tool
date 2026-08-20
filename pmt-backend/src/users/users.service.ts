@@ -13,7 +13,7 @@ import { MailService } from '@/mail/mail.service';
 import { ProfilesService } from '@/profiles/profiles.service';
 import { AuditLogService } from '@/audit-log/audit-log.service';
 import { auth } from '@/auth/instance/auth.instance';
-import { generateTempPassword } from '@/common/utils/password.util';
+import { generateUnusedPassword } from '@/common/utils/password.util';
 import { paginate } from '@/common/utils/pagination.util';
 import { PaginationQueryDto } from '@/common/dto/pagination-query.dto';
 import { toUserResponse } from '@/users/user.mapper';
@@ -228,10 +228,14 @@ export class UsersService {
       throw new ConflictException('A user with this email already exists');
     }
 
-    const tempPassword = generateTempPassword();
-
+    // A password nobody is told. better-auth needs one to create a credential
+    // account; the invited person gets a set-password link instead.
     await auth.api.signUpEmail({
-      body: { email: dto.email, password: tempPassword, name: dto.name },
+      body: {
+        email: dto.email,
+        password: generateUnusedPassword(),
+        name: dto.name,
+      },
     });
 
     const user = await this.prisma.user.update({
@@ -252,7 +256,11 @@ export class UsersService {
       targetId: user.id,
       metadata: { email: dto.email, role: dto.role },
     });
-    await this.mail.sendInviteEmail(dto.email, dto.name, tempPassword);
+    // Mints the one time token and sends the invite email. No `headers` is
+    // passed on purpose: better-auth's `sendResetPassword` hook treats a reset
+    // with no originating HTTP request as an invite and sends the invite copy
+    // rather than the forgot-password copy.
+    await auth.api.requestPasswordReset({ body: { email: dto.email } });
 
     return toUserResponse(user);
   }
