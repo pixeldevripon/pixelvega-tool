@@ -61,9 +61,7 @@ No route segment exists that is not a folder, and no folder serves a route it is
 not named for. Adding a sub-resource means adding a folder, and its URL is then
 already decided.
 
-### 2. Nested is project-scoped; the same segment at the domain root is
-
-### cross-project and read-only
+### 2. Nested is project-scoped, top level is cross-project and read-only
 
 A resource whose identity requires a project is nested, and **all of its
 mutations live there**:
