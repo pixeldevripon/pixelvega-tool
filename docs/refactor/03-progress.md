@@ -577,3 +577,71 @@ Beyond the suite, three things were checked against something real rather than a
   always was, and the per-step tracking reaches the output as
   `letter-spacing: var(--tw-tracking, -.015em)`. A token that does not compile is a component with
   no background, and that is invisible in a typecheck.
+
+---
+
+## The frontend was replaced, and auth was rebuilt on it (2026-08-20)
+
+Two PRs, both merged to `main`: [#16](https://github.com/pixeldevripon/pixelvega-tool/pull/16) and
+[#17](https://github.com/pixeldevripon/pixelvega-tool/pull/17).
+
+`pmt-frontend` is no longer the app phase 7 built foundations for. It is
+`tripwheel-x-islandtours-dashboard`, copied whole, pruned of that product's domain, re-skinned
+purple, and given a single auth gate built against this API. The plan and the live checklist for the
+rest of it are in [`../dashboard/`](../dashboard/02-checklist.md).
+
+**Refactor phase 8 is absorbed by that plan.** The two describe the same files, so running them
+separately would migrate a screen and then immediately rebuild it. Phase 8's per-module discipline
+survives verbatim as that plan's module recipe, and its exit criteria carry over unchanged.
+
+### What phase 7's log said, and what is now true
+
+| Phase 7 recorded                                                                                                                                            | Now                                                                                                                                                        |
+| ----------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `types/auth.ts`'s `AppUser` types `role` and `status` as strings, so eight call sites render an empty badge. Logged as a defect it deliberately did not fix | **Fixed.** `role` and `status` flow as `{ value, label, tone }` end to end, and `components/common/enum-badge.tsx` is the one place a tone becomes a class |
+| TanStack Table resolved to 9.1, with `tableFeatures({...})` declared up front                                                                               | Still true, and still the D4 statement it was: the copied `data-table` came across unchanged                                                               |
+| The registry's `radix-nova` style is a different design from this product's                                                                                 | Superseded. The 33 primitives are the reference's, and the palette is now PixelVega purple                                                                 |
+| `cacheComponents` earned its keep by naming a blocking `usePathname()`                                                                                      | It did it again: it caught a `<Suspense>` fallback that read `useSearchParams`, which no other check saw                                                   |
+
+### Four defects this work found, three of them only findable by running it
+
+| Found                                                                                                                                                                                             | Why nothing else caught it                                                                                                                              |
+| ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Every API call answered 404: the copied client appended `/api/v1`, and this backend's global prefix is the literal `api`                                                                          | `typecheck` and `build` both passed over it. Found by starting the backend and reading its route table                                                  |
+| The sign-in button stuck on "Signing in…" forever, silently. better-auth's client REJECTS rather than returning an error object when the failure is below the API, and the handler had no `catch` | Found by driving the real form. The same hole was in all four other auth cards and in sign-out                                                          |
+| `apiFetch` forced `Content-Type: application/json` onto a `FormData` body, so the multipart boundary never reached the server                                                                     | Nothing had uploaded a file yet, and this product uploads avatars and project documents                                                                 |
+| `serverAuthHeaders` sent the internal secret without `x-real-client-ip`, so every visitor shared one throttle bucket on any route with its own `@Throttle()`                                      | `TrustedOriginThrottlerGuard` logs a warning for exactly this, which is how it surfaced. It would otherwise appear only as intermittent 429s under load |
+
+### One environment lesson worth keeping
+
+The sign-in rate limit is now `AUTH_SENSITIVE_RATE_LIMIT_MAX`, defaulting to 5. Five is right for
+production and wrong locally, and not because anyone is careless: better-auth counts per IP, and
+locally the browser, the route guard and server-side rendering all arrive as `127.0.0.1`, so one page
+load can spend several attempts. Signing in as four roles in a row to check what each of them sees
+exhausts it in seconds, and the failure then reads as "wrong password".
+
+It is opt in by explicit value rather than inferred from `NODE_ENV`, which is the same lesson
+`AUTH_DISABLE_ORIGIN_CHECK` already records: relaxing for "everything that is not exactly
+production" left staging with no protection at all.
+
+### The product has a name
+
+`Vega`, in `pmt-frontend/lib/constants/product.ts`. **PixelVega is the company; Vega is the tool.**
+Every surface that says the name reads it from there, so renaming is one edit.
+
+### Verified against the running stack, not a mock
+
+Signing in as an ADMIN reaches the shell with all five nav groups. Signing in as a CLIENT shows
+exactly two rows, Overview and Projects, with no Deliver, Insight, People or Configure. That case is
+the one that matters: a client seeing an internal queue is a disclosure rather than a cosmetic bug,
+and `navigations.test.ts` pins it with 35 cases.
+
+Plus the full gate on both packages: `lint` at 0 errors, `typecheck`, 1,100 backend and 91 frontend
+tests, both builds, and `pnpm gate:contrast`.
+
+### Not reviewed
+
+**No `security-reviewer` or `code-reviewer` ran on either PR.** Both touch auth, session handling,
+the route guard, the permission map, an open-redirect helper and rate limiting, which is the surface
+`CLAUDE.md` marks as always warranting a security review. That is outstanding, not skipped on the
+grounds of being unnecessary.

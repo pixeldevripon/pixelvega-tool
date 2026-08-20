@@ -223,12 +223,31 @@ const eslintConfig = defineConfig([
     },
   },
 
-  // ── Allowlist: TanStack Table column sizing (03 §8.3) ──────────────────
-  // `style={{ width: header.getSize() }}` is the documented API for column
-  // widths - there is no class-based equivalent. Only the inline-style rule is
-  // lifted here; every color/spacing/type rule still applies.
+  // ── Allowlist: runtime proportions (03 §8.3) ───────────────────────────
+  //
+  // Two cases, both genuinely without a class-based equivalent:
+  //
+  // 1. `style={{ width: header.getSize() }}` is TanStack Table's documented API
+  //    for column widths.
+  // 2. A bar, a segment or a progress fill whose width IS a number from the API.
+  //    The share arrives as a float (the server computes it once, so every
+  //    client draws the same bar) and Tailwind cannot express an arbitrary
+  //    runtime percentage. A CSS custom property would still need the `style`
+  //    attribute to set it, so the attribute is what has to be permitted.
+  //
+  // Only the inline-style rule is lifted. Every colour, spacing and type rule
+  // still applies in these files, and the allowlist is a file list rather than a
+  // directory so widening it is a deliberate edit.
   {
-    files: ["components/**/*-table.tsx", "components/ui/chart.tsx"],
+    files: [
+      "components/**/*-table.tsx",
+      "components/ui/chart.tsx",
+      "components/common/stats/mini-bars.tsx",
+      "components/common/stats/ranked-list.tsx",
+      "components/common/stats/breakdown-card.tsx",
+      "components/home/project-card.tsx",
+      "components/home/my-day-card.tsx",
+    ],
     rules: {
       "no-restricted-syntax": ["error", ...DESIGN_SELECTORS],
     },

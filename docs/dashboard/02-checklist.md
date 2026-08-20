@@ -9,22 +9,22 @@ A stale checklist is worse than no checklist, because the next person trusts it.
 
 ## Progress
 
-| Phase | What                                        | Items   | Done   | Status      |
-| ----- | ------------------------------------------- | ------- | ------ | ----------- |
-| ~     | Decisions to make first                     | 9       | 0      | not started |
-| D0    | Mirror, then prune                          | 99      | 68     | in progress |
-| D1    | The module kit                              | 29      | 0      | not started |
-| D2    | Backend, the dashboards                     | 15      | 0      | not started |
-| D3    | Frontend, the four dashboards               | 11      | 0      | not started |
-| D4    | Backend, the contract gaps                  | 7       | 0      | not started |
-| D5    | Projects, list to detail                    | 33      | 0      | not started |
-| D6    | Time tracking and standups                  | 20      | 0      | not started |
-| D7    | Blockers, requirements, reviews, feedback   | 29      | 0      | not started |
-| D8    | People, leave, notifications, audit, client | 29      | 0      | not started |
-| D9    | The AI module                               | 24      | 0      | not started |
-| D10   | The named gaps                              | 30      | 0      | not started |
-| D11   | Hardening and close                         | 16      | 0      | not started |
-|       | **Total**                                   | **351** | **68** |             |
+| Phase | What                                        | Items   | Done    | Status      |
+| ----- | ------------------------------------------- | ------- | ------- | ----------- |
+| ~     | Decisions to make first                     | 9       | 0       | not started |
+| D0    | Mirror, then prune                          | 99      | 68      | in progress |
+| D1    | The module kit                              | 29      | 0       | not started |
+| D2    | Backend, the dashboards                     | 55      | 51      | in progress |
+| D3    | Frontend, the overview                      | 11      | 8       | in progress |
+| D4    | Backend, the contract gaps                  | 7       | 0       | not started |
+| D5    | Projects, list to detail                    | 33      | 0       | not started |
+| D6    | Time tracking and standups                  | 20      | 0       | not started |
+| D7    | Blockers, requirements, reviews, feedback   | 29      | 0       | not started |
+| D8    | People, leave, notifications, audit, client | 29      | 0       | not started |
+| D9    | The AI module                               | 24      | 0       | not started |
+| D10   | The named gaps                              | 30      | 0       | not started |
+| D11   | Hardening and close                         | 16      | 0       | not started |
+|       | **Total**                                   | **386** | **113** |             |     |
 
 Regenerate the counts with
 `awk '/^## /{if(s!="")print s": "n; s=$0; n=0} /^- \[ \]|^- \[x\]/{n++} END{print s": "n}' 02-checklist.md`
@@ -311,23 +311,166 @@ sidebar. **PixelVega is the company; Vega is the tool.** Renaming it is one edit
 
 ## Phase D2: backend, the dashboards (Q1 to Q9)
 
-- [ ] ADR `0005-the-dashboard-is-one-endpoint-with-an-audience-discriminator.md`, or the alternative if X-decision says four routes
-- [ ] `VIEW_DASHBOARD` in `prisma/enums.prisma`, granted to all six roles in `ROLE_PERMISSIONS`
-- [ ] Hand-write the migration folder and `migration.sql`, then `prisma migrate deploy`. `migrate dev` needs a TTY
-- [ ] `src/dashboard/` following the module shape: one `dto/dashboard.dto.ts`, `spec/`, `dashboard.swagger.ts`, service, controller, module
-- [ ] Register it in `AppModule.imports`
-- [ ] `GET /dashboard` returns an `audience` discriminator plus exactly one populated block
-- [ ] The admin block (Q2, Q9)
-- [ ] The manager block (Q3)
-- [ ] The staff block (Q4, Q5)
-- [ ] The client block (Q8)
-- [ ] **Ordering is server side** (Q6, Q7): priority, then deadline, then planned start date, with Ready For Work and In Progress ahead of completed or inactive
-- [ ] Every figure carries its display label alongside the exact value (ADR 0003)
-- [ ] A rate is `null`, never zero, when its denominator is zero
-- [ ] Service specs: every audience branch, and the ordering rule asserted on a fixture that would fail under any other order
-- [ ] Swagger published, and the shape checked against `/api/docs-json`
+### Seeing and managing are different questions
 
----
+The permission model, as stated by the user and now enforced per project card:
+
+| Role                | Sees                                        | Manages                                     |
+| ------------------- | ------------------------------------------- | ------------------------------------------- |
+| SYSTEM_ADMIN, ADMIN | every project                               | every project                               |
+| PROJECT_MANAGER     | **every project**                           | **only projects they are staffed on as PM** |
+| DEVELOPER, DESIGNER | only projects they are staffed on           | none                                        |
+| CLIENT              | only their own projects, reduced projection | none                                        |
+
+This resolves the question flagged earlier: a PM's **visibility** is unrestricted, and the narrowing
+is on **authority**. So the query scope and the capability flags are two separate mechanisms, and
+conflating them was the mistake the first draft nearly made.
+
+- [x] `DashboardProjectCapabilitiesDto` on every card: `canManage`, `canTrackTime`, `isMember`
+- [x] `canManage` = holds `EDIT_PROJECT` **and** (is unrestricted **or** is PM of this project)
+- [x] `canTrackTime` = holds `TRACK_PROJECT_TIME` **and** is staffed on this project. Holding the
+      permission is not enough: `features.md` says only assigned developers and designers may track
+      time on a project
+- [x] A PM's `canTrackTime` is false even where `canManage` is true, because a PM holds no tracking
+      permission at all
+- [x] "Unrestricted" is identified by a capability only an admin holds (`ARCHIVE_PROJECT`), never by
+      a role string (D2)
+- [x] **The service's own assertion must call the same predicate.** Two copies is the defect
+      `pmt-backend/CLAUDE.md` names as the most repeated one here: five flags once shipped wider than
+      their enforcement, each offering a button that then answered 403
+
+### The query scope, enforced in the `where`
+
+| Audience  | Projects it may see                                  | Filter                                                   |
+| --------- | ---------------------------------------------------- | -------------------------------------------------------- |
+| `ADMIN`   | every non-archived project                           | none                                                     |
+| `MANAGER` | every non-archived project                           | none. The narrowing is on `canManage`, not on visibility |
+| `STAFF`   | projects where they are an active member in any role | `members: { some: { userId, leftAt: null } }`            |
+| `CLIENT`  | projects where `clientId` is them                    | `where: { clientId: userId }`                            |
+
+- [x] **The filter is in the `where`, never in the mapper.** A mapper that drops rows is a leak the
+      first time someone edits it, and the response would look correct while carrying data the caller
+      may not have
+- [x] Archived projects are excluded from every block
+- [x] Every list is bounded by the service, never by a client-supplied page size
+- [ ] A spec per audience asserting a project outside the caller's scope is absent from the response
+
+### Data heavy, because a brief overview is the point
+
+Whoever signs in should be able to answer "what is the state of my work" without opening anything
+else. So one shape serves all three internal audiences and differs only in scope, which also means
+the frontend builds one layout instead of three. A section that does not apply is **null rather than
+empty**: null says "this does not concern you", empty says "there is nothing here", and a developer's
+`topContributors` must not claim the team logged no hours.
+
+- [x] `headline`: metric tiles, each with its value, its previous-window value, a delta and a tone
+- [x] `hoursTrend`: one point per day, **gaps filled with zero**, because a chart that skips an empty
+      day draws a line over the gap and implies work happened across it
+- [x] `isWorkingDay` on every point, so a reader can tell the team's day off from a day nobody worked
+- [x] `statusBreakdown` and `blockerBreakdown`: slices in the enum's declared order with shares
+      computed **once** on the server, or clients rounding their own would stop summing to 100%
+- [x] `topProjectsByHours` and `topContributors`: ranked rows with a share for the bar behind them
+- [x] `projects`: the cards, ordered by `compareForDashboard`
+- [x] `attention`: the queues, with `pendingLeaveRequestCount` **null unless the caller may review
+      one**, because only an Admin can approve or reject and showing the number to a PM offers work
+      they cannot do
+- [x] `myDay`: timer, today, this week, own trend, standup state. **Null for a PM or admin**, who
+      track no time, so an empty timer card never implies a control they lack
+- [x] `QueryDashboardDto.days`, bounded 7 to 90, because the delta reads a second window of equal
+      length and an unbounded range would read years of time entries to draw one chart
+
+### The card carries what the design asks for
+
+Status, who is working on it, blockers, and progress, all on one card:
+
+- [x] Status, priority and types as display objects
+- [x] `deadlineLabel` in words, resolved on the **server** clock, which is the clock
+      `daysUntilDeadline` was computed on. A browser three hours off would disagree with the number
+      beside it
+- [x] `isAtRisk`: one definition of overdue-or-blocked, so a card, a count and a filter cannot
+      disagree. A finished project is never at risk even with a stale blocker
+- [x] `openBlockerCount` and `highSeverityBlockerCount`, so a card says "1 high" without receiving
+      every blocker row to count them
+- [x] `hoursUsedRate`, above 1 when the estimate is exceeded, null without an estimate
+- [x] `minutesInRange` and `lastWorkedAt`
+- [x] `members`, project managers first then by name, avatars included so a card does not fetch its
+      own team: one request per card, on a screen whose whole job is to load at once
+- [x] `DashboardClientProjectDto` is a **separate class**, not a subset. Omitting fields at runtime
+      from the wider one is how an internal number reaches a client the first time someone edits it
+
+### Done
+
+- [x] `VIEW_DASHBOARD` in `prisma/enums.prisma`, granted to `EVERYONE` in `ROLE_PERMISSIONS`
+- [x] Migration hand written and applied with `prisma migrate deploy`, because `migrate dev` needs a TTY
+- [x] `DASHBOARD_AUDIENCE_DISPLAY` in `enum-display.util.ts`. Every tone is `default`: an audience is
+      not a severity
+- [x] `EnumDisplayEntry` exported, so a consumer can accept "any display map" without widening `tone`
+      to `string` and losing the closed five-tone union
+- [x] `dto/dashboard.dto.ts`, Response then Query then Request, with an example on every field
+- [x] `dashboard.mapper.ts`, pure. Reuses `daysUntilDeadline`, `TERMINAL_STATUSES`,
+      `withRemainingHours`, `DASHBOARD_ACTIVE_STATUSES` and `WEEKLY_OFF_DAY` rather than
+      reimplementing them
+- [x] `spec/dashboard.mapper.spec.ts`, **81 cases**. Audience resolution and the capability rules are
+      driven from the real `ROLE_PERMISSIONS`, because a role's grants changing is the thing that can
+      break them, and a literal list would keep passing while the real answer moved
+- [x] Backend gate green: lint clean, typecheck 0, **1,181 tests**, build succeeds
+
+### Built, and verified against the running stack
+
+The endpoint exists, the screen renders it, and every scoping rule was checked by signing in as four
+real accounts rather than by reading the code.
+
+- [x] `GET /api/dashboard` returns 200 with the caller's block
+- [x] Registered in `src/app.controllers.ts`, and both route specs updated: 29 controllers, 109 routes
+- [x] `spec/dashboard.mapper.spec.ts` at **88 cases**
+- [x] Frontend: `types/dashboard.ts`, `lib/api/dashboard.ts`, `hooks/dashboard/use-dashboard.ts`
+- [x] `components/common/stats/`: stat card, mini bars, ranked list, breakdown card, hours chart
+- [x] `components/home/`: project card, my day, attention, workspace view, client view, home view
+- [x] All four view states handled. An empty dashboard is the common case on a fresh install, and an
+      error on the landing screen is the first thing a new user would see
+
+| Signed in as    | Projects in scope    | `canManage` | `topContributors` | `pendingLeave` | `myDay` |
+| --------------- | -------------------- | ----------- | ----------------- | -------------- | ------- |
+| ADMIN           | 111 (all)            | all true    | present           | 51             | present |
+| PROJECT_MANAGER | 111 (all)            | **2 of 12** | present           | null           | null    |
+| DEVELOPER       | **13 (only theirs)** | all false   | null              | null           | present |
+| CLIENT          | 12, reduced          | absent      | absent            | absent         | absent  |
+
+The PM row is the rule working: **sees every project, manages only their own.** The CLIENT row
+carries exactly six keys per project, so no internal figure exists in the payload to leak.
+
+### Four defects this found
+
+| Found                                                                                                                                        | How                                                                                                                                              |
+| -------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------ |
+| I invented `progressPercentage` and `lastWorkedAt`. Neither is a column: `Project Module.md` specifies the first but the schema never got it | The build failed on the Prisma `select`. Progress is now derived from the lifecycle, and `lastWorkedAt` from one grouped query over time entries |
+| The comparison window leaked into the response as `previousFrom` and `previousTo`, fields the DTO does not declare                           | Reading the live payload. `whitelist` and `forbidNonWhitelisted` guard request bodies, not responses, so nothing else would have caught it       |
+| I claimed `myDay` was null for an admin. An ADMIN holds `TRACK_PROJECT_TIME`, so they get one, and hiding it would hide a control they have  | The live response disagreed with my own comment                                                                                                  |
+| `56.083333333333336h of 114h` on screen. An hours sum is a float, and the card rendered the exact value instead of a label                   | Looking at it. Every hours figure now ships with its readable form (ADR 0003)                                                                    |
+
+### Two decisions worth knowing
+
+**Progress is the lifecycle position, not hours used.** A project can burn 90% of its estimate while
+still sitting in Planning, and calling that 90% done would be wrong in the most expensive direction.
+Hours against estimate ships separately as `hoursUsedRate`, and a card shows both.
+
+**Standup compliance is not project-scoped.** A standup belongs to a person, not a project, so "9 of
+72 filed today" is a fact about the team whichever projects the caller can see. Expected counts only
+active developers and designers, so a client or a suspended account cannot drag the rate down.
+
+### Still to build
+
+- [x] `dashboard.service.ts`, with the scoped queries and the aggregation
+- [x] `dashboard.controller.ts`, one `GET /` gated on `VIEW_DASHBOARD`
+- [x] `dashboard.swagger.ts`, one `applyDecorators()` function
+- [x] `dashboard.module.ts`, registered in `AppModule.imports`
+- [ ] **Registered in `src/app.controllers.ts`**, or neither route spec sees it and both silently
+      cover less. Both assert the controller count for this reason
+- [ ] `spec/dashboard.service.spec.ts`, Prisma fully mocked, one case per audience plus the scoping
+      assertions above
+- [ ] Ordering asserted on a fixture that would fail under any other order (Q6, Q7), reusing
+      `compareForDashboard` rather than a second comparator
+- [ ] `test/openapi.e2e-spec.ts` still green: every 2xx needs a schema
 
 ## Phase D3: frontend, the four dashboards (Q1 to Q9)
 

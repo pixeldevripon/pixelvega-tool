@@ -44,7 +44,12 @@ import { DisplayTone, EnumDisplayDto } from '@/common/dto/display.dto';
  * judgment already lived. Where the frontend had no opinion the tone is stated
  * fresh and the reasoning is in a comment.
  */
-type EnumDisplayEntry = { label: string; tone: DisplayTone };
+/**
+ * Exported so a consumer can accept "any display map" without widening `tone`
+ * to `string`, which would silently drop the closed five-tone union and let a
+ * caller invent a sixth.
+ */
+export type EnumDisplayEntry = { label: string; tone: DisplayTone };
 
 // ════════════════════════════════════════════════════════════════════════════
 // Projects
@@ -614,6 +619,75 @@ export const NOTIFICATION_TYPE_DISPLAY: Record<
  * rather than silently becoming a "None" object that a client then has to
  * special case: an absent priority is absent, not a priority called absent.
  */
+// ════════════════════════════════════════════════════════════════════════════
+// Dashboard
+// ════════════════════════════════════════════════════════════════════════════
+
+/**
+ * How far through its lifecycle each status is, as a percentage.
+ *
+ * ── Why this is derived rather than stored ──
+ *
+ * `Project Module.md` specifies a `progressPercentage Int` column on Project.
+ * That column was never added to the schema, so there is nothing to read. Rather
+ * than invent a field, progress is derived from the one thing the product does
+ * track precisely: the status machine.
+ *
+ * It is deliberately NOT hours-used. A project can burn 90% of its estimate
+ * while sitting in Planning, and calling that 90% done would be wrong in the
+ * most expensive direction. Hours against estimate ships separately as
+ * `hoursUsedRate`, so a screen can show both and they cannot be confused.
+ *
+ * ON_HOLD keeps the progress of the work already done rather than dropping to
+ * zero: pausing a project does not undo it.
+ */
+export const PROJECT_STATUS_PROGRESS: Record<ProjectStatus, number> = {
+  [ProjectStatus.PLANNING]: 0,
+  [ProjectStatus.SCHEDULED]: 5,
+  [ProjectStatus.READY_FOR_WORK]: 10,
+  [ProjectStatus.IN_PROGRESS]: 40,
+  // Same as IN_PROGRESS: the work is where it was, it is simply not moving.
+  [ProjectStatus.ON_HOLD]: 40,
+  [ProjectStatus.INTERNAL_REVIEW]: 70,
+  [ProjectStatus.READY_FOR_CLIENT]: 85,
+  [ProjectStatus.WAITING_FOR_FEEDBACK]: 90,
+  [ProjectStatus.COMPLETED]: 100,
+  // Not 100: it was never finished. Not 0 either, since work was done.
+  [ProjectStatus.CANCELLED]: 0,
+};
+
+// ════════════════════════════════════════════════════════════════════════════
+
+/**
+ * Which dashboard a caller gets.
+ *
+ * NOT a Prisma enum, and deliberately not derived from `Role` either. It is
+ * decided from the caller's PERMISSION SET (`resolveDashboardAudience`), so a
+ * role whose grants change gets the right dashboard without this file moving.
+ * `toEnumDisplay` is generic over `E extends string`, so a plain union works.
+ *
+ * Every tone is `default`. An audience is not a severity: it says whose day
+ * this screen describes, and colouring it would imply one of them is a problem.
+ */
+export const DASHBOARD_AUDIENCES = [
+  'ADMIN',
+  'MANAGER',
+  'STAFF',
+  'CLIENT',
+] as const;
+
+export type DashboardAudience = (typeof DASHBOARD_AUDIENCES)[number];
+
+export const DASHBOARD_AUDIENCE_DISPLAY: Record<
+  DashboardAudience,
+  EnumDisplayEntry
+> = {
+  ADMIN: { label: 'Administrator', tone: 'default' },
+  MANAGER: { label: 'Project manager', tone: 'default' },
+  STAFF: { label: 'Delivery', tone: 'default' },
+  CLIENT: { label: 'Client', tone: 'default' },
+};
+
 export function toEnumDisplay<E extends string>(
   map: Record<E, EnumDisplayEntry>,
   value: E,

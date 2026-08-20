@@ -120,11 +120,27 @@ export function compareNullableDates(a: Date | null, b: Date | null): number {
   return a.getTime() - b.getTime();
 }
 
+/**
+ * The four columns the dashboard order actually depends on.
+ *
+ * Typed structurally rather than as `ProjectWithRelations`, so any query that
+ * selects these four can reuse the comparator. It was tied to one `include`
+ * shape, which meant a narrower `select` had to either over-fetch or write a
+ * second copy of the ordering, and a second copy is how two screens start
+ * disagreeing about which project is most urgent.
+ */
+export type DashboardSortable = {
+  status: ProjectStatus;
+  priority: ProjectPriority;
+  deadline: Date | null;
+  plannedStartDate: Date | null;
+};
+
 // Sort order: active status first, then Priority, then Deadline, then
 // Planned Start Date, all ascending (most urgent/soonest first).
-export function compareForDashboard(
-  a: ProjectWithRelations,
-  b: ProjectWithRelations,
+export function compareForDashboard<T extends DashboardSortable>(
+  a: T,
+  b: T,
 ): number {
   const aActive = DASHBOARD_ACTIVE_STATUSES.includes(a.status) ? 0 : 1;
   const bActive = DASHBOARD_ACTIVE_STATUSES.includes(b.status) ? 0 : 1;

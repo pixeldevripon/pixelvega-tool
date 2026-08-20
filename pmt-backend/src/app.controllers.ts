@@ -19,6 +19,7 @@ import { AiTemplatesController } from '@/ai/templates/ai-templates.controller';
 import { ProjectStatusReportsController } from '@/projects/ai/status-reports/project-status-reports.controller';
 import { ProjectAiSummaryController } from '@/projects/ai/summary/project-ai-summary.controller';
 import { AuditLogController } from '@/audit-logs/audit-log.controller';
+import { DashboardController } from '@/dashboard/dashboard.controller';
 import { BlockerReasonsController } from '@/projects/blockers/reasons/blocker-reasons.controller';
 import { BlockersController } from '@/projects/blockers/blockers.controller';
 import { ProjectBlockersController } from '@/projects/blockers/project-blockers.controller';
@@ -43,6 +44,7 @@ import { DailyWorkReportController } from '@/projects/daily-work-reports/daily-w
 import { ProjectDailyWorkReportsController } from '@/projects/daily-work-reports/project-daily-work-reports.controller';
 
 export const ALL_CONTROLLERS = [
+  DashboardController,
   AdditionalRequirementsController,
   AiJobsController,
   AiTemplatesController,

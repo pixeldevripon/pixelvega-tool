@@ -33,7 +33,7 @@ const routes = ALL_CONTROLLERS.flatMap((controller) =>
 
 describe('documented path parameters', () => {
   it('covers every controller', () => {
-    expect(ALL_CONTROLLERS).toHaveLength(28);
+    expect(ALL_CONTROLLERS).toHaveLength(29);
     expect(routes.length).toBeGreaterThan(100);
   });
 

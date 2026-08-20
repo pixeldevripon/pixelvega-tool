@@ -390,4 +390,9 @@ enum Permission {
   VIEW_STATUS_REPORTS
   RUN_SCOPE_CHECK
   VIEW_AI_JOB
+
+  // The landing screen. Held by every role, because every role lands
+  // somewhere: which dashboard they get is decided by the rest of their
+  // permission set, not by this one.
+  VIEW_DASHBOARD
 }
