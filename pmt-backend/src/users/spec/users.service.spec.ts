@@ -24,7 +24,7 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
-import { Role } from '@prisma/client';
+import { Role, Weekday } from '@prisma/client';
 import { AuditLogService } from '@/audit-logs/audit-log.service';
 import { MailService } from '@/mail/mail.service';
 import { PrismaService } from '@/prisma/prisma.service';
@@ -43,6 +43,7 @@ function user(overrides: Record<string, unknown> = {}) {
     name: 'Dev One',
     role: Role.DEVELOPER,
     status: 'ACTIVE',
+    weeklyOffDay: Weekday.FRIDAY,
     deletedAt: null,
     ...overrides,
   };
@@ -315,6 +316,156 @@ describe('UsersService: target specific protection rules', () => {
         Role.ADMIN,
       );
       expect(auditLog.log).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('updateWeeklyOffDay', () => {
+    it('writes the new day and returns it as a display object', async () => {
+      prisma.user.findFirst.mockResolvedValue(
+        user({ weeklyOffDay: Weekday.FRIDAY }),
+      );
+      const result = await service.updateWeeklyOffDay(
+        DEVELOPER_ID,
+        { weeklyOffDay: Weekday.SATURDAY },
+        ADMIN_ID,
+        Role.ADMIN,
+      );
+
+      expect(prisma.user.update).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: { id: DEVELOPER_ID },
+          data: { weeklyOffDay: Weekday.SATURDAY },
+        }),
+      );
+      expect(result.weeklyOffDay).toEqual({
+        value: Weekday.SATURDAY,
+        label: 'Saturday',
+        tone: 'default',
+      });
+    });
+
+    it('allows a PROJECT_MANAGER to set their OWN weekly off day', async () => {
+      // The build spec explicitly asks for this, unlike update()'s self-role
+      // block: a weekly off day is not a privilege boundary.
+      const pmId = 'pm-1';
+      prisma.user.findFirst.mockResolvedValue(
+        user({ id: pmId, role: Role.PROJECT_MANAGER }),
+      );
+      await expect(
+        service.updateWeeklyOffDay(
+          pmId,
+          { weeklyOffDay: Weekday.SATURDAY },
+          pmId,
+          Role.PROJECT_MANAGER,
+        ),
+      ).resolves.toBeDefined();
+    });
+
+    it('rejects a PROJECT_MANAGER or ADMIN target other than SYSTEM_ADMIN itself', async () => {
+      // Same target protection as update(): a lower role must not be able to
+      // touch the root account, even for a field that is not itself a
+      // privilege boundary, because the only thing standing between "inert
+      // today" and "a live way to interfere with an admin" is which roles
+      // STANDUP_ELIGIBLE_ROLES happens to list elsewhere.
+      prisma.user.findFirst.mockResolvedValue(
+        user({ id: SYSTEM_ADMIN_ID, role: Role.SYSTEM_ADMIN }),
+      );
+      await expect(
+        service.updateWeeklyOffDay(
+          SYSTEM_ADMIN_ID,
+          { weeklyOffDay: Weekday.SATURDAY },
+          ADMIN_ID,
+          Role.ADMIN,
+        ),
+      ).rejects.toBeInstanceOf(ForbiddenException);
+      expect(prisma.user.update).not.toHaveBeenCalled();
+    });
+
+    it('allows the SYSTEM_ADMIN to set their own weekly off day', async () => {
+      prisma.user.findFirst.mockResolvedValue(
+        user({ id: SYSTEM_ADMIN_ID, role: Role.SYSTEM_ADMIN }),
+      );
+      await expect(
+        service.updateWeeklyOffDay(
+          SYSTEM_ADMIN_ID,
+          { weeklyOffDay: Weekday.SATURDAY },
+          SYSTEM_ADMIN_ID,
+          Role.SYSTEM_ADMIN,
+        ),
+      ).resolves.toBeDefined();
+    });
+
+    it('rejects an ADMIN setting a peer ADMIN, allows the SYSTEM_ADMIN to', async () => {
+      prisma.user.findFirst.mockResolvedValue(
+        user({ id: OTHER_ADMIN_ID, role: Role.ADMIN }),
+      );
+      await expect(
+        service.updateWeeklyOffDay(
+          OTHER_ADMIN_ID,
+          { weeklyOffDay: Weekday.SATURDAY },
+          ADMIN_ID,
+          Role.ADMIN,
+        ),
+      ).rejects.toBeInstanceOf(ForbiddenException);
+      await expect(
+        service.updateWeeklyOffDay(
+          OTHER_ADMIN_ID,
+          { weeklyOffDay: Weekday.SATURDAY },
+          SYSTEM_ADMIN_ID,
+          Role.SYSTEM_ADMIN,
+        ),
+      ).resolves.toBeDefined();
+    });
+
+    it('writes no audit row and no database write for a no-op', async () => {
+      prisma.user.findFirst.mockResolvedValue(
+        user({ weeklyOffDay: Weekday.FRIDAY }),
+      );
+      await service.updateWeeklyOffDay(
+        DEVELOPER_ID,
+        { weeklyOffDay: Weekday.FRIDAY },
+        ADMIN_ID,
+        Role.ADMIN,
+      );
+
+      expect(prisma.user.update).not.toHaveBeenCalled();
+      expect(auditLog.log).not.toHaveBeenCalled();
+    });
+
+    it('logs the change with the from/to days and the ACTOR as userId', async () => {
+      prisma.user.findFirst.mockResolvedValue(
+        user({ weeklyOffDay: Weekday.FRIDAY }),
+      );
+      await service.updateWeeklyOffDay(
+        DEVELOPER_ID,
+        { weeklyOffDay: Weekday.SATURDAY },
+        ADMIN_ID,
+        Role.ADMIN,
+      );
+
+      expect(auditLog.log).toHaveBeenCalledWith(
+        expect.objectContaining({
+          action: 'user.weekly_off_day_updated',
+          userId: ADMIN_ID,
+          targetId: DEVELOPER_ID,
+          metadata: {
+            from: Weekday.FRIDAY,
+            to: Weekday.SATURDAY,
+          },
+        }),
+      );
+    });
+
+    it('throws 404 for a user that does not exist', async () => {
+      prisma.user.findFirst.mockResolvedValue(null);
+      await expect(
+        service.updateWeeklyOffDay(
+          'nope',
+          { weeklyOffDay: Weekday.SATURDAY },
+          ADMIN_ID,
+          Role.ADMIN,
+        ),
+      ).rejects.toBeInstanceOf(NotFoundException);
     });
   });
 

@@ -1,5 +1,5 @@
 import type { PrismaClient } from '@prisma/client';
-import { Role, UserStatus } from '@prisma/client';
+import { Role, UserStatus, Weekday } from '@prisma/client';
 import { hashPassword } from 'better-auth/crypto';
 import {
   SEED_PASSWORD,
@@ -164,6 +164,7 @@ export async function seedUsers(
     spec: { email: string; name: string; companyName?: string },
     role: Role,
     designation: string,
+    weeklyOffDay: Weekday = Weekday.FRIDAY,
   ): SeededUser {
     const id = rand.authId();
     const user: SeededUser = {
@@ -186,6 +187,7 @@ export async function seedUsers(
       status: UserStatus.ACTIVE,
       // Never forced through the reset flow, so signing in just works.
       mustResetPassword: false,
+      weeklyOffDay,
       slackUserId: role === Role.CLIENT ? null : slackUserId(rand),
       avatarUrl: null,
       avatarPublicId: null,
@@ -233,10 +235,15 @@ export async function seedUsers(
     Role.PROJECT_MANAGER,
     'Senior Project Manager',
   );
+  // The one fixed account deliberately off on Saturday instead of the
+  // default Friday, so working day calculations and reminder skip logic for
+  // BOTH cases have a known, reproducible login to check by hand rather than
+  // only relying on the random staff below.
   const testDeveloper = addTestAccount(
     TEST_ACCOUNTS.developer,
     Role.DEVELOPER,
     'Full Stack Developer',
+    Weekday.SATURDAY,
   );
   const testDesigner = addTestAccount(
     TEST_ACCOUNTS.designer,
@@ -276,6 +283,11 @@ export async function seedUsers(
       const avatarPublicId = hasAvatar
         ? `pmt/avatars/${slug(name)}-${rand.hex(6)}`
         : null;
+      // Most of the team stays on the Friday default. A minority is
+      // deliberately given Saturday instead, so working day calculations and
+      // reminder skip logic both have real Saturday-off rows to exercise,
+      // not just the one fixed testDeveloper account.
+      const weeklyOffDay = rand.chance(0.2) ? Weekday.SATURDAY : Weekday.FRIDAY;
 
       users.push({ id, email, name, role, status, createdAt });
       userRows.push({
@@ -286,6 +298,7 @@ export async function seedUsers(
         role,
         status,
         mustResetPassword: status === UserStatus.INVITED,
+        weeklyOffDay,
         slackUserId: rand.chance(0.7) ? slackUserId(rand) : null,
         avatarUrl: avatarPublicId
           ? `${AVATAR_BASE}/${avatarPublicId.split('/').pop()}.jpg`

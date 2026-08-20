@@ -158,6 +158,7 @@ const EXPECTED: Record<string, Expected> = {
   'PATCH /time-entries/meetings/:timeEntryId/resume': [P.TRACK_MEETING_TIME],
   'PATCH /time-entries/meetings/:timeEntryId/stop': [P.TRACK_MEETING_TIME],
   'PATCH /users/:userId': [P.UPDATE_USER],
+  'PATCH /users/:userId/weekly-off-day': [P.MANAGE_WEEKLY_OFF_DAY],
   'POST /ai/templates': [P.MANAGE_AI_TEMPLATES],
   'POST /blockers/reasons': [P.MANAGE_BLOCKER_REASONS],
   'POST /daily-work-reports': [P.SUBMIT_WORK_REPORT],
@@ -214,7 +215,7 @@ describe('route permission matrix', () => {
   });
 
   it('finds the expected number of routes', () => {
-    expect(actual).toHaveLength(109);
+    expect(actual).toHaveLength(110);
   });
 
   it('has an expectation for every route, and a route for every expectation', () => {

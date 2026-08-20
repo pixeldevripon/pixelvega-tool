@@ -104,6 +104,22 @@ export const ApiUpdateUserDocs = () =>
     ...targetedErrors,
   );
 
+export const ApiUpdateWeeklyOffDayDocs = () =>
+  applyDecorators(
+    ApiOperation({
+      summary: "Set a user's weekly off day",
+      description:
+        'PROJECT_MANAGER or ADMIN only, for any user including themselves, with the same ' +
+        'SYSTEM_ADMIN/ADMIN target protection as PATCH /users/:userId. Friday or Saturday, ' +
+        "this team's only two options. A change that alters nothing writes no audit row. " +
+        'Working day calculations (project and developer reports) and standup/wrap up ' +
+        'reminders read this per user immediately; deadline reminders are unaffected.',
+    }),
+    userIdParam,
+    ApiResponse({ status: 200, type: UserResponseDto }),
+    ...targetedErrors,
+  );
+
 export const ApiDeleteUserDocs = () =>
   applyDecorators(
     ApiOperation({

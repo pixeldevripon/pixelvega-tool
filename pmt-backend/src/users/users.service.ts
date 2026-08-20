@@ -18,6 +18,7 @@ import { QueryUsersDto } from '@/users/dto/user.dto';
 import {
   InviteUserRequestDto,
   UpdateUserRequestDto,
+  UpdateWeeklyOffDayRequestDto,
 } from '@/users/dto/user.dto';
 
 const USER_SELECT = {
@@ -28,6 +29,7 @@ const USER_SELECT = {
   status: true,
   slackUserId: true,
   mustResetPassword: true,
+  weeklyOffDay: true,
   createdById: true,
   createdAt: true,
   updatedAt: true,
@@ -166,6 +168,62 @@ export class UsersService {
     if (dto.status === 'SUSPENDED') {
       await this.prisma.session.deleteMany({ where: { userId: id } });
     }
+
+    return toUserResponse(user);
+  }
+
+  /**
+   * A PROJECT_MANAGER or ADMIN sets this for any user, including themselves.
+   *
+   * Carries the same SYSTEM_ADMIN/ADMIN target protection as update(), even
+   * though a weekly off day is not itself a privilege boundary. A PM writing
+   * to the SYSTEM_ADMIN's or an ADMIN's row is inert today only because
+   * STANDUP_ELIGIBLE_ROLES excludes both and admins are not normally staffed
+   * as a ProjectMember; either assumption changing would make this a live way
+   * to interfere with an admin's reminders. The guard costs a legitimate PM
+   * nothing, since they never need to set an admin's day off.
+   */
+  async updateWeeklyOffDay(
+    id: string,
+    dto: UpdateWeeklyOffDayRequestDto,
+    actorId: string,
+    actorRole: Role,
+  ) {
+    const existing = await this.getUserOrThrow(id);
+
+    if (
+      existing.role === Role.SYSTEM_ADMIN &&
+      actorRole !== Role.SYSTEM_ADMIN
+    ) {
+      throw new ForbiddenException(
+        'The system admin account cannot be modified',
+      );
+    }
+    if (
+      existing.role === Role.ADMIN &&
+      actorRole !== Role.SYSTEM_ADMIN &&
+      id !== actorId
+    ) {
+      throw new ForbiddenException('Only the system admin can modify an admin');
+    }
+
+    if (dto.weeklyOffDay === existing.weeklyOffDay) {
+      return toUserResponse(existing);
+    }
+
+    const user = await this.prisma.user.update({
+      where: { id },
+      data: { weeklyOffDay: dto.weeklyOffDay },
+      select: USER_SELECT,
+    });
+
+    await this.auditLog.log({
+      userId: actorId,
+      action: 'user.weekly_off_day_updated',
+      targetType: 'User',
+      targetId: id,
+      metadata: { from: existing.weeklyOffDay, to: dto.weeklyOffDay },
+    });
 
     return toUserResponse(user);
   }

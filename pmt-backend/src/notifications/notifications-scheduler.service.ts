@@ -6,9 +6,14 @@ import {
   Prisma,
   ProjectStatus,
   Role,
+  Weekday,
 } from '@prisma/client';
 import { PrismaService } from '@/prisma/prisma.service';
 import { SlackService } from '@/slack/slack.service';
+import {
+  SHORT_WEEKDAY_TO_DAY_INDEX,
+  WEEKDAY_TO_DAY_INDEX,
+} from '@/common/working-day/working-day.constants';
 import { toDateOnly } from '@/common/working-day/working-day.util';
 import { NotificationsService } from './notifications.service';
 
@@ -25,6 +30,17 @@ const STANDUP_ELIGIBLE_ROLES: Role[] = [
   Role.DESIGNER,
   Role.PROJECT_MANAGER,
 ];
+
+// The reverse of WEEKDAY_TO_DAY_INDEX, built once rather than hand-listing
+// Fri/Sat a second time: that map is the one place "which Weekday is which
+// numeric day" is allowed to live, so this can never drift from it if a third
+// weekend option is ever added.
+const DAY_INDEX_TO_WEEKDAY = new Map(
+  (Object.keys(WEEKDAY_TO_DAY_INDEX) as Weekday[]).map((weekday) => [
+    WEEKDAY_TO_DAY_INDEX[weekday],
+    weekday,
+  ]),
+);
 
 // The two reminders that are caused by time passing rather than an action,
 // see docs/features/notifications/DESIGN.md. Both @Cron times are given an
@@ -45,14 +61,19 @@ export class NotificationsSchedulerService {
 
   @Cron('30 9 * * *', { timeZone: 'Asia/Dhaka' })
   async checkMissedStandups(): Promise<void> {
-    if (this.isDhakaFriday()) {
-      return;
-    }
+    // Per person, not a company wide skip: someone with Friday off gets no
+    // standup reminder on a Friday, but a colleague with Saturday off still
+    // does, on the same run.
+    const todayOff = this.getDhakaWeekendDay();
 
     const today = toDateOnly(new Date());
     const [eligibleUsers, submittedReports] = await Promise.all([
       this.prisma.user.findMany({
-        where: { role: { in: STANDUP_ELIGIBLE_ROLES }, deletedAt: null },
+        where: {
+          role: { in: STANDUP_ELIGIBLE_ROLES },
+          deletedAt: null,
+          ...(todayOff && { weeklyOffDay: { not: todayOff } }),
+        },
         select: { id: true },
       }),
       this.prisma.dailyWorkReport.findMany({
@@ -75,13 +96,15 @@ export class NotificationsSchedulerService {
 
   @Cron('0 23 * * *', { timeZone: 'Asia/Dhaka' })
   async checkMissedWrapUps(): Promise<void> {
-    if (this.isDhakaFriday()) {
-      return;
-    }
+    const todayOff = this.getDhakaWeekendDay();
 
     const today = toDateOnly(new Date());
     const incompleteReports = await this.prisma.dailyWorkReport.findMany({
-      where: { date: today, status: DailyWorkReportStatus.PLAN_SUBMITTED },
+      where: {
+        date: today,
+        status: DailyWorkReportStatus.PLAN_SUBMITTED,
+        ...(todayOff && { user: { weeklyOffDay: { not: todayOff } } }),
+      },
       select: { userId: true },
     });
 
@@ -92,8 +115,9 @@ export class NotificationsSchedulerService {
     );
   }
 
-  // Deliberately not skipped on Friday, unlike the two reminders above, a
-  // deadline two days away is real regardless of what day it is.
+  // Deliberately not filtered by anyone's weeklyOffDay, unlike the two
+  // reminders above: a deadline two days away is real regardless of who is
+  // off that day.
   @Cron('0 9 * * *', { timeZone: 'Asia/Dhaka' })
   async checkDeadlinesApproaching(): Promise<void> {
     const targetDayStart = new Date(
@@ -205,11 +229,13 @@ export class NotificationsSchedulerService {
     return count > 0;
   }
 
-  private isDhakaFriday(): boolean {
-    const weekday = new Intl.DateTimeFormat('en-US', {
+  // Null on an ordinary weekday, when nobody's weeklyOffDay applies today.
+  private getDhakaWeekendDay(): Weekday | null {
+    const short = new Intl.DateTimeFormat('en-US', {
       timeZone: 'Asia/Dhaka',
       weekday: 'short',
     }).format(new Date());
-    return weekday === 'Fri';
+    const dayIndex = SHORT_WEEKDAY_TO_DAY_INDEX[short];
+    return DAY_INDEX_TO_WEEKDAY.get(dayIndex) ?? null;
   }
 }

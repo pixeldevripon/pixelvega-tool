@@ -13,7 +13,7 @@ import {
 import { PrismaService } from '@/prisma/prisma.service';
 import { ProjectScopeService } from '@/projects/scope/project-scope.service';
 import {
-  countWorkingDaysInRange,
+  computeWorkingDaysByMember,
   endOfRangeExclusive,
   toDateOnly,
 } from '@/common/working-day/working-day.util';
@@ -70,7 +70,9 @@ export class ProjectReportService {
 
     const activeMembers = await this.prisma.projectMember.findMany({
       where: { projectId, leftAt: null },
-      include: { user: { select: { id: true, name: true } } },
+      include: {
+        user: { select: { id: true, name: true, weeklyOffDay: true } },
+      },
     });
     const activeUserIds = activeMembers.map((member) => member.userId);
 
@@ -113,7 +115,13 @@ export class ProjectReportService {
       }),
     ]);
 
-    const workingDaysInRange = countWorkingDaysInRange(
+    // One team, one range, but not one working-day count: each active member
+    // has their own weeklyOffDay, so the team's "how many working days" answer
+    // is a spread, not a single number. byMember is what a reader checks a
+    // specific person against; average/min/max is what they check the team
+    // against.
+    const workingDays = computeWorkingDaysByMember(
+      activeMembers,
       rangeStart,
       rangeEndInclusive,
       holidays,
@@ -147,19 +155,23 @@ export class ProjectReportService {
       additionalRequirements,
       internalReview,
       clientFeedback,
-      workingDaysInRange,
+      workingDays,
       dailyWorkReportCompliance: {
         ...dailyWorkReportCompliance,
-        // Literal formula from the design doc: daysPlanned / workingDaysInRange.
-        // For a team of more than one active member this can read above 1,
-        // since daysPlanned is summed across everyone while the denominator
-        // is not multiplied by roster size. Flagged as a known limitation
-        // of the spec as written, not fixed silently here.
+        // Literal formula from the design doc: daysPlanned / workingDaysInRange,
+        // which assumed one team wide count. Now that each member has their
+        // own weeklyOffDay there is no single count to divide by, so this uses
+        // the team's AVERAGE working days as the denominator, the same number
+        // a reader would reach for "roughly how many days should this team's
+        // plans cover". For a team of more than one active member this can
+        // still read above 1, since daysPlanned is summed across everyone
+        // while the denominator is not multiplied by roster size. Flagged as a
+        // known limitation of the spec as written, not fixed silently here.
         planningCoverageRate:
-          workingDaysInRange === 0
+          workingDays.average === null || workingDays.average === 0
             ? null
             : Math.round(
-                (dailyWorkReportCompliance.daysPlanned / workingDaysInRange) *
+                (dailyWorkReportCompliance.daysPlanned / workingDays.average) *
                   100,
               ) / 100,
       },

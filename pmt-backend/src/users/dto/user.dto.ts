@@ -1,5 +1,5 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
-import { Permission, Role, UserStatus } from '@prisma/client';
+import { Permission, Role, UserStatus, Weekday } from '@prisma/client';
 import { Type } from 'class-transformer';
 import {
   IsEmail,
@@ -72,6 +72,13 @@ export class UserResponseDto {
       'True until an invited user completes their first password change. The frontend uses it to force the change-password screen.',
   })
   mustResetPassword!: boolean;
+
+  @ApiProperty({
+    type: EnumDisplayDto,
+    description:
+      'The day this user does not work. Defaults to Friday, and only a PROJECT_MANAGER or ADMIN can change it, for any user including themselves.',
+  })
+  weeklyOffDay!: EnumDisplayDto;
 
   @ApiPropertyOptional({
     example: '3fa85f64-5717-4562-b3fc-2c963f66afa6',
@@ -211,4 +218,22 @@ export class UpdateUserRequestDto {
   @IsOptional()
   @IsString()
   slackUserId?: string;
+}
+
+/**
+ * Its own request DTO and route rather than a field on UpdateUserRequestDto,
+ * because the two are gated by different permissions on purpose: setting a
+ * weekly off day is a PROJECT_MANAGER capability, folding it into
+ * UpdateUserRequestDto would mean either widening UPDATE_USER (ADMIN only) to
+ * PROJECT_MANAGER, which also grants role/status changes, or duplicating the
+ * whole update path. See MANAGE_WEEKLY_OFF_DAY in roles.config.ts.
+ */
+export class UpdateWeeklyOffDayRequestDto {
+  @ApiProperty({
+    enum: Weekday,
+    example: Weekday.SATURDAY,
+    description: "This team's only two off day options.",
+  })
+  @IsEnum(Weekday)
+  weeklyOffDay!: Weekday;
 }

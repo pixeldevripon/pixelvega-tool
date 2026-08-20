@@ -22,6 +22,7 @@ import {
   Role,
   TimeEntryStatus,
   UserStatus,
+  Weekday,
 } from '@prisma/client';
 
 import { DISPLAY_TONES } from '@/common/dto/display.dto';
@@ -49,6 +50,7 @@ import {
   ROLE_DISPLAY,
   TIME_ENTRY_STATUS_DISPLAY,
   USER_STATUS_DISPLAY,
+  WEEKDAY_DISPLAY,
   toEnumDisplay,
   toEnumDisplayList,
 } from '../enum-display.util';
@@ -78,6 +80,7 @@ const MAPS: Array<
   ],
   ['Role', Role, ROLE_DISPLAY],
   ['UserStatus', UserStatus, USER_STATUS_DISPLAY],
+  ['Weekday', Weekday, WEEKDAY_DISPLAY],
   ['EmployeeWorkStatus', EmployeeWorkStatus, EMPLOYEE_WORK_STATUS_DISPLAY],
   ['AvailabilityStatus', AvailabilityStatus, AVAILABILITY_STATUS_DISPLAY],
   ['LeaveStatus', LeaveStatus, LEAVE_STATUS_DISPLAY],

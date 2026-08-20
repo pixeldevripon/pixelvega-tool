@@ -146,6 +146,44 @@ export class ReportClientFeedbackDto {
   changesRequestedCount!: number;
 }
 
+export class ProjectReportWorkingDaysByMemberDto {
+  @ApiProperty({ example: 'FKlPeooYonpdtm6IW7eJkJJvA4sdr2Xg' })
+  userId!: string;
+
+  @ApiProperty({ example: 'Rezina Akter' })
+  name!: string;
+
+  @ApiProperty({
+    example: 22,
+    description:
+      "Weekdays in range, minus holidays, against THIS member's own weeklyOffDay.",
+  })
+  workingDays!: number;
+}
+
+export class ProjectReportWorkingDaysDto {
+  @ApiPropertyOptional({
+    example: 21.5,
+    nullable: true,
+    description:
+      'Across every active member. Null when nobody is currently staffed, not 0.',
+  })
+  average!: number | null;
+
+  @ApiPropertyOptional({ example: 21, nullable: true })
+  min!: number | null;
+
+  @ApiPropertyOptional({ example: 22, nullable: true })
+  max!: number | null;
+
+  @ApiProperty({
+    type: [ProjectReportWorkingDaysByMemberDto],
+    description:
+      'One entry per active member, since Friday-off and Saturday-off members do not share a count over the same range.',
+  })
+  byMember!: ProjectReportWorkingDaysByMemberDto[];
+}
+
 export class ProjectReportResponseDto {
   @ApiProperty({ type: EnumDisplayDto })
   status!: EnumDisplayDto;
@@ -210,11 +248,8 @@ export class ProjectReportResponseDto {
   @ApiProperty({ type: ReportClientFeedbackDto })
   clientFeedback!: ReportClientFeedbackDto;
 
-  @ApiProperty({
-    example: 22,
-    description: 'Weekdays in range, minus company holidays.',
-  })
-  workingDaysInRange!: number;
+  @ApiProperty({ type: ProjectReportWorkingDaysDto })
+  workingDays!: ProjectReportWorkingDaysDto;
 
   @ApiProperty({ type: WorkReportComplianceDto })
   dailyWorkReportCompliance!: WorkReportComplianceDto;

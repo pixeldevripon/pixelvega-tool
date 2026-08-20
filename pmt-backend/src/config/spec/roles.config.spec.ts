@@ -135,9 +135,30 @@ describe('ROLE_PERMISSIONS', () => {
       Permission.SUBMIT_INTERNAL_REVIEW,
       Permission.INVITE_USER,
       Permission.VIEW_AUDIT_LOG,
+      Permission.MANAGE_WEEKLY_OFF_DAY,
     ])('a DEVELOPER does NOT hold %s', (permission) => {
       expect(ROLE_PERMISSIONS[Role.DEVELOPER]).not.toContain(permission);
     });
+  });
+
+  describe('weekly off day is a PROJECT_MANAGER capability, not an admin only one', () => {
+    it.each([Role.PROJECT_MANAGER, Role.ADMIN, Role.SYSTEM_ADMIN])(
+      'a %s holds MANAGE_WEEKLY_OFF_DAY',
+      (role) => {
+        expect(ROLE_PERMISSIONS[role]).toContain(
+          Permission.MANAGE_WEEKLY_OFF_DAY,
+        );
+      },
+    );
+
+    it.each([Role.DEVELOPER, Role.DESIGNER, Role.CLIENT])(
+      'a %s does NOT hold MANAGE_WEEKLY_OFF_DAY',
+      (role) => {
+        expect(ROLE_PERMISSIONS[role]).not.toContain(
+          Permission.MANAGE_WEEKLY_OFF_DAY,
+        );
+      },
+    );
   });
 
   describe('admin only capabilities', () => {

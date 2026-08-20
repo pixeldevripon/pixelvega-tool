@@ -118,6 +118,7 @@ const PROJECT_MANAGER: Permission[] = [
   Permission.VIEW_LEAVE_REQUESTS,
   Permission.VIEW_USERS,
   Permission.VIEW_USER_PROFILE,
+  Permission.MANAGE_WEEKLY_OFF_DAY,
   Permission.GENERATE_STATUS_REPORT,
   Permission.RUN_SCOPE_CHECK,
   Permission.VIEW_AI_JOB,

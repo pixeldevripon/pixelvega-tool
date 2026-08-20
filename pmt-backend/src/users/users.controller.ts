@@ -18,6 +18,7 @@ import {
   InviteUserRequestDto,
   QueryUsersDto,
   UpdateUserRequestDto,
+  UpdateWeeklyOffDayRequestDto,
 } from '@/users/dto/user.dto';
 import {
   ApiDeleteUserDocs,
@@ -27,6 +28,7 @@ import {
   ApiInviteUserDocs,
   ApiListUsersDocs,
   ApiUpdateUserDocs,
+  ApiUpdateWeeklyOffDayDocs,
 } from './users.swagger';
 import { UsersService } from './users.service';
 
@@ -109,6 +111,17 @@ export class UsersController {
     @CurrentUser() user: { id: string; role: Role },
   ) {
     return this.usersService.update(id, dto, user.id, user.role);
+  }
+
+  @ApiUpdateWeeklyOffDayDocs()
+  @RequirePermissions(Permission.MANAGE_WEEKLY_OFF_DAY)
+  @Patch(':userId/weekly-off-day')
+  updateWeeklyOffDay(
+    @Param('userId') id: string,
+    @Body() dto: UpdateWeeklyOffDayRequestDto,
+    @CurrentUser() user: { id: string; role: Role },
+  ) {
+    return this.usersService.updateWeeklyOffDay(id, dto, user.id, user.role);
   }
 
   @ApiDeleteUserDocs()

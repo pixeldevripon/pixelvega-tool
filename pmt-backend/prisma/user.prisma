@@ -14,6 +14,11 @@ model User {
   role              Role       @default(DEVELOPER)
   status            UserStatus @default(INVITED)
   mustResetPassword Boolean    @default(true)
+  // Set and changed only by a PROJECT_MANAGER or ADMIN, for any user including
+  // themselves. Applies to everyone, staff and client alike, so working day
+  // math and standup/wrap up reminders always have exactly one place to read
+  // this from, never a role dependent default.
+  weeklyOffDay      Weekday    @default(FRIDAY)
 
   createdById  String?
   createdBy    User?   @relation("UserInvites", fields: [createdById], references: [id])

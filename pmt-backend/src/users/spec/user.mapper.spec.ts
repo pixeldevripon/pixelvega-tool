@@ -1,4 +1,4 @@
-import { Role, UserStatus } from '@prisma/client';
+import { Role, UserStatus, Weekday } from '@prisma/client';
 
 import { toUserResponse } from '../user.mapper';
 
@@ -8,6 +8,7 @@ const base = {
   name: 'Rezina Akter',
   role: Role.DEVELOPER,
   status: UserStatus.ACTIVE,
+  weeklyOffDay: Weekday.FRIDAY,
 };
 
 describe('toUserResponse', () => {
@@ -44,6 +45,17 @@ describe('toUserResponse', () => {
     expect(toUserResponse({ ...base, status }).status.tone).toBe(tone);
   });
 
+  it.each([
+    [Weekday.FRIDAY, 'Friday'],
+    [Weekday.SATURDAY, 'Saturday'],
+  ])('maps weeklyOffDay %s to the label %s', (weeklyOffDay, label) => {
+    expect(toUserResponse({ ...base, weeklyOffDay }).weeklyOffDay).toEqual({
+      value: weeklyOffDay,
+      label,
+      tone: 'default',
+    });
+  });
+
   it('leaves every other field untouched', () => {
     const result = toUserResponse({ ...base, slackUserId: 'U08ABCDEF' });
     expect(result.id).toBe('u1');
@@ -57,7 +69,7 @@ describe('toUserResponse', () => {
     // silently gain the ones it was reduced to avoid.
     const result = toUserResponse(base);
     expect(Object.keys(result).sort()).toEqual(
-      ['email', 'id', 'name', 'role', 'status'].sort(),
+      ['email', 'id', 'name', 'role', 'status', 'weeklyOffDay'].sort(),
     );
   });
 });

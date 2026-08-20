@@ -22,6 +22,7 @@ import {
   Role,
   TimeEntryStatus,
   UserStatus,
+  Weekday,
 } from '@prisma/client';
 
 import { DisplayTone, EnumDisplayDto } from '@/common/dto/display.dto';
@@ -173,6 +174,12 @@ export const USER_STATUS_DISPLAY: Record<UserStatus, EnumDisplayEntry> = {
   [UserStatus.INVITED]: { label: 'Invited', tone: 'warning' },
   [UserStatus.ACTIVE]: { label: 'Active', tone: 'success' },
   [UserStatus.SUSPENDED]: { label: 'Suspended', tone: 'danger' },
+};
+
+/** No severity here: a day of the week is a fact, never a judgment. */
+export const WEEKDAY_DISPLAY: Record<Weekday, EnumDisplayEntry> = {
+  [Weekday.FRIDAY]: { label: 'Friday', tone: 'default' },
+  [Weekday.SATURDAY]: { label: 'Saturday', tone: 'default' },
 };
 
 export const EMPLOYEE_WORK_STATUS_DISPLAY: Record<

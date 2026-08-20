@@ -9,6 +9,16 @@ enum UserStatus {
 }
 
 
+// This team's weekend (Asia/Dhaka) is Friday or Saturday, never any other
+// day. Every user has exactly one: WEEKDAY_TO_DAY_INDEX in
+// working-day.constants.ts bridges this to the numeric
+// Date.getUTCDay()/Intl weekday the working-day math already compares against.
+enum Weekday {
+  FRIDAY
+  SATURDAY
+}
+
+
 enum Role {
   SYSTEM_ADMIN
   ADMIN
@@ -378,6 +388,9 @@ enum Permission {
   UPDATE_USER
   DELETE_USER
   VIEW_USER_PROFILE
+  // Narrower than UPDATE_USER on purpose: a PROJECT_MANAGER holds this without
+  // gaining the ability to change a role, status, or Slack id.
+  MANAGE_WEEKLY_OFF_DAY
 
   // Audit
   VIEW_AUDIT_LOG

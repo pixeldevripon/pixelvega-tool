@@ -7,7 +7,10 @@ import { DailyWorkReportStatus, LeaveStatus, Role } from '@prisma/client';
 import { PrismaService } from '@/prisma/prisma.service';
 import { ProjectTimeEntriesService } from '@/projects/time-entries/project/project-time-entries.service';
 import { MeetingTimeEntriesService } from '@/projects/time-entries/meetings/meeting-time-entries.service';
-import { TARGET_HOURS_PER_DAY } from '@/common/working-day/working-day.constants';
+import {
+  TARGET_HOURS_PER_DAY,
+  WEEKDAY_TO_DAY_INDEX,
+} from '@/common/working-day/working-day.constants';
 import {
   countWorkingDaysInRange,
   endOfRangeExclusive,
@@ -51,7 +54,7 @@ export class DeveloperReportService {
 
     const user = await this.prisma.user.findFirst({
       where: { id: userId, deletedAt: null },
-      select: { id: true, role: true },
+      select: { id: true, role: true, weeklyOffDay: true },
     });
     if (!user) {
       throw new NotFoundException('User not found');
@@ -122,6 +125,7 @@ export class DeveloperReportService {
       rangeStart,
       rangeEndInclusive,
       holidays,
+      WEEKDAY_TO_DAY_INDEX[user.weeklyOffDay],
     );
     const totalHours = toHours(hours.projectMinutes + hours.meetingMinutes);
 

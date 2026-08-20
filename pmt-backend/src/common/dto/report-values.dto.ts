@@ -34,7 +34,7 @@ export class WorkReportComplianceDto {
     example: 0.82,
     nullable: true,
     description:
-      'daysPlanned / workingDaysInRange. KNOWN LIMITATION: for a team of more than one active member this can exceed 1, since daysPlanned is summed across everyone while the denominator is not multiplied by roster size. That is the formula as specified, left visible rather than silently corrected.',
+      'daysPlanned / workingDaysInRange for the developer report; daysPlanned / workingDays.average for the project report, since each active member can have a different weeklyOffDay. KNOWN LIMITATION on the project report: for a team of more than one active member this can exceed 1, since daysPlanned is summed across everyone while the denominator is not multiplied by roster size. That is the formula as specified, left visible rather than silently corrected.',
   })
   planningCoverageRate!: number | null;
 }
