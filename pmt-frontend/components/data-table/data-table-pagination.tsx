@@ -15,7 +15,13 @@ interface ServerPagination {
 }
 
 interface DataTablePaginationProps<TData> {
-    table: Table<TData>;
+    /**
+     * Optional, because a server-paged screen does not need one. The board and
+     * timeline project views page the same server-driven list with no TanStack
+     * table behind them, and a second pager for them would be this file copied
+     * with the client branch cut out. Required whenever `pagination` is absent.
+     */
+    table?: Table<TData>;
     /** Present = server-driven; absent = TanStack client paging. */
     pagination?: ServerPagination;
     isLoading?: boolean;
@@ -30,14 +36,14 @@ export function DataTablePagination<TData>({
 
     const page = server
         ? pagination.page
-        : table.getState().pagination.pageIndex + 1;
+        : (table?.getState().pagination.pageIndex ?? 0) + 1;
     const totalPages = server
         ? Math.max(1, Math.ceil(pagination.total / pagination.limit))
-        : Math.max(1, table.getPageCount());
+        : Math.max(1, table?.getPageCount() ?? 1);
 
     const goTo = (next: number) => {
         if (server) pagination.onPageChange(next);
-        else table.setPageIndex(next - 1);
+        else table?.setPageIndex(next - 1);
     };
 
     return (

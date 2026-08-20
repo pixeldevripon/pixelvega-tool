@@ -15,7 +15,6 @@ import { ROLE_PERMISSIONS } from '@/config/roles.config';
 import {
   buildDashboardProjectCapabilities,
   formatChangeLabel,
-  formatDeadlineLabel,
   hasMyDay,
   resolveDashboardAudience,
   tallyOpenBlockers,
@@ -536,21 +535,6 @@ describe('toDashboardClientProject', () => {
 // ══════════════════════════════════════════════════════════════════════════
 // Formatting and figures
 // ══════════════════════════════════════════════════════════════════════════
-
-describe('formatDeadlineLabel', () => {
-  it.each([
-    [null, null],
-    [0, 'due today'],
-    [1, 'due tomorrow'],
-    [12, 'in 12 days'],
-    [-1, '1 day overdue'],
-    [-5, '5 days overdue'],
-  ])('%s days reads as %s', (days, expected) => {
-    // On the server because it is measured against the clock the number came
-    // from. A browser three hours off would disagree with the figure beside it.
-    expect(formatDeadlineLabel(days)).toBe(expected);
-  });
-});
 
 describe('formatChangeLabel', () => {
   it.each([

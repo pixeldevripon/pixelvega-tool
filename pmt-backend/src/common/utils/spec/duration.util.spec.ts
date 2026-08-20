@@ -1,4 +1,9 @@
-import { formatDuration, toHours } from '../duration.util';
+import {
+  formatDeadlineLabel,
+  formatDuration,
+  formatHoursLabel,
+  toHours,
+} from '../duration.util';
 
 describe('formatDuration', () => {
   it('keeps an absent duration absent', () => {
@@ -62,5 +67,52 @@ describe('toHours', () => {
     // 1/3 of an hour is 0.3333...; a client rendering that raw shows a number
     // nobody wants to read.
     expect(String(toHours(20))).toBe('0.33');
+  });
+});
+
+describe('formatHoursLabel', () => {
+  it('keeps an absent value absent', () => {
+    expect(formatHoursLabel(null)).toBeNull();
+    expect(formatHoursLabel(undefined)).toBeNull();
+  });
+
+  it('does not treat zero as absent', () => {
+    expect(formatHoursLabel(0)).toBe('0m');
+  });
+
+  it('reads a whole number of hours without a minute part', () => {
+    expect(formatHoursLabel(7)).toBe('7h');
+  });
+
+  it('turns the fraction into minutes', () => {
+    expect(formatHoursLabel(7.5)).toBe('7h 30m');
+    expect(formatHoursLabel(0.25)).toBe('15m');
+  });
+
+  it('reads a repeating decimal as minutes rather than as itself', () => {
+    // This is the case it exists for: `56.083333333333336` reached a screen
+    // verbatim once, because a mapper rendered the number instead of a label.
+    expect(formatHoursLabel(56.083333333333336)).toBe('56h 5m');
+  });
+
+  it('keeps a negative overrun negative', () => {
+    // Remaining hours go below zero when an estimate is passed, and the sign is
+    // the whole message.
+    expect(formatHoursLabel(-2.5)).toBe('-2h 30m');
+  });
+});
+
+describe('formatDeadlineLabel', () => {
+  it.each([
+    [null, null],
+    [0, 'due today'],
+    [1, 'due tomorrow'],
+    [12, 'in 12 days'],
+    [-1, '1 day overdue'],
+    [-5, '5 days overdue'],
+  ])('%s days reads as %s', (days, expected) => {
+    // Takes days already measured against the server clock. A browser three
+    // hours off would put "due today" on the wrong day.
+    expect(formatDeadlineLabel(days)).toBe(expected);
   });
 });
