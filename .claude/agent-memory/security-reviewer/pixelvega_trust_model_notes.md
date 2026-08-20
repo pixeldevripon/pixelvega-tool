@@ -31,6 +31,36 @@ metadata:
   not). Time-entry pause/resume/stop (project and meeting) pass `user.id` straight into the service
   with no separate admin bypass path observed in the controllers reviewed so far.
 
+## Confirmed, current (checked 2026-08-20 on feat/cross-project-queues)
+
+- **Role-scoped status intersection pattern, confirmed correct.**
+  `LeaveRequestsService.findAll` (`pmt-backend/src/leave/requests/leave-requests.service.ts`) adds a
+  caller-supplied `status` filter alongside the pre-existing PROJECT_MANAGER-can't-see-REJECTED rule.
+  Implemented as `visibleStatuses.filter(allowed => allowed === status)` (an intersection), not a
+  spread that could overwrite the role clause. Asking for an out-of-scope status yields `status: {
+in: [] }` (matches nothing) rather than a 403, deliberately, so the response does not confirm which
+  statuses exist. This is the reference shape for any future "add a caller filter next to an existing
+  role-restricted enum clause" change: intersect, do not let the caller's value replace the role's.
+  `getSummary`/`getSummaryCsv` were untouched by that PR and stay safe by construction because they
+  hardcode `status: 'APPROVED'` rather than taking a caller-supplied status at all.
+- **Mapper-maps-field-by-field-never-spreads is now the pattern in three places**, each with a spec
+  that asserts a spread-shaped attack still cannot leak `User.password`: `leave.mapper.ts`
+  (`toLeaveUser`), `audit-log.mapper.ts` (`toAuditLogResponse`), and the pre-existing `user.mapper.ts`.
+  Each one has a test that deliberately feeds `password: 'a-real-bcrypt-hash'` into the mapper input
+  and asserts it does not appear in `Object.keys(response.x)`. This is a good defense-in-depth check
+  to ask for whenever a new mapper is added for a relation that ultimately points at `User`.
+- **Cross-project list scope clause + caller filters, confirmed non-overridable by construction, not
+  by key ordering.** `BlockerService.findAll`'s DEVELOPER/DESIGNER membership scope
+  (`project: { members: { some: { userId, leftAt: null } } } }`) and the caller-supplied `projectId`/
+  `assignedToId`/`search` filters are DIFFERENT top-level Prisma `where` keys, built from named
+  destructured DTO fields (never `...query` spread), so there is no key collision to exploit even
+  though the code comments frame the scope clause's LAST position as the safety property. The actual
+  safety property is: (1) distinct keys AND on the same object, (2) the scope clause is derived from
+  `actorId`/`actorRole` off the session, never from the query DTO, and (3) `count()` reuses the exact
+  same `where` as `findMany()`, so a caller cannot use a filter (or the total count) to detect the
+  existence of a row outside their scope. Check for exactly those three properties on the next
+  cross-project list endpoint, not merely "is the scope clause last in the object literal."
+
 ## Recurring miss class seen in this codebase
 
 - **A route-rename PR can do a correct mechanical prefix substitution everywhere except one

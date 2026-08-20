@@ -4,7 +4,7 @@ import { describe, expect, it, vi } from 'vitest';
 import { ProjectsBoard } from '@/components/projects/projects-board';
 import { ProjectsList } from '@/components/projects/projects-list';
 import { ProjectsTimeline } from '@/components/projects/projects-timeline';
-import { PROJECT_ROWS } from '@/components/projects/projects.fixture';
+import { PROJECT_ROWS } from '@/fixtures/projects';
 import type { TimelineZoom } from '@/components/projects/timeline-scale';
 import type { Project } from '@/types/projects';
 

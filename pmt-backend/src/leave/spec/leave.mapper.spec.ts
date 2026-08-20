@@ -1,4 +1,4 @@
-import { LeaveStatus } from '@prisma/client';
+import { LeaveStatus, Role } from '@prisma/client';
 
 import {
   LeaveRequestWithRelations,
@@ -154,5 +154,130 @@ describe('toHolidayResponse', () => {
     const result = toHolidayResponse(holiday, AT);
     expect(result.startDate).toBe('2026-03-19');
     expect(result.endDate).toBe('2026-03-21');
+  });
+});
+
+describe('the person on a leave request', () => {
+  /**
+   * The mapper used to spread the raw row: `...(request.user && { user:
+   * request.user })`. That shipped an undeclared `role` as the bare string
+   * "DEVELOPER" for as long as the query happened to select it, and a screen
+   * reading `.label` off it rendered nothing. Response DTOs are not validated at
+   * runtime, so only a case like this catches it.
+   */
+  const base = {
+    id: 'lr1',
+    userId: 'u1',
+    leaveTypeId: 'lt1',
+    startDate: new Date('2026-09-01T00:00:00.000Z'),
+    endDate: new Date('2026-09-03T00:00:00.000Z'),
+    reason: null,
+    status: LeaveStatus.PENDING,
+    reviewedById: null,
+    reviewedAt: null,
+    createdAt: new Date('2026-08-01T00:00:00.000Z'),
+    updatedAt: new Date('2026-08-01T00:00:00.000Z'),
+    leaveType: {
+      id: 'lt1',
+      name: 'Annual Leave',
+      defaultDaysPerYear: 15,
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    },
+  } as unknown as LeaveRequestWithRelations;
+
+  const context = { callerId: 'someone-else', canReviewLeave: true };
+
+  it('renders the requester role as a display object, never a bare enum', () => {
+    const response = toLeaveRequestResponse(
+      {
+        ...base,
+        user: {
+          id: 'u1',
+          name: 'Sharmin Miller',
+          email: 'sharmin@pixelvega.com',
+          role: Role.DEVELOPER,
+        },
+      },
+      context,
+    );
+
+    expect(response.user?.role).toEqual({
+      value: 'DEVELOPER',
+      label: expect.any(String),
+      tone: expect.any(String),
+    });
+    // The label is what a screen prints, so it must not be the raw value.
+    expect(response.user?.role?.label).not.toBe('DEVELOPER');
+  });
+
+  it('omits the role entirely when the query did not select one', () => {
+    // Absent means "not asked for", never "has no role". Emitting a display
+    // object built from undefined would print an empty badge instead.
+    const response = toLeaveRequestResponse(
+      {
+        ...base,
+        user: { id: 'u1', name: 'Sharmin Miller', email: 's@x.com' },
+      },
+      context,
+    );
+
+    expect(response.user).toEqual({
+      id: 'u1',
+      name: 'Sharmin Miller',
+      email: 's@x.com',
+    });
+    expect('role' in (response.user as object)).toBe(false);
+  });
+
+  it('emits no field the DTO does not declare', () => {
+    // The defect this whole block exists for. A spread mapper cannot say what
+    // it returns, so an extra column in the select becomes an extra field in
+    // the response.
+    const response = toLeaveRequestResponse(
+      {
+        ...base,
+        user: {
+          id: 'u1',
+          name: 'Sharmin Miller',
+          email: 's@x.com',
+          role: Role.DEVELOPER,
+          password: 'a-real-bcrypt-hash',
+          slackUserId: 'U123',
+        },
+      } as unknown as LeaveRequestWithRelations,
+      context,
+    );
+
+    expect(Object.keys(response.user as object).sort()).toEqual([
+      'email',
+      'id',
+      'name',
+      'role',
+    ]);
+  });
+
+  it('maps the reviewer the same way as the requester', () => {
+    const response = toLeaveRequestResponse(
+      {
+        ...base,
+        status: LeaveStatus.APPROVED,
+        reviewedBy: {
+          id: 'admin1',
+          name: 'Ada Admin',
+          email: 'ada@pixelvega.com',
+          role: Role.ADMIN,
+        },
+      },
+      context,
+    );
+
+    expect(response.reviewedBy?.role?.value).toBe('ADMIN');
+    expect(Object.keys(response.reviewedBy as object).sort()).toEqual([
+      'email',
+      'id',
+      'name',
+      'role',
+    ]);
   });
 });

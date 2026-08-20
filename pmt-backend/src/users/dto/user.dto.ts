@@ -1,7 +1,8 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { Permission, Role, UserStatus } from '@prisma/client';
-import { Type } from 'class-transformer';
+import { Transform, TransformFnParams, Type } from 'class-transformer';
 import {
+  IsArray,
   IsEmail,
   IsEnum,
   IsIn,
@@ -18,6 +19,8 @@ import { EnumDisplayDto } from '@/common/dto/display.dto';
 import { PaginationQueryDto } from '@/common/dto/pagination-query.dto';
 import { SORT_ORDERS } from '@/common/dto/sort-query.dto';
 import type { SortOrder } from '@/common/dto/sort-query.dto';
+import { ToArray } from '@/common/decorators/to-array.decorator';
+import { IsSearchTerm } from '@/common/decorators/is-search-term.decorator';
 import * as FieldLength from '@/common/constants/field-lengths';
 
 /**
@@ -147,6 +150,32 @@ export class QueryUsersDto extends PaginationQueryDto {
   @IsOptional()
   @IsIn(SORT_ORDERS)
   sortOrder?: SortOrder = 'asc';
+
+  @ApiPropertyOptional({
+    enum: Role,
+    isArray: true,
+    example: [Role.DEVELOPER, Role.DESIGNER],
+    description:
+      'Comma separated (?role=DEVELOPER,DESIGNER) or repeated (?role=DEVELOPER&role=DESIGNER). Matches ANY of the given roles, not all of them.',
+  })
+  @IsOptional()
+  @ToArray()
+  @IsArray()
+  @IsEnum(Role, { each: true })
+  role?: Role[];
+
+  @ApiPropertyOptional({ enum: UserStatus })
+  @IsOptional()
+  @IsEnum(UserStatus)
+  status?: UserStatus;
+
+  @ApiPropertyOptional({
+    example: 'rezina',
+    description:
+      'Case insensitive, matches anywhere in the name OR the email. One box for both, because a person looking for a colleague types whichever they remember.',
+  })
+  @IsSearchTerm()
+  search?: string;
 }
 
 // ── Request DTOs ─────────────────────────────────────────────────────────────

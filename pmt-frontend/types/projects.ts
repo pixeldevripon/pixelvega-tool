@@ -134,12 +134,6 @@ export type ProjectsQuery = {
     search?: string;
 };
 
-export type Paginated<T> = {
-    items: T[];
-    total: number;
-    page: number;
-    pageSize: number;
-};
 
 /**
  * What a CLIENT sees of their own project. Nine fields, and that is the whole

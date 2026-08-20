@@ -1,5 +1,6 @@
 'use client';
 
+import { FilterSelect } from '@/components/common/filter-select';
 import { Input } from '@/components/ui/input';
 import {
     Select,
@@ -52,13 +53,11 @@ const SORT_OPTIONS: { value: ProjectSortField; label: string }[] = [
     { value: 'updatedAt', label: 'Recently updated' },
 ];
 
-/** Sentinel for "no filter". A Select cannot hold an empty string as a value. */
-const ANY = '__any__';
-
 /**
  * Sentinel for "no sort column", which is a real choice on `/projects/mine`: it
- * asks for the dashboard's ordering rather than a column. Distinct from `ANY`
- * so a reader is not left wondering whether an unsorted list is unfiltered.
+ * asks for the dashboard's ordering rather than a column. Its own sentinel,
+ * separate from the one `FilterSelect` uses for "no filter", so a reader is not
+ * left wondering whether an unsorted list is also an unfiltered one.
  */
 const DEFAULT_ORDER = '__default__';
 
@@ -133,45 +132,5 @@ export function ProjectsFilters({
                 </SelectContent>
             </Select>
         </div>
-    );
-}
-
-/**
- * A filter that can be cleared. The three of these were written out longhand
- * three times, and the sentinel handling is the part that must not diverge: a
- * copy that forgets to translate `ANY` back to undefined sends the literal
- * string to the API as a status.
- */
-function FilterSelect({
-    label,
-    placeholder,
-    value,
-    options,
-    onChange,
-    className,
-}: {
-    label: string;
-    placeholder: string;
-    value: string | undefined;
-    options: { value: string; label: string }[];
-    onChange: (value: string | undefined) => void;
-    className?: string;
-}) {
-    return (
-        <Select
-            value={value ?? ANY}
-            onValueChange={(next) => onChange(next === ANY ? undefined : next)}>
-            <SelectTrigger className={`h-9 ${className ?? ''}`} aria-label={label}>
-                <SelectValue placeholder={placeholder} />
-            </SelectTrigger>
-            <SelectContent>
-                <SelectItem value={ANY}>{placeholder}</SelectItem>
-                {options.map((option) => (
-                    <SelectItem key={option.value} value={option.value}>
-                        {option.label}
-                    </SelectItem>
-                ))}
-            </SelectContent>
-        </Select>
     );
 }

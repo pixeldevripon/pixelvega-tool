@@ -4,17 +4,19 @@ import {
   IsArray,
   IsBoolean,
   IsDateString,
+  IsEnum,
   IsIn,
   IsInt,
   IsNotEmpty,
   IsOptional,
   IsString,
   IsUUID,
-  Min,
   MaxLength,
+  Min,
 } from 'class-validator';
-import { Role } from '@prisma/client';
+import { LeaveStatus, Role } from '@prisma/client';
 
+import { ToArray } from '@/common/decorators/to-array.decorator';
 import { PaginationQueryDto } from '@/common/dto/pagination-query.dto';
 import { EnumDisplayDto } from '@/common/dto/display.dto';
 import { ToBoolean } from '@/common/decorators/to-boolean.decorator';
@@ -40,6 +42,23 @@ export class LeaveUserDto {
 
   @ApiProperty({ example: 'rezina@pixelvega.com' })
   email!: string;
+
+  /**
+   * Who is asking, which a reviewer needs: a project manager's absence and a
+   * developer's are different problems to cover for.
+   *
+   * Optional because `reviewedBy` uses this same class and its query does not
+   * select a role. Absent is therefore "not asked for", never "has none".
+   *
+   * It was ALREADY arriving, as the bare string `"DEVELOPER"`, because the list
+   * query selects `role` and the mapper spread the row wholesale. Two defects in
+   * one: an undeclared field in a response, and a bare enum (ADR 0001). A screen
+   * reading `.label` off it rendered nothing. `whitelist` and
+   * `forbidNonWhitelisted` guard request bodies, not responses, so nothing
+   * caught it: the mapper now maps field by field instead of spreading.
+   */
+  @ApiPropertyOptional({ type: EnumDisplayDto })
+  role?: EnumDisplayDto;
 }
 
 export class LeaveTypeResponseDto {
@@ -290,7 +309,28 @@ export class QueryLeaveRequestsDto extends PaginationQueryDto {
   @ApiPropertyOptional({ description: 'Filter to a specific user' })
   @IsOptional()
   @IsString()
+  // Bounded like its sibling on `QueryLeaveSummaryDto`. A better-auth user id
+  // is not a UUID, so this cannot be `@IsUUID()`, but an unbounded string
+  // reaching an equality clause still has no reason to be unbounded.
+  @MaxLength(FieldLength.SINGLE_LINE)
   userId?: string;
+
+  @ApiPropertyOptional({
+    enum: LeaveStatus,
+    description:
+      'The one filter a review queue cannot work without: a reviewer opens this screen to answer "what is waiting for me", and 420 requests of which most are already decided is not that screen.',
+  })
+  @IsOptional()
+  @IsEnum(LeaveStatus)
+  status?: LeaveStatus;
+
+  @ApiPropertyOptional({ description: 'Filter to one kind of leave.' })
+  @IsOptional()
+  // A foreign key, and `CreateLeaveRequestDto.leaveTypeId` validates it as one.
+  // A query filter accepting an arbitrary string for the same column is the
+  // looser half of a promise the DTO is supposed to be (D5).
+  @IsUUID()
+  leaveTypeId?: string;
 }
 
 export class QueryLeaveSummaryDto {
@@ -318,11 +358,7 @@ export class QueryLeaveSummaryDto {
       'Comma separated (?role=DEVELOPER,DESIGNER) or repeated (?role=DEVELOPER&role=DESIGNER). Matches ANY of the given roles, not all of them. Only PROJECT_MANAGER, DEVELOPER, and DESIGNER can have leave requests.',
   })
   @IsOptional()
-  @Transform(({ value }: TransformFnParams): unknown => {
-    if (Array.isArray(value)) return value;
-    if (typeof value === 'string') return value.split(',').map((v) => v.trim());
-    return value;
-  })
+  @ToArray()
   @IsArray()
   @IsIn(LEAVE_TAKING_ROLES, { each: true })
   role?: Role[];

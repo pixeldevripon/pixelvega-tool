@@ -2,4 +2,4 @@
 
 One line per memory file: `- [Title](file.md) — hook`. No memory content in this file.
 
-<!-- empty: this agent has not saved a memory yet -->
+- [pmt-frontend shared components](pmt-frontend-shared-components.md) — validated FilterSelect/PersonCell/DateCell seams, humane-error duplication, fixture colocation convention

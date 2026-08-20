@@ -259,6 +259,7 @@ export class BlockerService {
       severity,
       projectId,
       assignedToId,
+      search,
     } = query;
     const isStaffScoped =
       actorRole === Role.DEVELOPER || actorRole === Role.DESIGNER;
@@ -267,6 +268,15 @@ export class BlockerService {
       ...(severity && { severity }),
       ...(projectId && { projectId }),
       ...(assignedToId && { assignedToId }),
+      ...(search && {
+        description: { contains: search, mode: 'insensitive' as const },
+      }),
+      // The scope clause, and the only part a caller cannot influence.
+      //
+      // The invariant is that NO filter above may ever write the `project` key.
+      // None does today, and every one of them is destructured from the DTO by
+      // name rather than spread from `query`, so there is no collision to guard
+      // against: position is not what makes this safe.
       ...(isStaffScoped && {
         project: { members: { some: { userId: actorId, leftAt: null } } },
       }),

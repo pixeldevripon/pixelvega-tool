@@ -21,6 +21,7 @@ import {
     type TimelineZoom,
 } from '@/components/projects/timeline-scale';
 import { useRole } from '@/contexts/role-context';
+import { listErrorDescription } from '@/lib/api/list-error';
 import { useClientNow } from '@/hooks/use-client-now';
 import { useClientProjects, useProjects } from '@/hooks/projects/use-projects';
 import { Permission } from '@/lib/config/rbac';
@@ -170,9 +171,7 @@ export function ProjectsView() {
                             ? // `ApiError.message` is written to be shown
                               // verbatim: raw technical text never reaches a
                               // user.
-                              query.error instanceof Error
-                                ? query.error.message
-                                : 'Please try again.'
+                              listErrorDescription(query.error)
                             : 'Try clearing the filters, or search for a different name.'
                     }
                 />

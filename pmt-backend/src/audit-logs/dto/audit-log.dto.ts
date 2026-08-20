@@ -1,5 +1,5 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
-import { IsOptional, IsString, MaxLength } from 'class-validator';
+import { IsDateString, IsOptional, IsString, MaxLength } from 'class-validator';
 import { PaginationQueryDto } from '@/common/dto/pagination-query.dto';
 import * as FieldLength from '@/common/constants/field-lengths';
 
@@ -23,18 +23,30 @@ export class AuditLogResponseDto {
   @ApiProperty({
     example: 'user.updated',
     description:
-      'Dot namespaced action. The vocabulary grows as features land; it is not a database enum.',
+      'Dot namespaced action. The vocabulary grows as features land; it is not a database enum. This is the exact value: filter and compare on it, never on the label.',
   })
   action!: string;
 
   @ApiProperty({
-    example: 'User',
-    description: 'The kind of record acted on.',
+    example: 'User updated',
+    description:
+      'The action as a person reads it. Derived from the action rather than looked up, because the vocabulary is open: a lookup table would render a blank cell for whichever new action nobody remembered to add.',
   })
-  targetType!: string;
+  actionLabel!: string;
 
-  @ApiProperty({ example: '3fa85f64-5717-4562-b3fc-2c963f66afa6' })
-  targetId!: string;
+  @ApiPropertyOptional({
+    example: 'User',
+    nullable: true,
+    description:
+      'The kind of record acted on. Nullable, because `LogEntry` does not require one: an action can be about the system rather than about a row. The DTO declared it required while the column allowed null, which is a promise the API could not keep.',
+  })
+  targetType!: string | null;
+
+  @ApiPropertyOptional({
+    example: '3fa85f64-5717-4562-b3fc-2c963f66afa6',
+    nullable: true,
+  })
+  targetId!: string | null;
 
   @ApiPropertyOptional({
     example: {
@@ -94,4 +106,31 @@ export class QueryAuditLogDto extends PaginationQueryDto {
   @IsString()
   @MaxLength(FieldLength.SINGLE_LINE)
   userId?: string;
+
+  @ApiPropertyOptional({
+    example: 'user.password_changed',
+    description:
+      'Exact action name. Audit actions are written as stable dotted strings by the code that emits them, so this is an equality match rather than a search: a partial match would silently include actions a reader did not mean to ask about.',
+  })
+  @IsOptional()
+  @IsString()
+  @MaxLength(FieldLength.SINGLE_LINE)
+  action?: string;
+
+  @ApiPropertyOptional({
+    example: '2026-08-01',
+    description:
+      'Inclusive, from the start of this day. An audit log without a date range is unusable at any real size: the question is almost always "what happened around then".',
+  })
+  @IsOptional()
+  @IsDateString()
+  startDate?: string;
+
+  @ApiPropertyOptional({
+    example: '2026-08-31',
+    description: 'Inclusive, to the END of this day.',
+  })
+  @IsOptional()
+  @IsDateString()
+  endDate?: string;
 }

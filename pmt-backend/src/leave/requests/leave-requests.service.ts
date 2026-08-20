@@ -5,7 +5,12 @@ import {
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
-import { NotificationType, Permission, Role } from '@prisma/client';
+import {
+  LeaveStatus,
+  NotificationType,
+  Permission,
+  Role,
+} from '@prisma/client';
 import { PermissionsService } from '@/auth/permissions/permissions.service';
 import { PrismaService } from '@/prisma/prisma.service';
 import { AuditLogService } from '@/audit-logs/audit-log.service';
@@ -48,6 +53,25 @@ export interface LeaveSummaryUser {
   requests?: LeaveSummaryRequest[];
 }
 
+/**
+ * Everything a leave request response needs.
+ *
+ * Shared because it was written out six times and one relation was missing from
+ * every one of them: `reviewedBy`. `reviewedAt` was set and the reviewer was
+ * always null, so 286 approved requests said a decision had been made and
+ * refused to say by whom. The mapper handled the relation correctly and there
+ * was nothing wrong with it: nothing ever fetched it.
+ *
+ * `role` on `user` and not on `reviewedBy`, deliberately. A reviewer needs to
+ * know whose absence they are covering for; nobody needs the reviewer's own
+ * role, and `LeaveUserDto.role` is optional for exactly that reason.
+ */
+const LEAVE_REQUEST_INCLUDE = {
+  leaveType: true,
+  user: { select: { id: true, name: true, email: true, role: true } },
+  reviewedBy: { select: { id: true, name: true, email: true } },
+} as const;
+
 @Injectable()
 export class LeaveRequestsService {
   constructor(
@@ -89,7 +113,7 @@ export class LeaveRequestsService {
         reason: dto.reason,
         status: 'PENDING',
       },
-      include: { leaveType: true },
+      include: LEAVE_REQUEST_INCLUDE,
     });
 
     await this.auditLog.log({
@@ -139,7 +163,7 @@ export class LeaveRequestsService {
     const requests = await this.prisma.leaveRequest.findMany({
       where: { userId },
       orderBy: { createdAt: 'desc' },
-      include: { leaveType: true },
+      include: LEAVE_REQUEST_INCLUDE,
     });
     // Every row here is the caller's own, so they may cancel a pending one and
     // review none of them.
@@ -178,12 +202,47 @@ export class LeaveRequestsService {
     query: QueryLeaveRequestsDto,
     actorId: string,
   ) {
-    const { page = 1, pageSize = 20, userId } = query;
+    const { page = 1, pageSize = 20, userId, status, leaveTypeId } = query;
+
+    /**
+     * Which statuses this caller may see AT ALL. A PROJECT_MANAGER must never
+     * be shown a REJECTED request: they can approve leave but not see that
+     * somebody's was turned down, which is the requester's business and the
+     * admin's.
+     */
+    const visibleStatuses =
+      actorRole === Role.PROJECT_MANAGER
+        ? [LeaveStatus.PENDING, LeaveStatus.APPROVED]
+        : null;
+
+    /**
+     * The caller's `status` filter NARROWS the visible set, it never replaces
+     * it. Written as an intersection on purpose: spreading the requested status
+     * after the role clause would overwrite it, and `?status=REJECTED` would
+     * then hand a PROJECT_MANAGER exactly the rows the rule above exists to
+     * withhold. A filter that widens what a role may see is a privilege
+     * escalation with a query string for a key.
+     *
+     * Asking for a status outside the visible set yields `{ in: [] }`, which
+     * matches nothing. Empty rather than forbidden, because the alternative
+     * confirms which statuses exist to somebody probing for them.
+     */
+    const statusClause = visibleStatuses
+      ? {
+          status: {
+            in: status
+              ? visibleStatuses.filter((allowed) => allowed === status)
+              : visibleStatuses,
+          },
+        }
+      : status
+        ? { status }
+        : {};
+
     const where = {
-      ...(actorRole === Role.PROJECT_MANAGER
-        ? { status: { in: ['PENDING' as const, 'APPROVED' as const] } }
-        : {}),
+      ...statusClause,
       ...(userId && { userId }),
+      ...(leaveTypeId && { leaveTypeId }),
     };
 
     const result = await paginate(
@@ -191,12 +250,7 @@ export class LeaveRequestsService {
         this.prisma.leaveRequest.findMany({
           where,
           orderBy: { createdAt: 'desc' },
-          include: {
-            leaveType: true,
-            user: {
-              select: { id: true, name: true, email: true, role: true },
-            },
-          },
+          include: LEAVE_REQUEST_INCLUDE,
           ...args,
         }),
       () => this.prisma.leaveRequest.count({ where }),
@@ -394,7 +448,7 @@ export class LeaveRequestsService {
         reviewedById: actorId,
         reviewedAt: new Date(),
       },
-      include: { leaveType: true },
+      include: LEAVE_REQUEST_INCLUDE,
     });
 
     await this.leaveBalances.incrementUsedDays(
@@ -486,7 +540,7 @@ export class LeaveRequestsService {
     const updated = await this.prisma.leaveRequest.update({
       where: { id },
       data: { status: 'CANCELLED' },
-      include: { leaveType: true },
+      include: LEAVE_REQUEST_INCLUDE,
     });
 
     await this.auditLog.log({
@@ -512,7 +566,7 @@ export class LeaveRequestsService {
         reviewedById: actorId,
         reviewedAt: new Date(),
       },
-      include: { leaveType: true },
+      include: LEAVE_REQUEST_INCLUDE,
     });
 
     await this.auditLog.log({

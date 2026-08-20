@@ -18,8 +18,8 @@ A stale checklist is worse than no checklist, because the next person trusts it.
 | D3    | Frontend, the overview                      | 15      | 15      | done        |
 | D4    | Backend, the contract gaps                  | 7       | 0       | not started |
 | D5    | Projects, list to detail                    | 52      | 24      | in progress |
-| D6    | Time tracking and standups                  | 20      | 0       | not started |
-| D7    | Blockers, requirements, reviews, feedback   | 29      | 0       | not started |
+| D6    | Time tracking and standups                  | 26      | 7       | in progress |
+| D7    | Blockers, requirements, reviews, feedback   | 31      | 5       | in progress |
 | D8    | People, leave, notifications, audit, client | 30      | 4       | in progress |
 | D9    | The AI module                               | 24      | 0       | not started |
 | D10   | The named gaps                              | 29      | 1       | in progress |
@@ -658,13 +658,26 @@ hours figure until the response phrased one.
 
 ### Standups and wrap-ups (H1 to H7)
 
-- [ ] `types/work-reports.ts` · `lib/api/daily-work-reports.ts` · `hooks/work-reports/`
+- [x] Module kit, named for the UI's word rather than the table's: `types/standups.ts` ·
+      `lib/api/standups.ts` · `hooks/standups/use-standups.ts`
+- [x] The read screen: cards, not a table. A standup is prose, and a cell truncates the plan and the
+      wrap-up, which are the only things worth reading
+- [x] **A manager asking for nobody now gets the WHOLE TEAM.** It defaulted to the caller, and a
+      manager files no standups, so the one screen that exists to read everyone else's was empty with
+      no way to ask for everyone. A developer or designer still gets their own, because
+      `VIEW_WORK_REPORTS` is held by every delivery role and cannot separate the two
+- [x] The list query includes the author, so a team wide list is not a list of ids, and orders by date
+      then name so one day sits together
+- [x] The mapper stops spreading the raw author row, the same latent defect fixed in leave and audit
+- [x] Both halves of a day are always shown and labelled with why they are empty. A day can have a
+      plan and no wrap-up (in progress) or a wrap-up and no plan (somebody forgot the morning), and
+      hiding the absent half makes those two states look identical
+- [x] Filters by date range and entry type (H6)
 - [ ] The plan form: one submission covering all of a person's projects for the day (H1, H3)
 - [ ] The wrap-up form, on the same projects (H2)
 - [ ] Today's state visible at a glance, so a person knows what they still owe (H4)
 - [ ] The PM review queue, with a comment per entry (H5)
 - [ ] Scoped so a PM sees only entries for projects they manage (H7)
-- [ ] Filters by person, date range and type (H6)
 - [ ] Tests: four view states, the multi-project submit, and the review comment asserted on the value sent
 
 ### Exit criteria, D6
@@ -678,16 +691,23 @@ hours figure until the response phrased one.
 
 ### Blockers (I1 to I13)
 
-- [ ] Module recipe: types, client, hook with key factory
-- [ ] The cross-project list with filters by status, severity, project and owner (I11)
+- [x] Module recipe: types, client, hook with key factory
+- [x] The cross-project list with filters by status, severity and a description search (I11).
+      `GET /blockers` gained `search`: a blocker is found by what it says, because nobody remembers
+      which project a half recalled problem belonged to
+- [x] The staff scope is the backend's: a DEVELOPER or DESIGNER sees only blockers on projects they
+      are an active member of, and the scope clause sits LAST in the where so no filter can spread
+      over it
 - [ ] Report a blocker, severity and a reason from the list (I1 to I3)
 - [ ] The reason list admin screen (I4)
 - [ ] Open, In Progress, Resolved (I5), assignment (I6), days open (I7)
 - [ ] Resolution notes (I8) and deadline impact days (I9)
 - [ ] The per-project deadline impact screen the endpoint already serves (I10)
 - [ ] Blockers surface to the PM (I13)
-- [ ] Clients reach none of it (I12)
-- [ ] Tests: four view states plus every form rule
+- [x] Clients reach none of it (I12). They hold no `VIEW_BLOCKERS`, so the nav row is absent and
+      the route answers 403
+- [~] Tests: the four view states are covered; **the form rules are not**, because reporting a
+  blocker is a mutation and lands with the rest of them
 
 ### Additional requirements (J1 to J8)
 
@@ -730,19 +750,32 @@ hours figure until the response phrased one.
 - [ ] Work status: sick, casual, WFH, onsite (B6)
 - [ ] Availability: ready or occupied (B7)
 - [ ] How many and which projects each developer is on (B8)
-- [ ] Users admin: invite, edit, delete across all roles (B1, B9)
+- [~] Users admin (B1, B9). **The list is done**, filtered by role, status and one search box over
+  name OR email, sorted by name, email or join date. Invite, edit and delete are mutations and
+  land separately
+- [x] `GET /users` gained `role`, `status` and `search`. It took only `sortBy` and `sortOrder`, so
+      the screen had no way to answer "who are the designers" except by paging 235 people
 - [ ] An Admin opens any person's record (B5)
 - [ ] Tests
 
 ### Leave (M1 to M8)
 
-- [ ] Module recipe: types, clients for requests, types, holidays and balances, hooks
+- [~] Module recipe. **Requests are done**; the clients for types, holidays and balances land with
+  their own screens
 - [ ] Request leave, including as an Admin. Clients cannot (M1)
 - [ ] Own remaining balance (M4)
 - [ ] Cancel your own pending request (M7)
 - [ ] The leave types admin screen (M2)
 - [ ] The public holiday calendar admin screen (M3)
-- [ ] The PM's queue: sees everything, opens anything, **cannot approve or reject** (M5). Gated from `REVIEW_LEAVE_REQUEST`, never from the role
+- [~] The PM's queue (M5). **The queue is done** and opens on Pending, because a reviewer comes here
+  to answer "what is waiting". The approve and reject controls are not built yet, so there is
+  nothing to hide from a PM; when they are, they gate on each row's own `capabilities.canApprove`
+- [x] `GET /leave/requests` gained `status` and `leaveTypeId`. A review queue without a status filter
+      is 420 requests of which most are already decided
+- [x] **The status filter NARROWS what a role may see, never widens it.** A PROJECT_MANAGER is
+      restricted to PENDING and APPROVED, and the filter is intersected with that rather than spread
+      over it: `?status=REJECTED` would otherwise have handed them exactly the rows the rule
+      withholds. Three specs pin it, and a mutation putting the spread back fails all three
 - [ ] The Admin's approve and reject (M6)
 - [ ] The summary and its CSV export (M8)
 - [ ] Tests, including one asserting a PM is shown no approve control
@@ -759,10 +792,51 @@ spec and the reasoning are in [`03-header-chrome.md`](./03-header-chrome.md).
 - [x] Tests: 48 cases across the api client, the hooks, the row, the bell and the sheet
 - [ ] A notifications page, if this product wants one. The two header panels cover O1 and O2 today
 
+### What the reviewers found on the queues PR
+
+Security review: clean. No critical, high or medium findings. All three deliberate authorization
+changes were verified reachable-by-request and correct, including that `/leave/requests/me`,
+`/summary` and `/summary/export` cannot route around the status intersection.
+
+Code review and frontend review found six things worth fixing, all fixed:
+
+- [x] **`reviewedBy` was never fetched.** Six leave queries each wrote `include: { leaveType: true }`
+      and none asked for the relation, so 286 approved requests reported a `reviewedAt` with a null
+      reviewer and the queue's "Decided by" column was a date with no name. The mapper was correct all
+      along; nothing fed it. There is now ONE `LEAVE_REQUEST_INCLUDE`, and a spec asserts the wiring
+      rather than only the mapper: a mapper spec builds its own fixture, so it proves the mapper
+      handles a relation and says nothing about whether the relation ever arrives
+- [x] **Three of the four new filters shipped untested.** `users` (role, status, search), `blockers`
+      (search plus the staff scope clause) and `audit-logs` (action and both date bounds) now assert
+      the WHERE clause a mock was called with, and the day boundary helpers have their own spec
+- [x] **`CRITICAL` is not a `BlockerSeverity`.** The severity filter offered a fourth member copied
+      from `ProjectPriority`, so selecting it sent a value `@IsEnum` answers 400 for: the control
+      looked available and broke the screen. The options moved to their own module so a spec can pin
+      them against the enum
+- [x] `@IsSearchTerm()` and `@ToArray()` replace four and three copies of the same decorator stacks
+- [x] `leaveTypeId` is `@IsUUID()` and `userId` is length bounded, matching their create-side siblings
+- [x] `startOfUtcDay` / `endOfUtcDay` moved to `common/utils/date.util.ts`, the fifth day boundary
+      helper in this codebase and the first with a spec
+- [x] `listErrorDescription` replaces the `error instanceof Error` ternary in six list views. The
+      guard is the part that must not diverge: TanStack types `error` as `unknown`, so a copy reaching
+      for `.message` renders "undefined" on a non-Error rejection
+- [x] `time-entry.mapper.ts` stops spreading its author row. Not leaking today, but that is a property
+      of a `select` elsewhere rather than of the mapper
+
 ### Audit log (P1)
 
-- [ ] Move the existing screen onto the module recipe
-- [ ] Tests
+- [x] The screen, on the module recipe: types, client, hook with a key factory, columns, list view
+- [x] `GET /audit-logs` gained `action`, `startDate` and `endDate`. An audit log without a date range
+      is unusable at any real size, and `endDate` reads to the END of the day it names
+- [x] **The module had no mapper**, so `paginate()`'s result went out untouched: `action` reached the
+      screen as the raw `user.password_changed` and the actor row went out whole. It has one now, and
+      it maps field by field rather than spreading
+- [x] `actionLabel`, DERIVED from the action rather than looked up. The vocabulary is deliberately
+      open (the DTO says so), so a lookup table would render a blank cell for whichever new action
+      nobody remembered to add, and it would be blank for exactly the event worth auditing
+- [x] `targetType` and `targetId` are nullable in the schema and the DTO claimed they were required.
+      A system action with no row behind it now renders as "System"
+- [x] Tests: 23 backend, plus the queue's own cases
 
 ### The client portal (L1 to L3, L9, L10)
 

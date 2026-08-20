@@ -27,6 +27,8 @@ import { EnumDisplayDto } from '@/common/dto/display.dto';
 import { SORT_ORDERS } from '@/common/dto/sort-query.dto';
 import type { SortOrder } from '@/common/dto/sort-query.dto';
 import { ToBoolean } from '@/common/decorators/to-boolean.decorator';
+import { ToArray } from '@/common/decorators/to-array.decorator';
+import { IsSearchTerm } from '@/common/decorators/is-search-term.decorator';
 import * as FieldLength from '@/common/constants/field-lengths';
 import { Trim } from '@/common/decorators/trim.decorator';
 
@@ -502,11 +504,7 @@ export class QueryProjectsDto extends PaginationQueryDto {
       'Comma-separated (?projectTypes=WORDPRESS,SEO) or repeated (?projectTypes=WORDPRESS&projectTypes=SEO). Matches projects tagged with ANY of the given types, not all of them.',
   })
   @IsOptional()
-  @Transform(({ value }: TransformFnParams): unknown => {
-    if (Array.isArray(value)) return value;
-    if (typeof value === 'string') return value.split(',').map((v) => v.trim());
-    return value;
-  })
+  @ToArray()
   @IsArray()
   @IsIn(PROJECT_TYPES, { each: true })
   projectTypes?: ProjectType[];
@@ -526,10 +524,7 @@ export class QueryProjectsDto extends PaginationQueryDto {
     description:
       'Case insensitive, matches anywhere in the project name. Meant for finding one specific project by name at scale, e.g. inside the archive view above.',
   })
-  @IsOptional()
-  @IsString()
-  @IsNotEmpty()
-  @MaxLength(FieldLength.SHORT_TEXT)
+  @IsSearchTerm()
   search?: string;
 }
 
@@ -578,11 +573,7 @@ export class QueryMyProjectsDto extends PaginationQueryDto {
       'Comma-separated (?projectTypes=WORDPRESS,SEO) or repeated (?projectTypes=WORDPRESS&projectTypes=SEO). Matches projects tagged with ANY of the given types, not all of them.',
   })
   @IsOptional()
-  @Transform(({ value }: TransformFnParams): unknown => {
-    if (Array.isArray(value)) return value;
-    if (typeof value === 'string') return value.split(',').map((v) => v.trim());
-    return value;
-  })
+  @ToArray()
   @IsArray()
   @IsIn(PROJECT_TYPES, { each: true })
   projectTypes?: ProjectType[];
@@ -602,10 +593,7 @@ export class QueryMyProjectsDto extends PaginationQueryDto {
     description:
       'Case insensitive, matches anywhere in the project name. Ignored for a CLIENT caller.',
   })
-  @IsOptional()
-  @IsString()
-  @IsNotEmpty()
-  @MaxLength(FieldLength.SHORT_TEXT)
+  @IsSearchTerm()
   search?: string;
 }
 

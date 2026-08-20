@@ -17,9 +17,25 @@ import {
   ProjectTimeTotalDto,
   TimeEntryCapabilitiesDto,
   TimeEntryResponseDto,
+  TimeEntryUserDto,
 } from './dto/time-entry.dto';
 
 type EntryUser = Pick<User, 'id' | 'name' | 'email'>;
+
+/**
+ * The three fields `TimeEntryUserDto` declares, and only those.
+ *
+ * Field by field rather than `...(entry.user && { user: entry.user })`, which
+ * put the raw row in the response. Not leaking today, because the one query that
+ * includes this relation selects exactly these three, but that is a property of
+ * a `select` elsewhere rather than of this mapper: widen that select and an
+ * undeclared column ships. `User.password` holds a real hash, and response DTOs
+ * are not validated at runtime. The same shape was fixed in the leave, audit log
+ * and daily work report mappers.
+ */
+function toEntryUser(user: EntryUser): TimeEntryUserDto {
+  return { id: user.id, name: user.name, email: user.email };
+}
 
 export type TimeEntryWithRelations = TimeEntry & {
   user?: EntryUser;
@@ -76,7 +92,7 @@ export function toTimeEntryResponse(
     endedAt: entry.endedAt,
     durationMinutes: entry.durationMinutes,
     durationLabel: formatDuration(entry.durationMinutes),
-    ...(entry.user && { user: entry.user }),
+    ...(entry.user && { user: toEntryUser(entry.user) }),
     ...(entry.project && { project: entry.project }),
     capabilities: capabilitiesFor(entry, context),
   };
@@ -96,7 +112,7 @@ export function toMeetingTimeEntryResponse(
     endedAt: entry.endedAt,
     durationMinutes: entry.durationMinutes,
     durationLabel: formatDuration(entry.durationMinutes),
-    ...(entry.user && { user: entry.user }),
+    ...(entry.user && { user: toEntryUser(entry.user) }),
     capabilities: capabilitiesFor(entry, context),
   };
 }

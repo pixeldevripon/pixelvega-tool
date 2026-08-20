@@ -325,3 +325,233 @@ describe('LeaveRequestsService.findAll capability flags', () => {
     expect(result.items[0].capabilities.canReject).toBe(false);
   });
 });
+
+describe('LeaveRequestsService.findAll status filtering', () => {
+  /**
+   * The `status` query param NARROWS what a role may see. It must never widen
+   * it.
+   *
+   * A PROJECT_MANAGER is restricted to PENDING and APPROVED: they can approve
+   * leave but must not learn that somebody's was turned down, which is the
+   * requester's business and the admin's. The restriction and the filter both
+   * write `status`, so spreading the filter after the role clause silently
+   * overwrites it and `?status=REJECTED` becomes a privilege escalation with a
+   * query string for a key.
+   *
+   * These cases assert the WHERE clause the service builds, because that is
+   * where the rule lives. Asserting the returned rows would pass against a
+   * mock that ignores the clause entirely.
+   */
+  let service: LeaveRequestsService;
+  let prisma: { leaveRequest: { findMany: jest.Mock; count: jest.Mock } };
+
+  const whereFrom = () =>
+    (prisma.leaveRequest.findMany.mock.calls[0][0] as { where: unknown }).where;
+
+  beforeEach(async () => {
+    prisma = {
+      leaveRequest: {
+        findMany: jest.fn().mockResolvedValue([]),
+        count: jest.fn().mockResolvedValue(0),
+      },
+    };
+
+    const module: TestingModule = await Test.createTestingModule({
+      providers: [
+        LeaveRequestsService,
+        { provide: PrismaService, useValue: prisma },
+        { provide: AuditLogService, useValue: { log: jest.fn() } },
+        {
+          provide: LeaveBalancesService,
+          useValue: { incrementUsedDays: jest.fn() },
+        },
+        {
+          provide: NotificationsService,
+          useValue: {
+            notify: jest.fn(),
+            resolveManagingPmAndAdminIds: jest.fn().mockResolvedValue([]),
+          },
+        },
+        PermissionsService,
+      ],
+    }).compile();
+
+    service = module.get(LeaveRequestsService);
+  });
+
+  it('keeps a project manager to pending and approved when no status is asked for', async () => {
+    await service.findAll(Role.PROJECT_MANAGER, {}, 'pm-1');
+
+    expect(whereFrom()).toMatchObject({
+      status: { in: ['PENDING', 'APPROVED'] },
+    });
+  });
+
+  it('lets a project manager narrow to pending', async () => {
+    await service.findAll(Role.PROJECT_MANAGER, { status: 'PENDING' }, 'pm-1');
+
+    expect(whereFrom()).toMatchObject({ status: { in: ['PENDING'] } });
+  });
+
+  it('MATCHES NOTHING when a project manager asks for rejected', async () => {
+    // The escalation this exists to stop. An overwriting spread would produce
+    // `{ status: 'REJECTED' }` here and hand over exactly the withheld rows.
+    await service.findAll(Role.PROJECT_MANAGER, { status: 'REJECTED' }, 'pm-1');
+
+    expect(whereFrom()).toMatchObject({ status: { in: [] } });
+  });
+
+  it('lets an admin filter to rejected, because nothing is withheld from them', async () => {
+    await service.findAll(Role.ADMIN, { status: 'REJECTED' }, 'a-1');
+
+    expect(whereFrom()).toMatchObject({ status: 'REJECTED' });
+  });
+
+  it('places no status clause at all for an admin who asked for none', async () => {
+    await service.findAll(Role.ADMIN, {}, 'a-1');
+
+    expect('status' in (whereFrom() as object)).toBe(false);
+  });
+
+  it('combines the user and leave type filters with the status rule', async () => {
+    await service.findAll(
+      Role.PROJECT_MANAGER,
+      { userId: 'dev-9', leaveTypeId: 'annual', status: 'APPROVED' },
+      'pm-1',
+    );
+
+    expect(whereFrom()).toEqual({
+      status: { in: ['APPROVED'] },
+      userId: 'dev-9',
+      leaveTypeId: 'annual',
+    });
+  });
+});
+
+describe('LeaveRequestsService: the reviewer is actually fetched', () => {
+  /**
+   * `leave.mapper.ts` maps `reviewedBy` correctly and always has. Nothing ever
+   * fetched it: six queries each wrote `include: { leaveType: true }` and none
+   * of them asked for the relation, so 286 approved requests reported a
+   * `reviewedAt` with a null reviewer, and the queue's "Decided by" column was a
+   * date with no name.
+   *
+   * A mapper spec cannot catch this. It builds its own fixture, so it proves the
+   * mapper handles the relation and says nothing about whether the relation ever
+   * arrives. This asserts the WIRING: what the query actually asked the database
+   * for.
+   */
+  let service: LeaveRequestsService;
+  let prisma: {
+    leaveRequest: {
+      findMany: jest.Mock;
+      count: jest.Mock;
+      findUnique: jest.Mock;
+      update: jest.Mock;
+    };
+    user: { findUniqueOrThrow: jest.Mock };
+    projectMember: { findMany: jest.Mock };
+  };
+
+  beforeEach(async () => {
+    prisma = {
+      leaveRequest: {
+        findMany: jest.fn().mockResolvedValue([]),
+        count: jest.fn().mockResolvedValue(0),
+        findUnique: jest.fn().mockResolvedValue(pendingRequest()),
+        update: jest.fn().mockResolvedValue({
+          ...pendingRequest({ status: 'APPROVED' }),
+          leaveType: { id: LEAVE_TYPE_ID, name: 'Annual' },
+        }),
+      },
+      user: {
+        findUniqueOrThrow: jest
+          .fn()
+          .mockResolvedValue({ id: ACTOR_ID, name: 'Ada', role: Role.ADMIN }),
+      },
+      projectMember: { findMany: jest.fn().mockResolvedValue([]) },
+    };
+
+    const module: TestingModule = await Test.createTestingModule({
+      providers: [
+        LeaveRequestsService,
+        { provide: PrismaService, useValue: prisma },
+        { provide: AuditLogService, useValue: { log: jest.fn() } },
+        {
+          provide: LeaveBalancesService,
+          useValue: { incrementUsedDays: jest.fn() },
+        },
+        {
+          provide: NotificationsService,
+          useValue: {
+            notify: jest.fn(),
+            resolveManagingPmAndAdminIds: jest.fn().mockResolvedValue([]),
+          },
+        },
+        PermissionsService,
+      ],
+    }).compile();
+
+    service = module.get(LeaveRequestsService);
+  });
+
+  const REVIEWER_SELECT = {
+    select: { id: true, name: true, email: true },
+  };
+
+  it('asks for the reviewer when listing every request', async () => {
+    await service.findAll(Role.ADMIN, {}, ACTOR_ID);
+
+    const call = prisma.leaveRequest.findMany.mock.calls[0][0] as {
+      include: { reviewedBy: unknown };
+    };
+    expect(call.include.reviewedBy).toEqual(REVIEWER_SELECT);
+  });
+
+  it('asks for the reviewer when listing your own requests', async () => {
+    // A person looking at their own history needs to know who decided it.
+    await service.findOwn(REQUESTER_ID);
+
+    const call = prisma.leaveRequest.findMany.mock.calls[0][0] as {
+      include: { reviewedBy: unknown };
+    };
+    expect(call.include.reviewedBy).toEqual(REVIEWER_SELECT);
+  });
+
+  it('asks for the reviewer on the approval response itself', async () => {
+    await service.approve(REQUEST_ID, ACTOR_ID);
+
+    const call = prisma.leaveRequest.update.mock.calls[0][0] as {
+      include: { reviewedBy: unknown };
+    };
+    expect(call.include.reviewedBy).toEqual(REVIEWER_SELECT);
+  });
+
+  it('asks for the requester role, but not the reviewer role', async () => {
+    // A reviewer weighs whose absence they are covering for. Nobody needs the
+    // reviewer's own role, which is why `LeaveUserDto.role` is optional.
+    await service.findAll(Role.ADMIN, {}, ACTOR_ID);
+
+    const call = prisma.leaveRequest.findMany.mock.calls[0][0] as {
+      include: {
+        user: { select: Record<string, boolean> };
+        reviewedBy: { select: Record<string, boolean> };
+      };
+    };
+    expect(call.include.user.select.role).toBe(true);
+    expect('role' in call.include.reviewedBy.select).toBe(false);
+  });
+
+  it('never asks for the password column on either person', async () => {
+    await service.findAll(Role.ADMIN, {}, ACTOR_ID);
+
+    const call = prisma.leaveRequest.findMany.mock.calls[0][0] as {
+      include: {
+        user: { select: Record<string, boolean> };
+        reviewedBy: { select: Record<string, boolean> };
+      };
+    };
+    expect('password' in call.include.user.select).toBe(false);
+    expect('password' in call.include.reviewedBy.select).toBe(false);
+  });
+});

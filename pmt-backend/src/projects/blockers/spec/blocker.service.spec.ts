@@ -384,3 +384,130 @@ describe('BlockerService: the update lifecycle', () => {
     });
   });
 });
+
+describe('BlockerService.findAll: filters and the staff scope', () => {
+  /**
+   * The cross-project read. `search` shipped with the blockers screen and had no
+   * test, and the clause it sits beside is a security boundary: a DEVELOPER or
+   * DESIGNER may only see blockers on projects they are an active member of.
+   *
+   * These assert the WHERE clause. The scope is enforced there, so a test on the
+   * returned rows would pass against a mock that ignores it.
+   */
+  let service: BlockerService;
+  let prisma: {
+    blocker: { findMany: jest.Mock; count: jest.Mock };
+    projectMember: { findMany: jest.Mock };
+  };
+
+  const whereFrom = () =>
+    (
+      prisma.blocker.findMany.mock.calls[0][0] as {
+        where: Record<string, unknown>;
+      }
+    ).where;
+
+  beforeEach(async () => {
+    prisma = {
+      blocker: {
+        findMany: jest.fn().mockResolvedValue([]),
+        count: jest.fn().mockResolvedValue(0),
+      },
+      projectMember: { findMany: jest.fn().mockResolvedValue([]) },
+    };
+
+    const module: TestingModule = await Test.createTestingModule({
+      providers: [
+        ProjectScopeService,
+        BlockerService,
+        { provide: PrismaService, useValue: prisma },
+        { provide: ProjectActivityService, useValue: { log: jest.fn() } },
+        { provide: SlackService, useValue: { postMessage: jest.fn() } },
+        {
+          provide: NotificationsService,
+          useValue: {
+            notify: jest.fn(),
+            resolveManagingPmAndAdminIds: jest.fn().mockResolvedValue([]),
+          },
+        },
+      ],
+    }).compile();
+
+    service = module.get(BlockerService);
+  });
+
+  it('matches anywhere in the description, case insensitively', async () => {
+    // A blocker is found by what it says: nobody remembers which project a half
+    // recalled problem belonged to.
+    await service.findAll({ search: 'staging' }, 'admin-1', Role.ADMIN);
+
+    expect(whereFrom().description).toEqual({
+      contains: 'staging',
+      mode: 'insensitive',
+    });
+  });
+
+  it.each([Role.DEVELOPER, Role.DESIGNER])(
+    'scopes a %s to projects they are an ACTIVE member of',
+    async (role) => {
+      await service.findAll({}, 'dev-1', role);
+
+      expect(whereFrom().project).toEqual({
+        members: { some: { userId: 'dev-1', leftAt: null } },
+      });
+    },
+  );
+
+  it('keeps the scope clause when a search is applied too', async () => {
+    // The escalation to rule out: a filter must never displace the scope.
+    await service.findAll({ search: 'staging' }, 'dev-1', Role.DEVELOPER);
+
+    const where = whereFrom();
+    expect(where.project).toEqual({
+      members: { some: { userId: 'dev-1', leftAt: null } },
+    });
+    expect(where.description).toEqual({
+      contains: 'staging',
+      mode: 'insensitive',
+    });
+  });
+
+  it.each([Role.PROJECT_MANAGER, Role.ADMIN, Role.SYSTEM_ADMIN])(
+    'does not scope a %s, who may read any project',
+    async (role) => {
+      await service.findAll({}, 'pm-1', role);
+
+      expect('project' in whereFrom()).toBe(false);
+    },
+  );
+
+  it('counts with the SAME clause it lists with', async () => {
+    // Otherwise a scoped caller is told a total that includes blockers they
+    // cannot see, which both breaks the pager and confirms they exist.
+    await service.findAll({ search: 'x' }, 'dev-1', Role.DEVELOPER);
+
+    expect(prisma.blocker.count).toHaveBeenCalledWith({ where: whereFrom() });
+  });
+
+  it('combines every filter rather than letting one win', async () => {
+    await service.findAll(
+      {
+        status: BlockerStatus.OPEN,
+        severity: 'HIGH',
+        projectId: 'p-1',
+        assignedToId: 'u-1',
+        search: 'dns',
+      },
+      'admin-1',
+      Role.ADMIN,
+    );
+
+    expect(whereFrom()).toEqual({
+      status: 'OPEN',
+      severity: 'HIGH',
+      projectId: 'p-1',
+      assignedToId: 'u-1',
+      description: { contains: 'dns', mode: 'insensitive' },
+    });
+  });
+});

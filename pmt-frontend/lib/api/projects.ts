@@ -1,6 +1,6 @@
+import type { Paginated } from '@/types/api';
 import type {
     ClientProject,
-    Paginated,
     Project,
     ProjectsQuery,
 } from '@/types/projects';

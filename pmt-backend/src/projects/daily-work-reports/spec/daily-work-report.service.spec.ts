@@ -341,3 +341,118 @@ describe('DailyWorkReportService: the two edit windows', () => {
     });
   });
 });
+
+describe('DailyWorkReportService.findAllForUser: whose reports', () => {
+  /**
+   * `VIEW_WORK_REPORTS` is held by every delivery role, so the permission alone
+   * cannot separate "read my own standup" from "read the team's". The scope has
+   * to come from the role, and getting it wrong in one direction shows a manager
+   * an empty page on the one screen that exists to read everyone else's.
+   *
+   * These assert the WHERE clause, because that is where the rule lives.
+   * Asserting the rows would pass against a mock that ignores the clause.
+   */
+  let service: DailyWorkReportService;
+  let prisma: {
+    dailyWorkReport: { findMany: jest.Mock; count: jest.Mock };
+    projectMember: { findMany: jest.Mock };
+  };
+
+  const whereFrom = () =>
+    (
+      prisma.dailyWorkReport.findMany.mock.calls[0][0] as {
+        where: Record<string, unknown>;
+      }
+    ).where;
+
+  beforeEach(async () => {
+    prisma = {
+      dailyWorkReport: {
+        findMany: jest.fn().mockResolvedValue([]),
+        count: jest.fn().mockResolvedValue(0),
+      },
+      projectMember: { findMany: jest.fn().mockResolvedValue([]) },
+    };
+
+    const module: TestingModule = await Test.createTestingModule({
+      providers: [
+        ProjectScopeService,
+        DailyWorkReportService,
+        { provide: PrismaService, useValue: prisma },
+        { provide: ProjectActivityService, useValue: { log: jest.fn() } },
+        {
+          provide: SlackService,
+          useValue: { postMessage: jest.fn(), updateMessage: jest.fn() },
+        },
+      ],
+    }).compile();
+
+    service = module.get(DailyWorkReportService);
+  });
+
+  it.each([Role.DEVELOPER, Role.DESIGNER])(
+    'scopes a %s to their own reports when they ask for nobody',
+    async (role) => {
+      await service.findAllForUser('dev-1', role, {});
+
+      expect(whereFrom().userId).toBe('dev-1');
+    },
+  );
+
+  it.each([Role.PROJECT_MANAGER, Role.ADMIN, Role.SYSTEM_ADMIN])(
+    'gives a %s the whole team when they ask for nobody',
+    async (role) => {
+      // The defect this closes: it used to default to the caller, and a manager
+      // files no standups, so the screen was empty with no way to ask for
+      // everyone.
+      await service.findAllForUser('pm-1', role, {});
+
+      expect('userId' in whereFrom()).toBe(false);
+    },
+  );
+
+  it('narrows a manager to one person when they name one', async () => {
+    await service.findAllForUser('pm-1', Role.PROJECT_MANAGER, {
+      userId: 'dev-9',
+    });
+
+    expect(whereFrom().userId).toBe('dev-9');
+  });
+
+  it('lets a developer name themselves explicitly', async () => {
+    await service.findAllForUser('dev-1', Role.DEVELOPER, {
+      userId: 'dev-1',
+    });
+
+    expect(whereFrom().userId).toBe('dev-1');
+  });
+
+  it.each([Role.DEVELOPER, Role.DESIGNER])(
+    'refuses a %s who names somebody else',
+    async (role) => {
+      await expect(
+        service.findAllForUser('dev-1', role, { userId: 'dev-2' }),
+      ).rejects.toThrow(ForbiddenException);
+    },
+  );
+
+  it('includes the author, so a team wide list is not a list of ids', async () => {
+    await service.findAllForUser('pm-1', Role.PROJECT_MANAGER, {});
+
+    const call = prisma.dailyWorkReport.findMany.mock.calls[0][0] as {
+      include: { user: unknown };
+    };
+    expect(call.include.user).toEqual({
+      select: { id: true, name: true, email: true },
+    });
+  });
+
+  it('orders by date then author, so one day sits together', async () => {
+    await service.findAllForUser('pm-1', Role.PROJECT_MANAGER, {});
+
+    const call = prisma.dailyWorkReport.findMany.mock.calls[0][0] as {
+      orderBy: unknown;
+    };
+    expect(call.orderBy).toEqual([{ date: 'desc' }, { user: { name: 'asc' } }]);
+  });
+});

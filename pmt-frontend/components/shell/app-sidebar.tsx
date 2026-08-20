@@ -94,38 +94,6 @@ export function AppSidebar({
             <SidebarContent>
                 <NavMain groups={filteredNav} />
             </SidebarContent>
-
-            {/*         <SidebarFooter className='border-t border-sidebar-line p-2'>
-                <Link
-                    href='/account'
-                    title='Your profile'
-                    className='group/identity flex items-center gap-3 rounded-lg border border-transparent p-2 transition-colors duration-fast hover:border-sidebar-line hover:bg-sidebar-accent/60'>
-                    <span className='relative flex size-9 shrink-0 items-center justify-center overflow-hidden rounded-lg bg-primary-subtle text-sm font-medium text-primary-subtle-content'>
-                        {userImage ? (
-                            // eslint-disable-next-line @next/next/no-img-element
-                            <img
-                                src={userImage}
-                                alt={userName ?? 'User'}
-                                className='h-full w-full object-cover'
-                            />
-                        ) : (
-                            (userName?.charAt(0)?.toUpperCase() ?? 'U')
-                        )}
-                    </span>
-                    <span className='min-w-0 flex-1 group-data-[collapsible=icon]:hidden'>
-                        <span className='block truncate text-sm font-medium text-sidebar-foreground'>
-                            {userName ?? 'User'}
-                        </span>
-                        <span className='block text-2xs font-medium tracking-caps uppercase text-sidebar-content/70'>
-                            {userRole?.replace(/_/g, ' ') ?? ''}
-                        </span>
-                    </span>
-                    <HugeiconsIcon
-                        icon={ArrowRight01Icon}
-                        className='size-4 shrink-0 text-sidebar-content/50 transition-transform duration-fast group-hover/identity:translate-x-0.5 group-data-[collapsible=icon]:hidden'
-                    />
-                </Link>
-            </SidebarFooter> */}
         </Sidebar>
     );
 }
