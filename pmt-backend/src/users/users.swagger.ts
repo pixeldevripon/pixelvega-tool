@@ -29,10 +29,11 @@ export const ApiInviteUserDocs = () =>
     ApiOperation({
       summary: 'Invite a new user',
       description:
-        'Creates the account, emails a temporary password, and creates the matching ' +
-        'EmployeeProfile or ClientProfile row. The invited user is created INVITED with ' +
-        'mustResetPassword true, and flips to ACTIVE on their first successful login. ' +
-        'Only SYSTEM_ADMIN may invite an ADMIN.',
+        'Creates the account and emails a single use set-password link that expires in ' +
+        'one hour, plus the matching EmployeeProfile or ClientProfile row. No password is ' +
+        'ever emailed: the account has none that can be used until the link is followed. ' +
+        'The invited user is created INVITED with mustResetPassword true, and flips to ' +
+        'ACTIVE on their first successful login. Only SYSTEM_ADMIN may invite an ADMIN.',
     }),
     ApiResponse({
       status: 201,
@@ -45,22 +46,6 @@ export const ApiInviteUserDocs = () =>
       description: 'Email already in use',
       type: ConflictErrorDto,
     }),
-  );
-
-export const ApiChangeOwnPasswordDocs = () =>
-  applyDecorators(
-    ApiOperation({
-      summary: "Change the caller's own password",
-      description:
-        'Requires the current password. Clears mustResetPassword on success and writes a ' +
-        'user.password_changed audit row.',
-    }),
-    ApiResponse({
-      status: 200,
-      description: 'Password changed',
-      type: MessageResponseDto,
-    }),
-    ...commonErrors,
   );
 
 export const ApiGetOwnProfileDocs = () =>

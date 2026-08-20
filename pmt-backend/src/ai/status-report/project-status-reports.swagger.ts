@@ -16,7 +16,7 @@ export const ApiGenerateStatusReportDocs = () =>
     ApiOperation({
       summary: 'Generate a saved AI status report for a project',
       description:
-        'Queued, not synchronous: returns a jobId to poll at GET /ai-jobs/:id. The ' +
+        'Queued, not synchronous: returns a jobId to poll at GET /ai/jobs/:id. The ' +
         'period defaults to since the last status report, or the last seven days if ' +
         'there has never been one. Unlike the prose summary this includes both plan ' +
         'and accomplishments, so it shows planned against delivered, and it reuses the ' +

@@ -1,8 +1,6 @@
 import { Module } from '@nestjs/common';
-import { APP_GUARD } from '@nestjs/core';
 import { ConfigModule } from '@nestjs/config';
 import { ScheduleModule } from '@nestjs/schedule';
-import { AuthModule as BetterAuthModule } from '@thallesp/nestjs-better-auth';
 import { PrismaModule } from '@/prisma/prisma.module';
 import { UsersModule } from '@/users/users.module';
 import { AuthModule } from '@/auth/auth.module';
@@ -21,11 +19,7 @@ import { InternalReviewsModule } from '@/projects/reviews/internal/internal-revi
 import { ProjectReportsModule } from '@/projects/reports/project-reports.module';
 import { SlackModule } from '@/slack/slack.module';
 import { NotificationsModule } from '@/notifications/notifications.module';
-import { auth } from '@/auth/instance/auth.instance';
-import { LoginStatusHook } from '@/auth/instance/login-status.hook';
-import { SignUpGuardHook } from '@/auth/instance/sign-up-guard.hook';
 import { PermissionsModule } from '@/auth/permissions/permissions.module';
-import { PermissionsGuard } from '@/auth/permissions/permissions.guard';
 
 @Module({
   imports: [
@@ -35,10 +29,9 @@ import { PermissionsGuard } from '@/auth/permissions/permissions.guard';
     // @Global(), so every controller can inject PermissionsService without
     // importing this module. See the comment in permissions.module.ts.
     PermissionsModule,
-    // AuthModule BEFORE BetterAuthModule: it registers the throttler guard,
-    // which has to run before anything queries the database for a session.
+    // Imported early: it registers the throttle guard and the session guard,
+    // in that order, and both have to run ahead of PermissionsGuard below.
     AuthModule,
-    BetterAuthModule.forRoot({ auth }),
     UsersModule,
     ProfilesModule,
     AuditLogModule,
@@ -59,15 +52,9 @@ import { PermissionsGuard } from '@/auth/permissions/permissions.guard';
     ProjectReportsModule,
     SlackModule,
   ],
-  providers: [
-    // The hook better-auth calls on sign-in. It needs Nest DI, so it is
-    // provided here rather than inside auth.instance.ts.
-    LoginStatusHook,
-    SignUpGuardHook,
-    // Registered here, not in AuthModule, because Nest processes a module's own
-    // providers AFTER every module it imports. That is what puts this LAST in
-    // the guard chain, behind AuthGuard, whose request.user it reads.
-    { provide: APP_GUARD, useClass: PermissionsGuard },
-  ],
+  // No providers. The global guard chain is registered in AuthModule, in one
+  // array, because Nest applies the root module's global enhancers BEFORE those
+  // of the modules it imports: a guard registered here would run ahead of
+  // AuthModule's session guard rather than behind it.
 })
 export class AppModule {}

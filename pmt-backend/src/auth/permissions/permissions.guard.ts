@@ -55,13 +55,11 @@ export class PermissionsGuard implements CanActivate {
     // No session. 401, not 403: the caller has not identified themselves, so
     // this is not a question of what they are allowed to do.
     //
-    // This deviates from the reference backend, which throws Forbidden here.
-    // It can, because it registers every APP_GUARD in one module and so
-    // guarantees its AuthGuard has already answered 401. Here the session guard
-    // comes from @thallesp/nestjs-better-auth via an imported module, and
-    // Nest's cross module APP_GUARD ordering put this guard first, turning
-    // every unauthenticated request into a 403. Answering 401 is correct
-    // whichever order they end up running in.
+    // AuthGuard runs first and would already have answered 401, so this branch
+    // should be unreachable. It stays because the ordering that guarantees that
+    // is registration order across two modules, which is not something a reader
+    // of this file can see. Answering 401 is correct whichever order they run
+    // in; answering 403 would be a lie if this guard ever ran first.
     if (!request.user) {
       throw new UnauthorizedException();
     }

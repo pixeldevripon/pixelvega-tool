@@ -6,7 +6,7 @@ import { ApiProperty } from '@nestjs/swagger';
  * Sign-in, sign-out, forgot-password, reset-password and change-password are
  * all served by better-auth at `/api/auth/*`, so their request and response
  * bodies are its contract rather than ours and there are no DTOs for them here.
- * `common/swagger/better-auth-paths.ts` documents those paths in `/api/docs`.
+ * `common/swagger/better-auth-schema.ts` merges those paths into `/api/docs`.
  *
  * What remains is the one shape this application adds on top.
  */

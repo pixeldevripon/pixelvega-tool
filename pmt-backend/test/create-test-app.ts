@@ -2,6 +2,8 @@ import { INestApplication, ValidationPipe } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
 import { AppModule } from '../src/app.module';
 import { AllExceptionsFilter } from '../src/common/filters/http-exception.filter';
+import { bodyParsersExceptAuth } from '../src/common/middleware/body-parsers.middleware';
+import { AUTH_BASE_PATH } from '../src/auth/instance/auth.instance';
 
 /**
  * Boots the real AppModule configured EXACTLY as src/main.ts configures it.
@@ -22,9 +24,11 @@ export async function createTestApp(): Promise<INestApplication> {
     imports: [AppModule],
   }).compile();
 
-  // bodyParser: false mirrors main.ts. better-auth parses the body itself, and
-  // re-enabling the parser breaks every route under /api/auth.
+  // bodyParser: false plus `bodyParsersExceptAuth` mirrors main.ts. Nest's
+  // parser must not consume the request stream on /api/auth.
   const app = moduleFixture.createNestApplication({ bodyParser: false });
+
+  app.use(bodyParsersExceptAuth(AUTH_BASE_PATH));
 
   app.useGlobalFilters(new AllExceptionsFilter());
   app.useGlobalPipes(

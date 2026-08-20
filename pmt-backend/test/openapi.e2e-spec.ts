@@ -12,6 +12,7 @@
 import { INestApplication } from '@nestjs/common';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
 import type { OpenAPIObject } from '@nestjs/swagger';
+import { mergeBetterAuthSchema } from '@/common/swagger/better-auth-schema';
 import { createTestApp } from './create-test-app';
 
 describe('OpenAPI document (e2e)', () => {
@@ -24,24 +25,63 @@ describe('OpenAPI document (e2e)', () => {
       app,
       new DocumentBuilder().setTitle('PixelVega API').setVersion('1.0').build(),
     );
+    // main.ts does this too, and skipping it here is how the auth half of the
+    // document went unasserted while it silently listed three routes of thirty.
+    await mergeBetterAuthSchema(document);
   });
 
   afterAll(async () => {
     await app.close();
   });
 
-  it('documents every route the app serves', () => {
-    const operations = Object.values(document.paths).flatMap((item) =>
+  const operationsIn = (paths: OpenAPIObject['paths']) =>
+    Object.values(paths).flatMap((item) =>
       Object.keys(item as object).filter((k) =>
         ['get', 'post', 'patch', 'put', 'delete'].includes(k),
       ),
     );
-    expect(operations.length).toBeGreaterThanOrEqual(109);
+
+  it("documents every route the app's own controllers serve", () => {
+    const own = Object.fromEntries(
+      Object.entries(document.paths).filter(
+        ([path]) => !path.startsWith('/api/auth'),
+      ),
+    );
+    expect(operationsIn(own).length).toBeGreaterThanOrEqual(108);
+  });
+
+  it('documents the auth routes better-auth serves', () => {
+    // AuthController is one catch-all, so reflection can only see
+    // `ALL /api/auth/*splat`. These entries come from better-auth's own
+    // generated schema, merged in above.
+    const authPaths = Object.keys(document.paths).filter((path) =>
+      path.startsWith('/api/auth/'),
+    );
+    expect(authPaths).toEqual(
+      expect.arrayContaining([
+        '/api/auth/sign-in/email',
+        '/api/auth/sign-out',
+        '/api/auth/get-session',
+        '/api/auth/request-password-reset',
+        '/api/auth/reset-password',
+        '/api/auth/change-password',
+      ]),
+    );
+  });
+
+  it('leaves the catch-all itself out of the document', () => {
+    // A single `ALL /api/auth/*splat` entry documents nothing and would sit in
+    // the list looking like a real endpoint. @ApiExcludeController() hides it.
+    expect(Object.keys(document.paths)).not.toContain('/api/auth/{splat}');
+    expect(Object.keys(document.paths)).not.toContain('/api/auth/*splat');
   });
 
   it('gives every operation a summary', () => {
     const missing: string[] = [];
     for (const [path, item] of Object.entries(document.paths)) {
+      // better-auth generates its own operations with a description rather than
+      // a summary. They are the library's text, not ours to decorate.
+      if (path.startsWith('/api/auth')) continue;
       for (const [method, op] of Object.entries(
         item as Record<string, { summary?: string }>,
       )) {

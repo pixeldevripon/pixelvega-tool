@@ -5,7 +5,7 @@ import { MailService } from '@/mail/mail.service';
 import { ProfilesService } from '@/profiles/profiles.service';
 import { AuditLogService } from '@/audit-log/audit-log.service';
 import { auth } from '@/auth/instance/auth.instance';
-import { generateTempPassword } from '@/common/utils/password.util';
+import { generateUnusedPassword } from '@/common/utils/password.util';
 
 // Creates the first SYSTEM_ADMIN user on boot if the User table is
 // completely empty, using SEED_ADMIN_EMAIL/SEED_ADMIN_NAME. Runs on every
@@ -38,10 +38,8 @@ export class SystemAdminBootstrapService implements OnApplicationBootstrap {
       return;
     }
 
-    const tempPassword = generateTempPassword();
-
     await auth.api.signUpEmail({
-      body: { email, password: tempPassword, name },
+      body: { email, password: generateUnusedPassword(), name },
     });
 
     const user = await this.prisma.user.update({
@@ -62,7 +60,9 @@ export class SystemAdminBootstrapService implements OnApplicationBootstrap {
       metadata: { email, role: Role.SYSTEM_ADMIN, bootstrap: true },
     });
 
-    await this.mail.sendInviteEmail(email, name, tempPassword);
+    // Sends the set-password link. See UsersService.invite: no `headers`, so
+    // better-auth's hook sends the invite copy rather than a reset.
+    await auth.api.requestPasswordReset({ body: { email } });
 
     this.logger.log(
       `Bootstrap SYSTEM_ADMIN created and invite email sent to ${email}.`,

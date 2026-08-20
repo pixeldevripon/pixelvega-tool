@@ -2,6 +2,10 @@ import { Module, OnModuleDestroy } from '@nestjs/common';
 import { APP_GUARD } from '@nestjs/core';
 import { ThrottlerModule } from '@nestjs/throttler';
 
+import { AuthController } from '@/auth/auth.controller';
+import { AuthGuard } from '@/auth/guards/auth.guard';
+import { PermissionsGuard } from '@/auth/permissions/permissions.guard';
+import { PermissionsModule } from '@/auth/permissions/permissions.module';
 import { authPrismaClient } from '@/auth/instance/auth.instance';
 import {
   hasOwnThrottleOverride,
@@ -10,25 +14,31 @@ import {
 import { TrustedOriginThrottlerGuard } from '@/auth/throttle/trusted-origin-throttler.guard';
 
 /**
- * The auth module owns better-auth's lifecycle, the throttle, and the guard
- * order. It owns no routes.
+ * The auth module owns the whole auth surface: the routes, the session guard,
+ * the throttle, and better-auth's lifecycle.
  *
- * There is no controller here on purpose. Forgot-password, reset-password and
- * change-password used to be hand written endpoints under `/auth-flows`, backed
- * by a bespoke `PasswordResetCode` table and a hand rolled JWT. better-auth
- * serves all three itself now, which is one implementation of a security
- * critical flow instead of two.
+ * `AuthController` is a single catch-all that hands every `/api/auth/*` request
+ * to better-auth. There is no hand written sign-in, forgot-password,
+ * reset-password or change-password endpoint anywhere in this codebase, and
+ * there must not be one: all four used to exist under `/auth-flows`, backed by
+ * a bespoke `PasswordResetCode` table and a hand rolled JWT, which was a second
+ * implementation of a security critical flow.
  *
- * ── Why ThrottlerModule lives here and not in AppModule ──
- * APP_GUARD providers run in registration order, and the throttle has to fire
- * before anything touches the database for a session lookup. Registering the
- * module here puts its guard ahead of the auth guards, which is the order
- * directive D2 specifies:
+ * ── All three guards are registered HERE, in this order ──
  *
  *   TrustedOriginThrottlerGuard -> AuthGuard -> PermissionsGuard
  *
- * AuthGuard comes from `@thallesp/nestjs-better-auth`, registered by
- * `BetterAuthModule.forRoot()` in AppModule.
+ * which is the order directive D2 specifies, and each step depends on the one
+ * before it: the throttle has to fire before the app spends a database round
+ * trip resolving a session, and PermissionsGuard reads `request.user`, which
+ * AuthGuard is what sets.
+ *
+ * They must stay in ONE module's providers array. Nest applies global enhancers
+ * from the ROOT module before those from the modules it imports, so registering
+ * PermissionsGuard in AppModule put it FIRST in the chain: it ran before
+ * AuthGuard had resolved a session, found no `request.user`, and answered 401 to
+ * every authenticated request. Verified by reading the resolved guard list off
+ * a booted app; the spec below pins the order so it cannot drift back.
  *
  * `onModuleDestroy` disconnects the pre-DI Prisma client better-auth uses.
  * Before this, that pool was opened at module load and never closed, so a
@@ -36,6 +46,11 @@ import { TrustedOriginThrottlerGuard } from '@/auth/throttle/trusted-origin-thro
  */
 @Module({
   imports: [
+    // Imported explicitly even though PermissionsModule is @Global: this module
+    // registers PermissionsGuard, so it must be able to resolve
+    // PermissionsService on its own rather than depending on the root module
+    // having pulled the global in first.
+    PermissionsModule,
     ThrottlerModule.forRoot({
       // A trusted first party origin bypasses the tiers, but ONLY on routes
       // that have not tightened their own limit. See internal-origin.util.ts:
@@ -60,18 +75,14 @@ import { TrustedOriginThrottlerGuard } from '@/auth/throttle/trusted-origin-thro
             ],
     }),
   ],
+  controllers: [AuthController],
   providers: [
-    // ONLY the throttler here. PermissionsGuard is registered in AppModule's
-    // own providers, which Nest processes AFTER every imported module, so the
-    // final order comes out as:
-    //
-    //   TrustedOriginThrottlerGuard  (this module, imported first)
-    //   AuthGuard                    (BetterAuthModule.forRoot, imported next)
-    //   PermissionsGuard             (AppModule's own providers, last)
-    //
-    // Registering PermissionsGuard here too would put it ahead of AuthGuard,
-    // and it reads request.user, which AuthGuard is what sets.
+    // Order matters and is the order they appear in. The throttle first, so an
+    // abusive caller is turned away before the app spends a database round trip
+    // resolving their session.
     { provide: APP_GUARD, useClass: TrustedOriginThrottlerGuard },
+    { provide: APP_GUARD, useClass: AuthGuard },
+    { provide: APP_GUARD, useClass: PermissionsGuard },
   ],
 })
 export class AuthModule implements OnModuleDestroy {

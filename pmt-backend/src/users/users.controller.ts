@@ -17,13 +17,11 @@ import { PermissionsService } from '@/auth/permissions/permissions.service';
 import { CurrentUser } from '@/common/decorators/current-user.decorator';
 import { ROLE_DISPLAY, toEnumDisplay } from '@/common/utils/enum-display.util';
 import {
-  ChangeOwnPasswordRequestDto,
   InviteUserRequestDto,
   QueryUsersDto,
   UpdateUserRequestDto,
 } from '@/users/dto/user.dto';
 import {
-  ApiChangeOwnPasswordDocs,
   ApiDeleteUserDocs,
   ApiGetOwnPermissionsDocs,
   ApiGetOwnProfileDocs,
@@ -61,16 +59,17 @@ export class UsersController {
     return this.usersService.invite(dto, user.id, user.role);
   }
 
-  @ApiChangeOwnPasswordDocs()
-  @RequirePermissions(Permission.CHANGE_OWN_PASSWORD)
-  @Patch('me/password')
-  changePassword(
-    @Body() dto: ChangeOwnPasswordRequestDto,
-    @CurrentUser() user: { id: string },
-    @Req() req: Request,
-  ) {
-    return this.usersService.changePassword(dto, user.id, req);
-  }
+  /**
+   * There is deliberately no password change route here.
+   *
+   * `POST /api/auth/change-password` is better-auth's, it requires the current
+   * password, and an after hook in `auth.instance.ts` clears
+   * `mustResetPassword` and writes the `user.password_changed` audit entry. A
+   * wrapper in this controller used to do those two things, which meant two
+   * doors onto one action with different security properties: better-auth's own
+   * route stayed reachable and was gated by neither a permission nor an audit
+   * trail. One door, and it is the library's.
+   */
 
   @ApiGetOwnProfileDocs()
   @RequirePermissions(Permission.VIEW_OWN_PROFILE)

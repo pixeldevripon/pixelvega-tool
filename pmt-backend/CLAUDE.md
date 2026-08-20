@@ -75,28 +75,61 @@ The frontend renders what it is given. If two clients would compute it identical
 ## 4. Auth is better-auth's. Do not hand roll any of it
 
 Sign-in, sign-out, forgot password, reset password and change password are served by better-auth at
-`/api/auth/*`. There is no auth controller in this app and there must not be one.
+`/api/auth/*`. `AuthController` is ONE catch-all (`@All('*splat')` handing off to
+`toNodeHandler(auth)`) and there must never be a second auth route, in this module or any other.
+`PATCH /users/me/password` existed once, to clear `mustResetPassword` and write an audit entry;
+that left two doors onto one action with different security properties. An after hook in
+`auth.instance.ts` does both now.
+
+No third party Nest adapter. better-auth's docs point at `@thallesp/nestjs-better-auth`, and it was
+used here; it mounts the routes with `httpAdapter.use()` in `onModuleInit()`, which put them ahead of
+Nest's router. They were invisible to Swagger and outside the guard pipeline. Do not reintroduce it.
 
 Non negotiable, each one closed a real hole:
 
-- **`disableSignUp: true`.** Without it anyone could self register.
 - **`input: false` on every `user.additionalFields`.** It defaults to `true`, so a caller could
   choose their own `role` in a sign-up body and mint themselves a SYSTEM_ADMIN.
-- **better-auth's own `rateLimit.customRules`.** Nest's `ThrottlerGuard` cannot protect these routes:
-  the library mounts them as middleware before the guard pipeline.
+- **`refuseAnonymousSignUp` in `hooks.before`, NOT `disableSignUp: true`.** That flag has no
+  exemption for server side `auth.api.signUpEmail()`, so it breaks the invite flow and first boot
+  bootstrap. The hook refuses only calls carrying a `request`.
+- **better-auth's own `rateLimit.customRules`.** `AuthController` carries `@SkipThrottle()`, so
+  Nest's tiers deliberately do not apply: they are sized for a dashboard page load and would lock a
+  real user out of sign-in. These per path rules are the brute force defence.
   The reset path is **`/request-password-reset`**, not `/forget-password`, which 404s in 1.6.
+- **`sendResetPassword` reads `token`, never `new URL(url).searchParams`.** better-auth puts the
+  token in the URL's PATH. Parsing it as a query param shipped every reset email with `?token=`.
+- **`onPasswordReset` and the `/change-password` after hook both clear `mustResetPassword`.** Two
+  ways a password changes; missing either nags a user forever.
+- **An after hook runs on FAILURE too.** The dispatcher catches the endpoint's error and then calls
+  them, and the session is already resolved. Check the returned value before acting.
 - **`databaseHooks` refuse SYSTEM_ADMIN at the write**, as defence in depth.
 - Origin checking is off only when `AUTH_DISABLE_ORIGIN_CHECK === 'true'`. Never inferred from `NODE_ENV`.
-- `bodyParser: false` in `main.ts` stays. `basePath` is the literal `/api/auth`. `hooks: {}` stays.
-- `auth.instance.ts` runs before DI: it needs `import 'dotenv/config'` and the mail **singleton**.
+- `bodyParser: false` in `main.ts` stays, and `bodyParsersExceptAuth(AUTH_BASE_PATH)` puts a parser
+  back for every other route. better-auth reads the raw stream.
+- `basePath` is `AUTH_BASE_PATH`, the literal `/api/auth`, and the controller must resolve to it.
+- `auth.instance.ts` runs before DI: it needs `import 'dotenv/config'`, the mail **singleton**, and
+  `authPrismaClient` rather than `PrismaService`. Its hooks are inline for the same reason.
+- **An invite emails a LINK, never a password.** `UsersService.invite` and the bootstrap create the
+  account with `generateUnusedPassword()`, which nobody is told, then call
+  `auth.api.requestPasswordReset({ body: { email } })` with NO headers. `sendResetPassword` reads
+  the missing `request` as "server initiated, so this is an invite" and sends the invite copy with a
+  `/set-password` link. A temporary password in an email is a working credential sitting in an inbox
+  in plain text with no expiry.
+- The `openAPI()` plugin is what documents the auth surface. `mergeBetterAuthSchema` merges the
+  GENERATED schema into `/api/docs` and hides the routes this config does not enable. Never
+  hand write auth paths: the list that did drifted to three of thirty.
 
-Guard order, and the reason it works:
+Guard order. **All three live in `AuthModule`'s providers, in this order:**
 
 ```
-TrustedOriginThrottlerGuard   AuthModule's providers (imported first)
-AuthGuard                     BetterAuthModule.forRoot()
-PermissionsGuard              AppModule's OWN providers, which Nest processes last
+TrustedOriginThrottlerGuard   throttle before spending a DB round trip on a session
+AuthGuard                     sets request.user
+PermissionsGuard              reads request.user
 ```
+
+Nest applies the ROOT module's global enhancers BEFORE those of the modules it imports, so a guard
+registered in `AppModule` runs FIRST. `PermissionsGuard` was registered there and answered 401 to
+every authenticated request. `auth/spec/guard-order.spec.ts` pins the order.
 
 ## 5. Authorization
 

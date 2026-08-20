@@ -6,8 +6,10 @@ import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
 import helmet from 'helmet';
 import { AppModule } from '@/app.module';
 import { AllExceptionsFilter } from '@/common/filters/http-exception.filter';
+import { bodyParsersExceptAuth } from '@/common/middleware/body-parsers.middleware';
 import { parseCorsOrigins } from '@/common/utils/parse-cors-origins.util';
-import { addBetterAuthPaths } from '@/common/swagger/better-auth-paths';
+import { mergeBetterAuthSchema } from '@/common/swagger/better-auth-schema';
+import { AUTH_BASE_PATH } from '@/auth/instance/auth.instance';
 import { validateEnv } from '@/env.validate';
 
 async function bootstrap() {
@@ -16,9 +18,11 @@ async function bootstrap() {
   // whichever feature happened to read it first.
   validateEnv();
 
-  const app = await NestFactory.create(AppModule, {
-    bodyParser: false, // required by @thallesp/nestjs-better-auth, which parses the body itself
-  });
+  // Nest's own parser is off, and `bodyParsersExceptAuth` below puts one back
+  // for every route except `/api/auth`. better-auth reads the raw request
+  // stream, and a parser that has already consumed it is the documented cause
+  // of its client API hanging.
+  const app = await NestFactory.create(AppModule, { bodyParser: false });
   const isProduction = process.env.NODE_ENV === 'production';
 
   // Trust one proxy hop (nginx, Cloudflare) so ThrottlerGuard rate limits by
@@ -77,6 +81,9 @@ async function bootstrap() {
     maxAge: 86_400,
   });
 
+  // ── Body parsing ──────────────────────────────────────────────────────────
+  app.use(bodyParsersExceptAuth(AUTH_BASE_PATH));
+
   // ── Global pipes and filters ──────────────────────────────────────────────
   app.useGlobalFilters(new AllExceptionsFilter());
 
@@ -106,7 +113,9 @@ async function bootstrap() {
     .build();
 
   const document = SwaggerModule.createDocument(app, swaggerConfig);
-  addBetterAuthPaths(document);
+  // The auth routes are middleware, so reflection cannot find them. They are
+  // added from better-auth's own generated schema rather than written by hand.
+  await mergeBetterAuthSchema(document);
   SwaggerModule.setup('api/docs', app, document);
 
   // Let Nest run onModuleDestroy hooks (Prisma disconnect, queue drain) on

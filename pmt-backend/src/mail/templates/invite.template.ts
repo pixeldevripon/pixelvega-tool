@@ -3,22 +3,25 @@ import { escapeHtml } from '@/mail/templates/email-text.util';
 
 export interface InviteEmailInput {
   name: string;
-  tempPassword: string;
-  /** Where to sign in. The dashboard, not the API. */
-  signInUrl: string;
+  /** The one time set-password link. Points at the dashboard, not the API. */
+  setPasswordUrl: string;
+  /** How long the link lives, so the copy cannot promise more than it has. */
+  expiresInMinutes: number;
 }
 
 /**
- * The invite, sent when an admin creates an account.
+ * The invite, sent when an administrator creates an account.
  *
- * The temporary password is the payload, so it is the centrepiece rather than
- * a `<strong>` buried in a sentence. The name is escaped: it is user data, and
- * this template previously interpolated it raw.
+ * The payload is a LINK, not a password. An earlier version put a temporary
+ * password in the body, which meant a working credential sat in an inbox in
+ * plain text with no expiry: a forward, a shared inbox, or a mailbox breach
+ * months later was account access. This link expires and is single use, and
+ * the account has no usable password until it is followed.
  */
 export function inviteEmailTemplate({
   name,
-  tempPassword,
-  signInUrl,
+  setPasswordUrl,
+  expiresInMinutes,
 }: InviteEmailInput): RenderedEmail & { subject: string } {
   return {
     subject: 'Your PixelVega account is ready',
@@ -26,15 +29,15 @@ export function inviteEmailTemplate({
       title: 'Your PixelVega account is ready',
       greeting: `Hi ${escapeHtml(name)},`,
       paragraphs: [
-        'An administrator has created a PixelVega account for you. Sign in with the temporary password below.',
+        'An administrator has created a PixelVega account for you. Choose a password to finish setting it up.',
+        // In `paragraphs` rather than `codeNote`, which the shell only renders
+        // alongside a `code` block. This email has no code.
+        `This link works once and expires in ${expiresInMinutes} minutes. Ask an administrator to send a new invitation if it has already expired.`,
       ],
-      code: tempPassword,
-      codeNote:
-        'You will be asked to choose your own password on first sign in.',
-      ctaLabel: 'Sign in to PixelVega',
-      ctaUrl: signInUrl,
+      ctaLabel: 'Set your password',
+      ctaUrl: setPasswordUrl,
       footnote:
-        'If you were not expecting this, you can ignore this email and the account will stay unused.',
+        'If you were not expecting this, you can ignore this email. The account cannot be signed into until a password is set.',
     }),
   };
 }

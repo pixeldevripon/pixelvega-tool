@@ -212,18 +212,3 @@ export class UpdateUserRequestDto {
   @IsString()
   slackUserId?: string;
 }
-
-export class ChangeOwnPasswordRequestDto {
-  @ApiProperty({
-    description: 'Must match the password currently on the account.',
-  })
-  @IsString()
-  @MaxLength(FieldLength.PASSWORD_MAX)
-  currentPassword!: string;
-
-  @ApiProperty({ minLength: 8 })
-  @IsString()
-  @MinLength(8)
-  @MaxLength(FieldLength.PASSWORD_MAX)
-  newPassword!: string;
-}
