@@ -6,7 +6,25 @@ import type {
     DashboardAttentionItem,
 } from '@/types/dashboard';
 
+import { RoleProvider } from '@/contexts/role-context';
+import { Permission, ROLE_PERMISSIONS } from '@/lib/config/rbac';
+
 import { AttentionCard } from './attention-card';
+
+/**
+ * Rendered inside a provider, because a row asks the session's permission set
+ * where its queue lives. The deny-all default outside one would make every
+ * gated row unlinked, so the linking cases would pass for the wrong reason.
+ */
+const card = (
+    attentionValue: Parameters<typeof AttentionCard>[0]['attention'],
+    permissions: string[] = ROLE_PERMISSIONS.ADMIN,
+) =>
+    render(
+        <RoleProvider permissions={permissions}>
+            <AttentionCard attention={attentionValue} />
+        </RoleProvider>,
+    );
 
 const item = (
     overrides: Partial<DashboardAttentionItem> & { key: string },
@@ -80,15 +98,51 @@ describe('AttentionCard', () => {
     });
 
     it('links each known queue to its screen', () => {
-        render(
-            <AttentionCard
-                attention={attention([
-                    item({ key: 'pendingLeaveRequests', count: 2 }),
-                ])}
-            />,
-        );
+        card(attention([item({ key: 'pendingLeaveRequests', count: 2 })]));
 
         expect(screen.getByRole('link')).toHaveAttribute('href', '/leave');
+    });
+
+    it('renders no link for a caller without the queue permission', () => {
+        // A link to a queue that answers 403 is worse than no link: the reader
+        // clicks, waits, and is told off. The count still shows.
+        card(attention([item({ key: 'pendingLeaveRequests', count: 2 })]), []);
+
+        expect(screen.queryByRole('link')).toBeNull();
+        expect(screen.getByText('2')).toBeInTheDocument();
+    });
+
+    it('links the queue once the caller holds its permission', () => {
+        card(attention([item({ key: 'pendingLeaveRequests', count: 2 })]), [
+            Permission.VIEW_LEAVE_REQUESTS,
+        ]);
+
+        expect(screen.getByRole('link')).toHaveAttribute('href', '/leave');
+    });
+
+    it('renders no link for a queue whose screen is not built', () => {
+        /**
+         * The defect this closes. This card linked `pendingRequirements` to
+         * `/requirements`, `internalReview` to `/reviews` and
+         * `awaitingClientFeedback` to `/client-feedback`. None of those routes
+         * exists, so three of six rows were 404s for an admin holding every
+         * permission there is.
+         */
+        card(attention([item({ key: 'pendingRequirements', count: 9 })]));
+
+        expect(screen.queryByRole('link')).toBeNull();
+        expect(screen.getByText('9')).toBeInTheDocument();
+    });
+
+    it('routes the review queue at a filter that exists rather than /reviews', () => {
+        // Same question, answered with a route that is written: the projects
+        // list narrowed to the review phase.
+        card(attention([item({ key: 'internalReview', count: 4 })]));
+
+        expect(screen.getByRole('link')).toHaveAttribute(
+            'href',
+            '/projects?phase=IN_REVIEW',
+        );
     });
 
     it('renders an unknown queue without a link rather than dropping it', () => {

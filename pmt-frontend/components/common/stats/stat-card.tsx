@@ -9,10 +9,12 @@ import {
 } from '@hugeicons/core-free-icons';
 import type { IconSvgElement } from '@hugeicons/react';
 
+import Link from 'next/link';
+
 import { DeltaPill } from '@/components/common/stats/delta-pill';
 import { IconTile } from '@/components/common/stats/icon-tile';
 import { Card } from '@/components/ui/card';
-import { cn } from '@/lib/utils';
+import { useDeepLink } from '@/hooks/use-deep-link';
 import type { DashboardMetric } from '@/types/dashboard';
 
 /**
@@ -40,22 +42,24 @@ const METRIC_ICON: Record<string, IconSvgElement> = {
     atRisk: AlertCircleIcon,
 };
 
-export function StatCard({
-    metric,
-    children,
-}: {
-    metric: DashboardMetric;
-    /** An optional sparkline or bar strip, rendered under the figure. */
-    children?: React.ReactNode;
-}) {
-    return (
-        <Card
-            size='sm'
-            className='justify-between gap-4 transition-shadow hover:shadow-sm'>
-            <div className='flex items-start justify-between gap-3 px-4'>
+export function StatCard({ metric }: { metric: DashboardMetric }) {
+    /**
+     * Where the figure's detail lives, or null.
+     *
+     * Null for any of three reasons the registry knows and this does not: the
+     * key has no destination, the screen is not built yet, or this caller may
+     * not reach it. A tile with no href still renders the number; it is simply
+     * not a link, which is better than a click that 404s or 403s.
+     */
+    const href = useDeepLink(metric.key);
+
+    const body = (
+        <>
+            <div className='flex items-start justify-between gap-2 px-4'>
                 <IconTile
                     icon={METRIC_ICON[metric.key] ?? ChartLineData01Icon}
                     tone={metric.tone.tone}
+                    size='sm'
                 />
                 <DeltaPill
                     changeLabel={metric.changeLabel}
@@ -65,22 +69,46 @@ export function StatCard({
             </div>
 
             <div className='px-4'>
-                <p className='truncate text-sm font-medium text-content-muted'>
+                <p className='truncate text-xs font-medium text-content-muted'>
                     {metric.label}
                 </p>
-                <p className='mt-1 font-heading text-2xl font-medium tracking-tight tabular-nums text-content'>
+                {/* `text-xl`, down from `text-2xl`. The sparkline that used to
+                    sit under this went with it: the hours chart below owns the
+                    trend, and a tile carrying its own copy made the first row
+                    of the page as tall as the chart it duplicated. */}
+                <p className='mt-0.5 font-heading text-xl font-medium tracking-tight tabular-nums text-content'>
                     {metric.valueLabel}
                 </p>
                 {metric.caption && (
-                    <p className='mt-0.5 truncate text-2xs text-content-subtle'>
+                    <p className='truncate text-2xs text-content-subtle'>
                         {metric.caption}
                     </p>
                 )}
             </div>
+        </>
+    );
 
-            {/* Bleeds to the card's edges: a strip that stops short of them
-                reads as a chart in a box rather than as the tile's own floor. */}
-            {children && <div className={cn('px-1 pb-1')}>{children}</div>}
-        </Card>
+    if (!href) {
+        return (
+            <Card size='sm' className='justify-between gap-3'>
+                {body}
+            </Card>
+        );
+    }
+
+    // The Link wraps the Card rather than the Card rendering as an anchor: this
+    // primitive has no `asChild`, and an `<a>` accepts flow content, so the
+    // whole tile is the hit area either way.
+    return (
+        <Link
+            href={href}
+            aria-label={`${metric.label}: ${metric.valueLabel}`}
+            className='group/tile block'>
+            <Card
+                size='sm'
+                className='h-full justify-between gap-3 transition-colors group-hover/tile:border-line-strong group-hover/tile:shadow-sm'>
+                {body}
+            </Card>
+        </Link>
     );
 }

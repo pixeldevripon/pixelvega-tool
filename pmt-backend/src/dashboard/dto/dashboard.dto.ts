@@ -338,6 +338,14 @@ export class DashboardProjectDto {
   @ApiProperty({ example: 'Acme corporate site' })
   name!: string;
 
+  @ApiPropertyOptional({
+    example: 'Five page marketing site plus a blog.',
+    nullable: true,
+    description:
+      'The one free text field on a board card. Null when nobody wrote one, in which case the card simply has no second line rather than a placeholder.',
+  })
+  description!: string | null;
+
   @ApiProperty({ type: EnumDisplayDto })
   status!: EnumDisplayDto;
 
@@ -383,6 +391,13 @@ export class DashboardProjectDto {
       'Overdue, or blocked, or both. The single flag a card colours itself from, so two screens cannot disagree about what "at risk" means.',
   })
   isAtRisk!: boolean;
+
+  @ApiProperty({
+    example: false,
+    description:
+      'Completed or cancelled, finished one way or the other. Ships because a countdown is meaningless on finished work: a completed project keeps its deadline, so `deadlineLabel` still reads "138 days overdue" and a card has to know not to print it. `isOverdue` cannot answer this, being false for exactly these projects.',
+  })
+  isTerminal!: boolean;
 
   @ApiPropertyOptional({ example: '2026-08-01T00:00:00.000Z', nullable: true })
   plannedStartDate!: Date | null;
@@ -705,6 +720,90 @@ export class DashboardAttentionDto {
  * topContributors is null because a leaderboard of colleagues is not their
  * business; an empty list would claim the team logged no hours at all.
  */
+/**
+ * One board column: a lifecycle phase, how many projects are in it, and the
+ * handful of cards that fit.
+ *
+ * `total` is the count across EVERYTHING the caller may see, not the length of
+ * `projects`. A column header reading "3" over three cards when there are
+ * nineteen in that phase is the specific lie this pair of fields exists to
+ * avoid, and it is why `hiddenCount` ships too rather than being a subtraction
+ * in a browser.
+ */
+export class DashboardProjectColumnDto {
+  @ApiProperty({
+    type: EnumDisplayDto,
+    description:
+      'The phase, with its label and tone. `value` is one of TO_DO, IN_PROGRESS, IN_REVIEW or CLOSED, and is the same token the projects list accepts as ?phase=.',
+  })
+  phase!: EnumDisplayDto;
+
+  @ApiProperty({
+    example: 19,
+    description:
+      'Projects in this phase across the whole caller scope, which is what the column header counts.',
+  })
+  total!: number;
+
+  @ApiProperty({
+    example: '19 projects',
+    description: 'The readable form of total, pluralised.',
+  })
+  totalLabel!: string;
+
+  @ApiProperty({
+    example: 15,
+    description:
+      'How many of total are NOT on the board. Zero when the column shows everything it counted.',
+  })
+  hiddenCount!: number;
+
+  @ApiPropertyOptional({
+    example: '15 more',
+    nullable: true,
+    description:
+      'The wording for the overflow link. Null when nothing is hidden, which is how a client knows not to render the link at all.',
+  })
+  hiddenLabel!: string | null;
+
+  @ApiProperty({
+    type: [DashboardProjectDto],
+    description:
+      'The cards, already ordered within the column: priority, then deadline, then planned start.',
+  })
+  projects!: DashboardProjectDto[];
+}
+
+/**
+ * The project board.
+ *
+ * ── Why the grouping is here and not in the browser ──
+ *
+ * Ten statuses collapse into four phases, and which status belongs to which
+ * phase is a judgment about the business: `ON_HOLD` counts as started, and
+ * `CANCELLED` counts as finished. A client grouping the array itself would be a
+ * second copy of that judgment, and the copy is what drifts (D4). It also could
+ * not produce `total`, because the caller only ever receives a slice.
+ *
+ * Columns arrive in lifecycle order and EVERY phase is present, including empty
+ * ones: a board that drops its empty columns changes shape as work moves
+ * through it, and a reader loses the place they learned to look.
+ */
+export class DashboardProjectBoardDto {
+  @ApiProperty({
+    type: [DashboardProjectColumnDto],
+    description:
+      'Always four, in lifecycle order, empty ones included. Render in the order given.',
+  })
+  columns!: DashboardProjectColumnDto[];
+
+  @ApiProperty({
+    example: 22,
+    description: 'Projects in the caller scope, across every column.',
+  })
+  total!: number;
+}
+
 export class WorkspaceDashboardDto {
   @ApiProperty({
     type: [DashboardMetricDto],
@@ -725,14 +824,21 @@ export class WorkspaceDashboardDto {
   })
   statusBreakdown!: DashboardBreakdownDto;
 
-  @ApiProperty({
+  @ApiPropertyOptional({
     type: DashboardBreakdownDto,
-    description: 'Unresolved blockers by severity.',
+    nullable: true,
+    description:
+      'Unresolved blockers by severity. Null for a caller without VIEW_BLOCKERS, who gets no card at all rather than an empty one.',
   })
-  blockerBreakdown!: DashboardBreakdownDto;
+  blockerBreakdown!: DashboardBreakdownDto | null;
 
-  @ApiProperty({ type: DashboardRankedListDto })
-  topProjectsByHours!: DashboardRankedListDto;
+  @ApiPropertyOptional({
+    type: DashboardRankedListDto,
+    nullable: true,
+    description:
+      'Busiest projects in the range. Null for a caller without VIEW_TIME_ENTRIES: an hours leaderboard is time data.',
+  })
+  topProjectsByHours!: DashboardRankedListDto | null;
 
   @ApiPropertyOptional({
     type: DashboardRankedListDto,
@@ -743,24 +849,29 @@ export class WorkspaceDashboardDto {
   topContributors!: DashboardRankedListDto | null;
 
   @ApiProperty({
-    type: [DashboardProjectDto],
+    type: DashboardProjectBoardDto,
     description:
-      'The project cards, already ordered: active first, then priority, then deadline, then planned start. The browser renders the array as it arrives.',
+      'The projects, grouped into the four lifecycle phases a board reads in. This replaced a flat `projects` array: the array could not say how many were in each phase, so a column header had to count the slice it was handed and under-reported every lane.',
   })
-  projects!: DashboardProjectDto[];
+  projectBoard!: DashboardProjectBoardDto;
 
   @ApiProperty({
     example: 22,
     description:
-      'How many projects are in the caller scope in total, since projects is a bounded slice of them.',
+      'How many projects are in the caller scope in total, since each column carries a bounded slice of them.',
   })
   projectTotal!: number;
 
   @ApiProperty({ type: DashboardAttentionDto })
   attention!: DashboardAttentionDto;
 
-  @ApiProperty({ type: DashboardComplianceDto })
-  standupComplianceToday!: DashboardComplianceDto;
+  @ApiPropertyOptional({
+    type: DashboardComplianceDto,
+    nullable: true,
+    description:
+      'Today across everyone required to file. Null for a caller without VIEW_WORK_REPORTS.',
+  })
+  standupComplianceToday!: DashboardComplianceDto | null;
 
   @ApiPropertyOptional({
     type: DashboardMyDayDto,

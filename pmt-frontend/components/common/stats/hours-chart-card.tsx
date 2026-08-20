@@ -12,6 +12,7 @@ import {
 } from '@/components/ui/chart';
 import { ChartLineData01Icon } from '@hugeicons/core-free-icons';
 import type { DashboardSeries, DashboardSeriesPoint } from '@/types/dashboard';
+import { cn } from '@/lib/utils';
 
 /**
  * The big chart: hours logged per day.
@@ -43,9 +44,15 @@ const config = {
     value: { label: 'Hours', color: 'var(--color-chart-1)' },
 } satisfies ChartConfig;
 
-export function HoursChartCard({ series }: { series: DashboardSeries }) {
+export function HoursChartCard({
+    series,
+    className,
+}: {
+    series: DashboardSeries;
+    className?: string;
+}) {
     return (
-        <Card className='flex h-full flex-col gap-4'>
+        <Card size='sm' className={cn('flex flex-col gap-3', className)}>
             <CardHeader className='gap-0'>
                 <div className='flex items-start justify-between gap-3'>
                     <div className='flex items-center gap-3'>
@@ -72,12 +79,25 @@ export function HoursChartCard({ series }: { series: DashboardSeries }) {
                 </div>
             </CardHeader>
 
-            {/* `flex-1` rather than `mt-auto`: this card shares a grid row with
-                the status ring, which is as tall as its ten legend rows, so the
-                chart GROWS into the extra height instead of being pinned to the
-                bottom of it under an empty band. */}
+            {/* Grows to fill the row, with a floor.
+
+                `flex-1` and `h-full` are right HERE, and were wrong before only
+                because of `aspect-video` below: the RATIO, not the growth, is
+                what made this card 962 pixels tall. With the ratio gone, filling
+                the row is what keeps this card from sitting under an empty band
+                when the breakdown beside it is taller, and a chart is the one
+                thing on this page that genuinely reads better with more height.
+
+                `aspect-auto` cancels `ChartContainer`'s own `aspect-video`, and
+                that is what made this card the tallest thing on the page.
+                Sixteen-by-nine reads as a ratio until the card is two thirds of
+                a wide screen: at 945px across it made the chart 531px tall. A
+                fortnight of bars needs height for the tallest bar and its
+                caption, not a share of the width. */}
             <div className='flex-1 px-2 pb-1'>
-                <ChartContainer config={config} className='h-full min-h-56 w-full'>
+                <ChartContainer
+                    config={config}
+                    className='aspect-auto h-full min-h-48 w-full'>
                     <BarChart
                         data={series.points}
                         // Headroom for the peak's caption. The peak bar always

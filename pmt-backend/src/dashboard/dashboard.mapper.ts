@@ -30,6 +30,12 @@ import {
   TERMINAL_STATUSES,
   withRemainingHours,
 } from '@/projects/project.mapper';
+import {
+  PROJECT_PHASES,
+  PROJECT_PHASE_DISPLAY,
+  projectPhaseOf,
+  type ProjectPhase,
+} from '@/projects/project-phase';
 import { DASHBOARD_ACTIVE_STATUSES } from '@/projects/projects.service';
 
 import type {
@@ -37,6 +43,8 @@ import type {
   DashboardAttentionItemDto,
   DashboardBreakdownDto,
   DashboardClientProjectDto,
+  DashboardProjectBoardDto,
+  DashboardProjectColumnDto,
   DashboardHoursDto,
   DashboardMemberDto,
   DashboardMetricDto,
@@ -572,6 +580,7 @@ export function buildDashboardProjectCapabilities(input: {
 export type DashboardProjectRow = {
   id: string;
   name: string;
+  description: string | null;
   status: ProjectStatus;
   priority: ProjectPriority;
   deadline: Date | null;
@@ -626,6 +635,7 @@ export function toDashboardProject(
   return {
     id: project.id,
     name: project.name,
+    description: project.description,
     status: toEnumDisplay(PROJECT_STATUS_DISPLAY, project.status),
     priority: toEnumDisplay(PROJECT_PRIORITY_DISPLAY, project.priority),
     types: project.projectTypeTags.map((tag) =>
@@ -639,6 +649,7 @@ export function toDashboardProject(
     // disagree. A finished project is excluded even if it has a stale blocker:
     // there is no risk left to manage.
     isAtRisk: !isTerminal && (isOverdue || context.blockers.openCount > 0),
+    isTerminal,
     plannedStartDate: project.plannedStartDate,
     // Derived from the lifecycle, because the `progressPercentage` column
     // `Project Module.md` specifies was never added to the schema. Deliberately
@@ -675,6 +686,84 @@ export function toDashboardProject(
     lastWorkedAt: context.lastWorkedAt,
     members: toDashboardMembers(project.members),
     capabilities: context.capabilities,
+  };
+}
+
+// ── The board ─────────────────────────────────────────────────────────────
+
+/**
+ * Group the caller's projects into the four lifecycle phases, cards and all.
+ *
+ * ── Why the totals come from a separate map ──
+ *
+ * `rows` is every project in scope, but only `perColumn` of them per phase get
+ * mapped into cards: mapping all of them would build a hundred objects to render
+ * sixteen. The header therefore cannot count its own cards, and counting `rows`
+ * per phase would be a second answer to a question the database already
+ * answered with one grouped query. `statusTotals` IS that answer, so the header
+ * and the `statusBreakdown` ring can never disagree.
+ *
+ * ── Every phase renders, including the empty ones ──
+ *
+ * A board that drops empty columns changes shape as work moves through it, and
+ * a reader loses the place they learned to look. An empty lane is also
+ * information: nothing in review is a fact worth seeing.
+ *
+ * `rows` must already be in the order the cards should render. This does not
+ * sort: it preserves, so the per-column order is whatever ordering the caller
+ * applied to the whole list (D4).
+ */
+export function toProjectBoard<Row extends { status: ProjectStatus }>(input: {
+  rows: Row[];
+  statusTotals: Map<ProjectStatus, number>;
+  perColumn: number;
+  toCard: (row: Row) => DashboardProjectDto;
+}): DashboardProjectBoardDto {
+  // Generic over the row, because grouping needs `status` and nothing else. The
+  // caller's rows carry more than `DashboardProjectRow` does, and pinning the
+  // type here would force either a cast or a widening of the row type to suit
+  // a function that never reads the extra fields.
+  const rowsByPhase = new Map<ProjectPhase, Row[]>(
+    PROJECT_PHASES.map((phase) => [phase, [] as Row[]]),
+  );
+  for (const row of input.rows) {
+    // Non-null by construction: the map above seeds every phase, and
+    // `projectPhaseOf` is total over `ProjectStatus`.
+    rowsByPhase.get(projectPhaseOf(row.status))?.push(row);
+  }
+
+  const totalsByPhase = new Map<ProjectPhase, number>(
+    PROJECT_PHASES.map((phase) => [phase, 0]),
+  );
+  for (const [status, count] of input.statusTotals) {
+    const phase = projectPhaseOf(status);
+    totalsByPhase.set(phase, (totalsByPhase.get(phase) ?? 0) + count);
+  }
+
+  const columns: DashboardProjectColumnDto[] = PROJECT_PHASES.map((phase) => {
+    const inPhase = rowsByPhase.get(phase) ?? [];
+    const total = totalsByPhase.get(phase) ?? 0;
+    const shown = inPhase.slice(0, input.perColumn);
+    // Never negative, even if a total and the rows it was counted from were
+    // read a moment apart and disagree: a "-2 more" link is worse than none.
+    const hiddenCount = Math.max(0, total - shown.length);
+
+    return {
+      phase: toEnumDisplay(PROJECT_PHASE_DISPLAY, phase),
+      total,
+      totalLabel: `${total} ${total === 1 ? 'project' : 'projects'}`,
+      hiddenCount,
+      hiddenLabel: hiddenCount > 0 ? `${hiddenCount} more` : null,
+      projects: shown.map(input.toCard),
+    };
+  });
+
+  return {
+    columns,
+    // Summed from the same map the columns used, so the board total and its
+    // columns always agree. Not `rows.length`: a row the caller may see but
+    // whose status was not in the grouped count would make the two differ.
+    total: [...totalsByPhase.values()].reduce((sum, n) => sum + n, 0),
   };
 }
 

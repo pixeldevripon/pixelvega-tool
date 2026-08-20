@@ -1,7 +1,12 @@
 'use client';
 
+import { ArrowRight01Icon } from '@hugeicons/core-free-icons';
+import { HugeiconsIcon } from '@hugeicons/react';
+import Link from 'next/link';
+
 import { DonutChart } from '@/components/common/stats/donut-chart';
 import { Card, CardHeader, CardTitle } from '@/components/ui/card';
+import { useDeepLink } from '@/hooks/use-deep-link';
 import type { DashboardCompliance } from '@/types/dashboard';
 
 /**
@@ -23,16 +28,36 @@ export function StandupCard({
 }: {
     compliance: DashboardCompliance;
 }) {
+    // Null when this caller may not open the standups screen. The gauge still
+    // renders; only the title stops being a link.
+    const href = useDeepLink('standupCompliance');
+
+    const caption = `${compliance.submitted} of ${compliance.expected} filed`;
+
     return (
-        <Card className='flex h-full flex-col gap-4'>
+        <Card size='sm' className='flex flex-col gap-3'>
             <CardHeader className='gap-0'>
-                <CardTitle className='text-base'>Standups today</CardTitle>
-                <p className='text-xs text-content-subtle'>
-                    {compliance.submitted} of {compliance.expected} filed
-                </p>
+                {href ? (
+                    <Link
+                        href={href}
+                        className='group/title flex items-center gap-1 text-sm'>
+                        <CardTitle className='text-sm transition-colors group-hover/title:text-primary'>
+                            Standups today
+                        </CardTitle>
+                        <HugeiconsIcon
+                            aria-hidden
+                            icon={ArrowRight01Icon}
+                            className='size-4 text-content-subtle transition-transform group-hover/title:translate-x-0.5'
+                            strokeWidth={1.75}
+                        />
+                    </Link>
+                ) : (
+                    <CardTitle className='text-sm'>Standups today</CardTitle>
+                )}
+                <p className='text-2xs text-content-subtle'>{caption}</p>
             </CardHeader>
 
-            <div className='flex flex-1 flex-col items-center justify-center gap-3 px-6 pb-6'>
+            <div className='flex flex-1 flex-col items-center justify-center gap-2 px-4 pb-4'>
                 {compliance.rate === null || compliance.rateLabel === null ? (
                     <p className='py-6 text-center text-sm text-content-muted'>
                         Nobody was expected to file today.

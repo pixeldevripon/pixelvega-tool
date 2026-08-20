@@ -31,6 +31,7 @@ import {
   toProjectActivityResponse,
   toProjectResponse,
 } from '@/projects/project.mapper';
+import { buildStatusClause } from '@/projects/project-phase';
 import { RECOMMENDED_MAX_ACTIVE_PROJECTS } from './workload.constants';
 import {
   ConnectSlackChannelDto,
@@ -347,11 +348,24 @@ export class ProjectsService {
   private buildProjectFilters(
     query: QueryProjectsDto | QueryMyProjectsDto,
   ): Prisma.ProjectWhereInput {
-    const { status, priority, projectTypes, archived = false, search } = query;
+    const {
+      status,
+      phase,
+      priority,
+      projectTypes,
+      archived = false,
+      search,
+    } = query;
     const clientId = 'clientId' in query ? query.clientId : undefined;
 
     return {
-      ...(status && { status }),
+      // `phase` and `status` INTERSECT rather than one winning. A phase is a set
+      // of statuses, so `?phase=IN_REVIEW&status=PLANNING` is a caller asking
+      // for something empty, and answering it with every planning project (or
+      // with the whole review lane) would be inventing a filter they did not
+      // ask for. Prisma's `in` against a single value does that intersection
+      // for free once both are expressed as one clause.
+      ...buildStatusClause(status, phase),
       ...(priority && { priority }),
       ...(clientId && { clientId }),
       ...(projectTypes &&

@@ -24,44 +24,9 @@ export function ProjectLeadAvatar({
     );
 }
 
-/** The stacked faces a row or card shows for its team. */
-export function ProjectMemberStack({
-    members,
-    max = 4,
-}: {
-    members: ProjectMemberSummary[];
-    max?: number;
-}) {
-    const overflow = members.length - max;
-
-    if (members.length === 0) {
-        return (
-            <span className='text-2xs font-medium text-warning-fg'>
-                Nobody staffed
-            </span>
-        );
-    }
-
-    return (
-        <div className='flex items-center'>
-            {members.slice(0, max).map((member) => (
-                <Avatar
-                    key={member.id}
-                    className='-mr-1.5 size-6 ring-2 ring-surface-overlay'
-                    title={`${member.name} · ${member.projectRole.label}`}>
-                    {member.avatarUrl && (
-                        <AvatarImage src={member.avatarUrl} alt='' />
-                    )}
-                    <AvatarFallback className='text-2xs'>
-                        {member.name.slice(0, 2).toUpperCase()}
-                    </AvatarFallback>
-                </Avatar>
-            ))}
-            {overflow > 0 && (
-                <span className='ml-2.5 text-2xs font-medium text-content-subtle'>
-                    +{overflow}
-                </span>
-            )}
-        </div>
-    );
-}
+/**
+ * The team stack moved to `components/common/member-stack.tsx` when the overview
+ * needed the same one. Re-exported under its original name so the three project
+ * views keep reading the way they did.
+ */
+export { MemberStack as ProjectMemberStack } from '@/components/common/member-stack';
