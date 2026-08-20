@@ -10,6 +10,7 @@ import { INestApplication } from '@nestjs/common';
 import type { OpenAPIObject } from '@nestjs/swagger';
 import request from 'supertest';
 import { auth } from '@/auth/instance/auth.instance';
+import { SENSITIVE_AUTH_MAX_PER_MINUTE } from '@/auth/instance/rate-limit.config';
 import { mergeBetterAuthSchema } from '@/common/swagger/better-auth-schema';
 import { mailService } from '@/mail/mail.singleton';
 import { PrismaService } from '@/prisma/prisma.service';
@@ -250,13 +251,28 @@ describe('better-auth surface (e2e)', () => {
         .expect(200);
     });
 
-    // Requests 5 and beyond. Last on purpose.
+    // Last on purpose: it deliberately exhausts the bucket every case above
+    // shares, so anything after it would be throttled rather than tested.
     it('rate limits repeated attempts', async () => {
       // Nest's throttler deliberately does not cover /api/auth (the controller
       // carries @SkipThrottle()), so better-auth's own per-path limiter is the
       // only thing standing between this route and unlimited guessing.
+      //
+      // Driven from the CONFIGURED limit, not from a literal. This assertion was
+      // written against the default of five and then failed the moment a
+      // developer raised the knob in their own `.env`, which is a test breaking
+      // on a supported configuration rather than on a defect. `.env.test` pins
+      // the value so the count stays small; reading it here means the two can
+      // never disagree again.
+      //
+      // The cases above have already spent some of the bucket, so the loop runs
+      // a full limit's worth of attempts on top of them.
       let sawTooManyRequests = false;
-      for (let attempt = 0; attempt < 4 && !sawTooManyRequests; attempt += 1) {
+      for (
+        let attempt = 0;
+        attempt < SENSITIVE_AUTH_MAX_PER_MINUTE + 1 && !sawTooManyRequests;
+        attempt += 1
+      ) {
         const response = await changePassword('wrong-again', 'Whatever123!');
         sawTooManyRequests = response.status === 429;
       }

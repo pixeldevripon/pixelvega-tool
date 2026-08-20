@@ -324,10 +324,17 @@ project delivery and team workload do not.
 
 | #   | Requirement                                   | Source            | Backend | Frontend |
 | --- | --------------------------------------------- | ----------------- | ------- | -------- |
-| S1  | A project-level Gantt timeline, per developer | features1 Tab 1   | gap     | gap      |
+| S1  | A project-level Gantt timeline, per developer | features1 Tab 1   | served  | partial  |
 | S2  | Export the timeline as PDF                    | features1 Tab 1   | gap     | gap      |
-| S3  | See how projects overlap                      | features gap list | gap     | gap      |
+| S3  | See how projects overlap                      | features gap list | served  | done     |
 | S4  | See who is loaded in which week               | features gap list | gap     | gap      |
+
+**S1 is partial, and deliberately.** The timeline groups by the project MANAGER, which is what the
+screens the user supplied show and what a staffing conversation turns on. `features1` asks for it per
+DEVELOPER, which is a different axis: one developer appears on several projects under several
+managers, so their row is a merge rather than a group. Both readings are useful and the geometry
+already supports either, since `groupByLead` is the only piece that would change. Grouping by
+assignee is what S4 needs anyway, so the two belong in one piece of work rather than two.
 
 ## T. Exporting
 

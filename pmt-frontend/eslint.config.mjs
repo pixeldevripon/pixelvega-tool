@@ -227,7 +227,7 @@ const eslintConfig = defineConfig([
 
   // ── Allowlist: runtime proportions (03 §8.3) ───────────────────────────
   //
-  // Two cases, both genuinely without a class-based equivalent:
+  // Three cases, all genuinely without a class-based equivalent:
   //
   // 1. `style={{ width: header.getSize() }}` is TanStack Table's documented API
   //    for column widths.
@@ -236,6 +236,10 @@ const eslintConfig = defineConfig([
   //    client draws the same bar) and Tailwind cannot express an arbitrary
   //    runtime percentage. A CSS custom property would still need the `style`
   //    attribute to set it, so the attribute is what has to be permitted.
+  // 3. The projects timeline, whose column widths and bar offsets are continuous
+  //    percentages of a window that changes with the zoom level. There is no
+  //    finite set of classes to express them, and the grid and the bars must be
+  //    driven from the same number or they drift apart across a year.
   //
   // Only the inline-style rule is lifted. Every colour, spacing and type rule
   // still applies in these files, and the allowlist is a file list rather than a
@@ -249,6 +253,7 @@ const eslintConfig = defineConfig([
       "components/common/stats/breakdown-card.tsx",
       "components/home/project-card.tsx",
       "components/home/my-day-card.tsx",
+      "components/projects/projects-timeline.tsx",
     ],
     rules: {
       "no-restricted-syntax": ["error", ...DESIGN_SELECTORS],

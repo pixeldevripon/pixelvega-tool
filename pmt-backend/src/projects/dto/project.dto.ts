@@ -92,6 +92,33 @@ export class ProjectTypeTagDto {
  * is the pairing a permission alone cannot express: a PROJECT_MANAGER may edit
  * projects in general and still not this one.
  */
+/**
+ * A currently staffed member of a project.
+ *
+ * On the list response so a row can show who is working on something, and so a
+ * board or a timeline can group by the person responsible, without one request
+ * per row.
+ */
+export class ProjectMemberSummaryDto {
+  @ApiProperty({ example: '3fa85f64-5717-4562-b3fc-2c963f66afa6' })
+  id!: string;
+
+  @ApiProperty({ example: 'Jabed Hasan' })
+  name!: string;
+
+  @ApiPropertyOptional({
+    example: 'https://res.cloudinary.com/pv/image/upload/v1/avatars/abc.jpg',
+    nullable: true,
+  })
+  avatarUrl!: string | null;
+
+  @ApiProperty({
+    type: EnumDisplayDto,
+    description: 'Their role ON THIS PROJECT, which is not their account role.',
+  })
+  projectRole!: EnumDisplayDto;
+}
+
 export class ProjectCapabilitiesDto {
   @ApiProperty({ example: true })
   canEdit!: boolean;
@@ -240,6 +267,29 @@ export class ProjectResponseDto {
   })
   remainingHours!: number | null;
 
+  @ApiProperty({
+    example: '47h 30m',
+    description:
+      'actualHours as a duration a person reads. The exact figure rides alongside it and is the only one anything may calculate from (ADR 0003). This field exists because a client rendering the number directly shows a repeating decimal: 56.083333333333336h reached a screen once.',
+  })
+  actualHoursLabel!: string;
+
+  @ApiPropertyOptional({
+    example: '120h',
+    nullable: true,
+    description:
+      'estimatedHours as a duration. Null when there is no estimate.',
+  })
+  estimatedHoursLabel!: string | null;
+
+  @ApiPropertyOptional({
+    example: '72h 30m',
+    nullable: true,
+    description:
+      'remainingHours as a duration, negative once the estimate is passed. Null when there is no estimate.',
+  })
+  remainingHoursLabel!: string | null;
+
   @ApiProperty({ type: [ProjectTypeTagDto] })
   projectTypeTags!: ProjectTypeTagDto[];
 
@@ -265,6 +315,14 @@ export class ProjectResponseDto {
   })
   daysUntilDeadline!: number | null;
 
+  @ApiPropertyOptional({
+    example: 'in 42 days',
+    nullable: true,
+    description:
+      'daysUntilDeadline as the phrase a person would say: due today, due tomorrow, in 42 days, 5 days overdue. Phrased here so the dashboard and every list say it the same way.',
+  })
+  deadlineLabel!: string | null;
+
   @ApiProperty({
     example: false,
     description:
@@ -279,6 +337,21 @@ export class ProjectResponseDto {
   updatedAt!: Date;
 
   @ApiProperty({ type: ProjectCapabilitiesDto })
+  @ApiProperty({
+    type: [ProjectMemberSummaryDto],
+    description:
+      'Currently staffed members, project managers first. Only rows where leftAt is null: someone who left is part of the project history, not of who is working on it now.',
+  })
+  members!: ProjectMemberSummaryDto[];
+
+  @ApiPropertyOptional({
+    type: ProjectMemberSummaryDto,
+    nullable: true,
+    description:
+      'The project manager a list groups and sorts by, which is the FIRST staffed manager by name. Null when nobody is staffed as one, which is exactly the state that keeps a project in Planning. Sent as a field so two clients cannot disagree about which of several managers is "the" lead.',
+  })
+  lead!: ProjectMemberSummaryDto | null;
+
   capabilities!: ProjectCapabilitiesDto;
 }
 
@@ -460,7 +533,60 @@ export class QueryProjectsDto extends PaginationQueryDto {
   search?: string;
 }
 
+/**
+ * The filters for `/projects/mine`.
+ *
+ * The same set as `QueryProjectsDto`, minus `clientId` (a staff member's own
+ * projects are not browsed by client) and with a different sort default.
+ *
+ * They are here because a developer with a dozen projects wants the same
+ * questions answered as an admin with a hundred: which are in progress, which is
+ * due first. Without them the screen offered filter controls to an admin and
+ * nothing to the person actually doing the work, and filtering the page in the
+ * browser instead would filter only the page it had.
+ */
 export class QueryMyProjectsDto extends PaginationQueryDto {
+  @ApiPropertyOptional({
+    enum: PROJECT_SORT_FIELDS,
+    description:
+      'Sorted before pagination. Leave it unset for the default ordering, which is the dashboard order (priority, then deadline, then planned start) rather than a column: that is the order the work should be picked up in.',
+  })
+  @IsOptional()
+  @IsIn(PROJECT_SORT_FIELDS)
+  sortBy?: ProjectSortField;
+
+  @ApiPropertyOptional({ enum: SORT_ORDERS, default: 'desc' })
+  @IsOptional()
+  @IsIn(SORT_ORDERS)
+  sortOrder?: SortOrder = 'desc';
+
+  @ApiPropertyOptional({ enum: STATUSES })
+  @IsOptional()
+  @IsEnum(ProjectStatus)
+  status?: ProjectStatus;
+
+  @ApiPropertyOptional({ enum: PRIORITIES })
+  @IsOptional()
+  @IsEnum(ProjectPriority)
+  priority?: ProjectPriority;
+
+  @ApiPropertyOptional({
+    enum: PROJECT_TYPES,
+    isArray: true,
+    example: [ProjectType.WORDPRESS, ProjectType.SEO],
+    description:
+      'Comma-separated (?projectTypes=WORDPRESS,SEO) or repeated (?projectTypes=WORDPRESS&projectTypes=SEO). Matches projects tagged with ANY of the given types, not all of them.',
+  })
+  @IsOptional()
+  @Transform(({ value }: TransformFnParams): unknown => {
+    if (Array.isArray(value)) return value;
+    if (typeof value === 'string') return value.split(',').map((v) => v.trim());
+    return value;
+  })
+  @IsArray()
+  @IsIn(PROJECT_TYPES, { each: true })
+  projectTypes?: ProjectType[];
+
   @ApiPropertyOptional({
     default: false,
     description:
@@ -470,6 +596,17 @@ export class QueryMyProjectsDto extends PaginationQueryDto {
   @ToBoolean()
   @IsBoolean()
   archived?: boolean = false;
+
+  @ApiPropertyOptional({
+    example: 'Acme Website Redesign',
+    description:
+      'Case insensitive, matches anywhere in the project name. Ignored for a CLIENT caller.',
+  })
+  @IsOptional()
+  @IsString()
+  @IsNotEmpty()
+  @MaxLength(FieldLength.SHORT_TEXT)
+  search?: string;
 }
 
 // ════════════════════════════════════════════════════════════════════════════

@@ -17,12 +17,12 @@ A stale checklist is worse than no checklist, because the next person trusts it.
 | D2    | Backend, the dashboards                     | 55      | 51      | in progress |
 | D3    | Frontend, the overview                      | 11      | 8       | in progress |
 | D4    | Backend, the contract gaps                  | 7       | 0       | not started |
-| D5    | Projects, list to detail                    | 33      | 0       | not started |
+| D5    | Projects, list to detail                    | 48      | 30      | in progress |
 | D6    | Time tracking and standups                  | 20      | 0       | not started |
 | D7    | Blockers, requirements, reviews, feedback   | 29      | 0       | not started |
 | D8    | People, leave, notifications, audit, client | 30      | 4       | in progress |
 | D9    | The AI module                               | 24      | 0       | not started |
-| D10   | The named gaps                              | 30      | 0       | not started |
+| D10   | The named gaps                              | 30      | 1       | in progress |
 | D11   | Hardening and close                         | 16      | 0       | not started |
 |       | **Total**                                   | **387** | **117** |             |
 
@@ -513,15 +513,62 @@ active developers and designers, so a client or a suspended account cannot drag 
 
 Four PRs, strictly ordered. PR 3 is a pure move: if its diff shows logic changes, it is wrong.
 
-### PR 1, the list
+### PR 1, the list, the board and the timeline
 
-- [ ] `types/projects.ts` · `lib/api/projects.ts` · `hooks/projects/use-projects.ts` with its key factory
-- [ ] `projects-list-view.tsx` · `-table.tsx` · `-columns.tsx` · `-row-actions.tsx`
-- [ ] Filters, sort and paging are query params through `useTableState`, never array methods
-- [ ] Status and priority through `EnumBadge` (E1, D5)
-- [ ] Hours spent and remaining against the estimate, straight off the response (D7, D8)
-- [ ] Row actions gated from each row's own `capabilities`, never from a role
-- [ ] Tests: four view states, and one asserting no client-side sort
+The screen the user asked for is three readings of one query, not a table. `?view=` selects the
+reading and `?zoom=` the timeline's scale, both in the URL, so a filtered board is a shareable link.
+
+- [x] `types/projects.ts` · `lib/api/projects.ts` · `hooks/projects/use-projects.ts` with its key factory
+- [x] `projects-view.tsx` owns the query · `-filters.tsx` · `-view-switch.tsx`
+- [x] `projects-list.tsx`, rows grouped under the manager carrying them
+- [x] `projects-board.tsx`, one column per manager. Not draggable: moving a card would reassign a
+      project, which is a membership change with its own permission and its own audit entry
+- [x] `projects-timeline.tsx`, a Gantt at Day, Week, Month and Quarter zoom (S1, S3)
+- [x] `timeline-scale.ts`, the geometry as a pure unit, with 28 specs
+- [x] `group-by-lead.ts`, grouping that never re-sorts what the server ordered, with 6 specs
+- [x] Filters, sort and paging are query params through `useTableState`, never array methods
+- [x] Status and priority through `EnumBadge` (E1, D5)
+- [x] Hours spent and remaining against the estimate, straight off the response (D7, D8)
+- [x] Every three views share one pager, so the page is the unit of attention in all of them
+- [x] Every role reaches the screen. `VIEW_ALL_PROJECTS` reads `/projects`;
+      `VIEW_PROJECT_MEMBERS` without it reads `/projects/mine`; neither is a CLIENT and reads the
+      same endpoint's reduced shape. Gated on permissions, never a role string (D2)
+- [x] `client-projects-list.tsx` is its OWN component reading its OWN `ClientProject` type, not the
+      internal list with fields missing. Nine fields, no priority, no team, no hours, no overdue
+      verdict, and no board or timeline (both group by the manager carrying the work)
+- [x] The scope is part of the query key, so an admin's hundred projects cannot be served from cache
+      to the developer who signs in after them
+- [x] Tests: 64 across the three views and the scope discriminator, mutation-checked against six
+      deliberate breakages including both directions of the scoping bug
+- [ ] Row actions gated from each row's own `capabilities`, never from a role. **Not in this PR:**
+      there are no row actions yet, because every mutation they would offer belongs to PR 2 and PR 4
+- [ ] "New project" in the header. **Not in this PR:** it needs the create form from PR 2, and a
+      button that goes nowhere is worse than no button
+
+### PR 1's backend half
+
+The list could not group by manager until the response said who that was, and it could not print an
+hours figure until the response phrased one.
+
+- [x] `members` and `lead` on `ProjectResponseDto`. `lead` is the first staffed project manager by
+      name, so two clients cannot disagree about which of several managers is "the" one
+- [x] `PROJECT_INCLUDE` returns `leftAt`, so the **mapper** enforces current-team-only. A former
+      member on a row claims they are working on something they left
+- [x] `actualHoursLabel`, `estimatedHoursLabel`, `remainingHoursLabel` and `deadlineLabel`, beside
+      the exact figures they read out (ADR 0003). Rendering the number itself puts
+      `56.083333333333336h` on a screen, which it did once
+- [x] `formatHoursLabel` and `formatDeadlineLabel` moved to `common/utils/duration.util.ts`, so the
+      dashboard and the list phrase the same fact identically
+- [x] `toProjectMemberSummaries` called once per project rather than twice
+- [x] Specs: 22 in `projects/spec/project-lead.spec.ts`, 14 more on the two formatters
+- [x] `/projects/mine` accepts the same filters and sort as `/projects`. It took only paging before,
+      so the screen offered a developer filter controls that did nothing, and filtering in the
+      browser would have filtered the one page it held
+- [x] `buildProjectFilters` is shared by both list endpoints, so one of them cannot quietly stop
+      honouring `archived` and show an archive to somebody who asked for live work
+- [x] `sortBy` is optional on `/projects/mine`, and absent means `compareForDashboard`: priority,
+      then deadline, then planned start. That is the order the work should be picked up in, and a
+      column sort is the exception rather than the default
 
 ### PR 2, create (C1 to C4)
 
@@ -741,11 +788,25 @@ spec and the reasoning are in [`03-header-chrome.md`](./03-header-chrome.md).
 
 ### Timeline and Gantt (S1, S3, S4)
 
-- [ ] A timeline endpoint returning already-laid-out bars per member. The browser draws, it does not lay out
-- [ ] A per-week workload endpoint (S4)
-- [ ] The project timeline screen (S1)
-- [ ] The overlap view (S3)
-- [ ] Specs for both endpoints
+**S1 and S3 landed early, in D5 PR 1**, because the projects screen the user specified is a timeline
+as much as it is a list, and building the list twice to keep the phases tidy would have been the
+worse trade.
+
+- [~] The project timeline screen (S1), at four zoom levels. **Partial:** it groups by project
+  manager, which is what the supplied screens show. `features1` asks for it per developer, which
+  is a merge rather than a group because one developer works under several managers. That axis
+  and S4 are the same piece of work
+- [x] The overlap view (S3). The same screen answers it: bars on a shared axis grouped by manager
+      show two overlapping projects under one person, which no table can
+- [ ] ~~A timeline endpoint returning already-laid-out bars per member~~ **Reconsidered.** A bar's
+      offset is a percentage of a window that changes with the zoom and the viewport, so a native
+      client would need different numbers from the same facts: that is the test D4 sets, and layout
+      fails it. The endpoint would have to be re-requested on every zoom click. What the backend owes
+      the view is dates, and it already sends them. `timeline-scale.ts` holds the geometry as a pure
+      unit with 28 specs, which is where the testability the endpoint was for actually comes from
+- [ ] A per-week workload endpoint (S4). Still a real gap, and genuinely a backend one: a person's
+      committed hours per week is a figure, not a layout
+- [ ] Its spec
 
 ### Exports (T1, T3, T4, S2, R17)
 
