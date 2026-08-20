@@ -176,9 +176,9 @@ export const auth = betterAuth({
   /**
    * Defence in depth, below the API surface.
    *
-   * `disableSignUp` and `input: false` above already close the escalation path.
-   * These hooks assume both could be wrong, and are the reason a future config
-   * mistake is not immediately a privilege escalation.
+   * `SignUpGuardHook` and `input: false` above already close the escalation
+   * path. These hooks assume both could be wrong, and are the reason a future
+   * config mistake is not immediately a privilege escalation.
    */
   databaseHooks: {
     user: {
