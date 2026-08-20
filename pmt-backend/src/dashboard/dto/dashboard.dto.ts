@@ -67,6 +67,13 @@ export class DashboardSeriesPointDto {
       'A working day for this team, which is Saturday to Thursday. A chart dips to zero on the weekly off day, and without this a reader cannot tell a day off from a day nobody worked.',
   })
   isWorkingDay!: boolean;
+
+  @ApiProperty({
+    example: false,
+    description:
+      'The busiest day in this series, so a chart can emphasise it. True on exactly one point, and on none at all when every value is zero: a flat series has no peak, and highlighting the first of fourteen identical bars would claim a shape the data does not have. A client scanning for its own maximum would have to re-scan on every render and would disagree with any other client that broke the tie differently.',
+  })
+  isPeak!: boolean;
 }
 
 export class DashboardSeriesDto {
@@ -586,6 +593,24 @@ export class DashboardMyDayDto {
   weekTargetMinutes!: number;
 
   @ApiProperty({
+    example: '48h',
+    description:
+      'The same target as it should read. A client dividing weekTargetMinutes by sixty writes its own duration formatter, and the one here already knows how this team writes an hour.',
+  })
+  weekTargetLabel!: string;
+
+  @ApiPropertyOptional({
+    example: 0.62,
+    nullable: true,
+    description:
+      'thisWeek against weekTargetMinutes. NOT capped at 1: going over the target is a fact worth showing, and a client that needs a bar clips it with overflow rather than losing the number. Null when the target is zero.',
+  })
+  weekProgressRate!: number | null;
+
+  @ApiPropertyOptional({ example: '62%', nullable: true })
+  weekProgressLabel!: string | null;
+
+  @ApiProperty({
     type: DashboardSeriesDto,
     description: 'The caller own hours per day across the range.',
   })
@@ -607,43 +632,62 @@ export class DashboardMyDayDto {
   myOpenBlockerCount!: number;
 }
 
-/** The queues waiting on somebody, and who they are waiting on. */
+/**
+ * One queue waiting on somebody.
+ *
+ * A row rather than a named count field, because the three decisions a screen
+ * would otherwise make itself are all business judgments: whether this queue
+ * concerns the caller at all, whether it is worth showing when empty, and how
+ * urgently it reads. The previous shape sent six counts and a null, and the
+ * browser filtered them, named them and decided that overdue was the red one.
+ */
+export class DashboardAttentionItemDto {
+  @ApiProperty({
+    example: 'overdueProjects',
+    description:
+      'Stable identifier. Never rendered: a client keys its icon and its link off this, the way it keys a colour off a tone.',
+  })
+  key!: string;
+
+  @ApiProperty({ example: 'Overdue projects' })
+  label!: string;
+
+  @ApiProperty({ example: 4 })
+  count!: number;
+
+  @ApiProperty({
+    type: EnumDisplayDto,
+    description:
+      'How urgently this queue reads. A project past its deadline is not the same kind of waiting as one sitting in internal review, and deciding which is the red row is a judgment about the business rather than a styling choice.',
+  })
+  tone!: EnumDisplayDto;
+}
+
+/**
+ * The queues waiting on somebody, already decided.
+ *
+ * Rows arrive in a FIXED declared order rather than sorted by count, for the
+ * same reason a breakdown's slices do: sorting by size reorders the card every
+ * time a project moves, so a reader can never learn where to look.
+ *
+ * A queue with a count of zero is omitted, and so is one the caller may not act
+ * on. Those two omissions look identical here and are not the same thing: an
+ * empty queue has nothing waiting, where a forbidden one would be offering work
+ * the caller cannot do. Only an Admin can approve leave, so a project manager
+ * never receives that row at all.
+ */
 export class DashboardAttentionDto {
   @ApiProperty({
-    example: 3,
-    description: 'Additional requirements waiting for a decision.',
+    example: 10,
+    description: 'Everything waiting across the rows below, summed once.',
   })
-  pendingRequirementCount!: number;
+  total!: number;
 
-  @ApiProperty({
-    example: 1,
-    description: 'Projects sitting in Internal Review.',
-  })
-  internalReviewCount!: number;
+  @ApiProperty({ example: '10 waiting' })
+  totalLabel!: string;
 
-  @ApiProperty({
-    example: 2,
-    description: 'Projects sitting in Waiting For Feedback.',
-  })
-  awaitingClientFeedbackCount!: number;
-
-  @ApiProperty({ example: 4, description: 'Projects past their deadline.' })
-  overdueProjectCount!: number;
-
-  @ApiProperty({
-    example: 2,
-    description:
-      'Projects still in Planning without enough of a team to leave it.',
-  })
-  notReadyToStartCount!: number;
-
-  @ApiPropertyOptional({
-    example: 4,
-    nullable: true,
-    description:
-      'Leave requests waiting for a decision. Null unless the caller may actually review one: only an Admin can approve or reject, so showing the number to a project manager would offer work they cannot do.',
-  })
-  pendingLeaveRequestCount!: number | null;
+  @ApiProperty({ type: [DashboardAttentionItemDto] })
+  items!: DashboardAttentionItemDto[];
 }
 
 /**

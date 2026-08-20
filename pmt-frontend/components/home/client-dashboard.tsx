@@ -1,8 +1,17 @@
 'use client';
 
+import {
+    ArrowRight01Icon,
+    Comment01Icon,
+    FolderLibraryIcon,
+} from '@hugeicons/core-free-icons';
+import { HugeiconsIcon } from '@hugeicons/react';
+import Link from 'next/link';
+
 import { EnumBadge } from '@/components/common/enum-badge';
+import { IconTile } from '@/components/common/stats/icon-tile';
+import { SectionHeading } from '@/components/common/stats/section-heading';
 import { Card, CardHeader, CardTitle } from '@/components/ui/card';
-import { cn } from '@/lib/utils';
 import type { ClientDashboard } from '@/types/dashboard';
 
 /**
@@ -13,46 +22,66 @@ import type { ClientDashboard } from '@/types/dashboard';
  * blockers, team or capabilities at all, so there is nothing here to accidentally
  * render: the omission is enforced by the API's projection rather than by this
  * component remembering to leave things out.
+ *
+ * It shares the card kit with the internal overview so the two look like one
+ * product, which is the only thing the redesign changed here.
  */
 export function ClientDashboardView({ client }: { client: ClientDashboard }) {
     return (
-        <div className='flex flex-col gap-4'>
+        <div className='flex flex-col gap-6'>
             {client.awaitingMyFeedbackCount > 0 && (
-                <Card className='border-primary/40 bg-primary-subtle px-6 py-4'>
-                    <p className='text-sm font-medium text-primary-subtle-content'>
-                        {client.awaitingMyFeedbackCount === 1
-                            ? '1 project is waiting for your feedback'
-                            : `${client.awaitingMyFeedbackCount} projects are waiting for your feedback`}
-                    </p>
+                <Card
+                    size='sm'
+                    className='border-primary/40 bg-primary-subtle'>
+                    <div className='flex items-center gap-3 px-4'>
+                        <IconTile icon={Comment01Icon} tone='primary' />
+                        <div className='min-w-0'>
+                            <p className='text-sm font-medium text-primary-subtle-content'>
+                                {client.awaitingMyFeedbackCount === 1
+                                    ? '1 project is waiting for your feedback'
+                                    : `${client.awaitingMyFeedbackCount} projects are waiting for your feedback`}
+                            </p>
+                            <p className='text-xs text-primary-subtle-content/80'>
+                                Approve the work or ask for changes.
+                            </p>
+                        </div>
+                    </div>
                 </Card>
             )}
 
-            <Card className='flex flex-col'>
-                <CardHeader className='pb-3'>
-                    <CardTitle className='text-base'>Your projects</CardTitle>
-                </CardHeader>
+            <section className='flex flex-col gap-3'>
+                <SectionHeading
+                    title='Your projects'
+                    count={client.projects.length}
+                    tone='primary'
+                />
 
-                <div className='flex flex-col px-6 pb-6'>
+                <Card className='gap-0 py-0'>
                     {client.projects.length === 0 ? (
-                        <p className='text-sm text-content-muted'>
+                        <p className='px-6 py-8 text-sm text-content-muted'>
                             You have no active projects.
                         </p>
                     ) : (
                         client.projects.map((project) => (
-                            <div
+                            <Link
                                 key={project.id}
-                                className={cn(
-                                    'flex flex-wrap items-center justify-between gap-3 border-b border-line py-3 last:border-b-0',
-                                )}>
-                                <div className='min-w-0'>
-                                    <p className='truncate text-sm font-medium text-content'>
-                                        {project.name}
-                                    </p>
-                                    {project.deadlineLabel && (
-                                        <p className='text-xs text-content-muted'>
-                                            {project.deadlineLabel}
+                                href={`/projects/${project.id}`}
+                                className='group/row flex flex-wrap items-center justify-between gap-3 border-b border-line px-4 py-3 transition-colors last:border-b-0 hover:bg-surface-raised'>
+                                <div className='flex min-w-0 items-center gap-3'>
+                                    <IconTile
+                                        icon={FolderLibraryIcon}
+                                        size='sm'
+                                    />
+                                    <div className='min-w-0'>
+                                        <p className='truncate font-heading text-sm font-medium text-content'>
+                                            {project.name}
                                         </p>
-                                    )}
+                                        {project.deadlineLabel && (
+                                            <p className='text-2xs tabular-nums text-content-subtle'>
+                                                {project.deadlineLabel}
+                                            </p>
+                                        )}
+                                    </div>
                                 </div>
                                 <div className='flex items-center gap-2'>
                                     {project.isAwaitingMyFeedback && (
@@ -61,12 +90,18 @@ export function ClientDashboardView({ client }: { client: ClientDashboard }) {
                                         </span>
                                     )}
                                     <EnumBadge display={project.status} />
+                                    <HugeiconsIcon
+                                        aria-hidden
+                                        icon={ArrowRight01Icon}
+                                        className='size-4 shrink-0 text-content-subtle transition-transform group-hover/row:translate-x-0.5'
+                                        strokeWidth={1.75}
+                                    />
                                 </div>
-                            </div>
+                            </Link>
                         ))
                     )}
-                </div>
-            </Card>
+                </Card>
+            </section>
         </div>
     );
 }

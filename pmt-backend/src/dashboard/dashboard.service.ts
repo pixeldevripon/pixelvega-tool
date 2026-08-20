@@ -38,6 +38,7 @@ import {
   hasMyDay,
   resolveDashboardAudience,
   tallyOpenBlockers,
+  toAttention,
   toAudienceDisplay,
   toBreakdown,
   toDashboardClientProject,
@@ -47,6 +48,7 @@ import {
   toRankedRow,
   toRate,
   toSeries,
+  type DashboardAttentionCounts,
 } from './dashboard.mapper';
 import type {
   DashboardResponseDto,
@@ -414,7 +416,15 @@ export class DashboardService {
         from: range.from,
         days: range.days,
         minutesByDay,
-        dailyTarget: TARGET_HOURS_PER_DAY * 60,
+        // NULL, and that is the correction rather than an omission. This series
+        // is the whole team's hours per day, and TARGET_HOURS_PER_DAY is one
+        // PERSON's eight hours. Sending it here drew a target at 480 minutes
+        // under a team that logs around 9,000, so the line sat flat on the axis
+        // and read as "the team is permanently at its goal". A team target is
+        // eight hours times however many people were expected to work that day,
+        // which this query does not know, so the honest answer is no target.
+        // `myDay.myHoursTrend` keeps the per-person one, where it is the truth.
+        dailyTarget: null,
       }),
 
       statusBreakdown: toBreakdown({
@@ -451,7 +461,7 @@ export class DashboardService {
 
       projects: cards,
       projectTotal: projects.length,
-      attention,
+      attention: toAttention(attention),
       standupComplianceToday: compliance,
       myDay: hasMyDay(permissions)
         ? await this.buildMyDay(actor.id, range, now, projectIds)
@@ -523,18 +533,23 @@ export class DashboardService {
     });
   }
 
+  /**
+   * The raw queue sizes. Which of them the caller sees, in what order and at
+   * what urgency, is `toAttention`'s decision: this method counts rows and
+   * decides nothing.
+   */
   private async loadAttention(
     scope: Prisma.ProjectWhereInput,
     held: Set<Permission>,
     now: Date,
-  ) {
+  ): Promise<DashboardAttentionCounts> {
     const [
-      pendingRequirementCount,
-      internalReviewCount,
-      awaitingClientFeedbackCount,
-      overdueProjectCount,
-      notReadyToStartCount,
-      pendingLeaveRequestCount,
+      pendingRequirements,
+      internalReview,
+      awaitingClientFeedback,
+      overdueProjects,
+      notReadyToStart,
+      pendingLeaveRequests,
     ] = await Promise.all([
       this.prisma.additionalRequirement.count({
         where: {
@@ -572,12 +587,12 @@ export class DashboardService {
     ]);
 
     return {
-      pendingRequirementCount,
-      internalReviewCount,
-      awaitingClientFeedbackCount,
-      overdueProjectCount,
-      notReadyToStartCount,
-      pendingLeaveRequestCount,
+      pendingRequirements,
+      internalReview,
+      awaitingClientFeedback,
+      overdueProjects,
+      notReadyToStart,
+      pendingLeaveRequests,
     };
   }
 
@@ -771,6 +786,9 @@ export class DashboardService {
       if (entry.startedAt >= weekStart) weekMinutes += minutes;
     }
 
+    const weekTargetMinutes = TARGET_HOURS_PER_DAY * WORKING_DAYS_PER_WEEK * 60;
+    const weekProgress = toRate(weekMinutes, weekTargetMinutes);
+
     return {
       activeTimer: running
         ? {
@@ -802,7 +820,13 @@ export class DashboardService {
         : null,
       today: toDashboardHours(todayMinutes),
       thisWeek: toDashboardHours(weekMinutes),
-      weekTargetMinutes: TARGET_HOURS_PER_DAY * WORKING_DAYS_PER_WEEK * 60,
+      weekTargetMinutes,
+      weekTargetLabel: formatDuration(weekTargetMinutes) as string,
+      // Uncapped on purpose: someone forty hours into a forty eight hour week
+      // and someone sixty hours in are not the same week, and clamping here
+      // would throw away the only figure that says so. A bar clips it.
+      weekProgressRate: weekProgress.rate,
+      weekProgressLabel: weekProgress.rateLabel,
       myHoursTrend: toSeries({
         label: 'My hours',
         from: range.from,

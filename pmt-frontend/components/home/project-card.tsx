@@ -1,10 +1,11 @@
 'use client';
 
-import { HugeiconsIcon } from '@hugeicons/react';
 import {
     AlertDiamondIcon,
     Timer01Icon,
+    UserGroupIcon,
 } from '@hugeicons/core-free-icons';
+import { HugeiconsIcon } from '@hugeicons/react';
 import Link from 'next/link';
 
 import { EnumBadge } from '@/components/common/enum-badge';
@@ -14,8 +15,8 @@ import { cn } from '@/lib/utils';
 import type { DashboardProject } from '@/types/dashboard';
 
 /**
- * One project, as a card: status, who is working on it, its blockers, and its
- * progress.
+ * One project, as a board card: priority, status, who is on it, its blockers, and
+ * its progress.
  *
  * ── What this component does NOT decide ──
  *
@@ -37,20 +38,51 @@ export function ProjectCard({ project }: { project: DashboardProject }) {
 
     return (
         <Card
+            size='sm'
             className={cn(
-                'flex flex-col gap-3 p-4 transition-colors',
+                'gap-3 transition-shadow hover:shadow-sm',
                 // A single flag drives the emphasis, so a card, a count and a
                 // filter can never disagree about what "at risk" means.
-                project.isAtRisk && 'border-danger-border bg-danger-subtle/30',
+                project.isAtRisk && 'border-danger-border bg-danger-subtle/25',
             )}>
-            <div className='flex items-start justify-between gap-2'>
-                <div className='min-w-0'>
-                    <Link
-                        href={`/projects/${project.id}`}
-                        className='block truncate text-sm font-medium text-content hover:text-primary hover:underline'>
-                        {project.name}
-                    </Link>
-                    <div className='mt-1 flex flex-wrap items-center gap-1'>
+            {/* The priority pill leads, as it does on the reference's board
+                card: it is the one thing a reader scans a wall of cards for. */}
+            <div className='flex items-start justify-between gap-2 px-4'>
+                <EnumBadge display={project.priority} />
+                <EnumBadge display={project.status} />
+            </div>
+
+            <div className='px-4'>
+                <Link
+                    href={`/projects/${project.id}`}
+                    className='font-heading text-sm font-medium text-content hover:text-primary hover:underline'>
+                    {project.name}
+                </Link>
+
+                <p className='mt-1 text-xs text-content-muted'>
+                    {/* The LABELS, never the floats. `actualHours` is a sum of
+                        minutes over sixty, so rendering it raw put
+                        "56.083333333333336h" on screen. */}
+                    {project.estimatedHoursLabel
+                        ? `${project.actualHoursLabel} of ${project.estimatedHoursLabel}`
+                        : `${project.actualHoursLabel} logged`}
+                    {project.deadlineLabel && (
+                        <>
+                            {' · '}
+                            <span
+                                className={cn(
+                                    'tabular-nums',
+                                    project.isOverdue &&
+                                        'font-medium text-danger-fg',
+                                )}>
+                                {project.deadlineLabel}
+                            </span>
+                        </>
+                    )}
+                </p>
+
+                {project.types.length > 0 && (
+                    <div className='mt-2 flex flex-wrap items-center gap-1'>
                         {project.types.map((type) => (
                             <span
                                 key={type.value}
@@ -59,60 +91,38 @@ export function ProjectCard({ project }: { project: DashboardProject }) {
                             </span>
                         ))}
                     </div>
-                </div>
-                <EnumBadge display={project.status} />
-            </div>
-
-            <div className='flex items-center gap-2 text-xs'>
-                <EnumBadge display={project.priority} />
-                {project.deadlineLabel && (
-                    <span
-                        className={cn(
-                            'tabular-nums',
-                            project.isOverdue
-                                ? 'font-medium text-danger-fg'
-                                : 'text-content-muted',
-                        )}>
-                        {project.deadlineLabel}
-                    </span>
                 )}
             </div>
 
             {/* Progress. The percentage is the lifecycle position; the hours
-                line beside it is spend against estimate. Two different
+                line above it is spend against estimate. Two different
                 questions, deliberately not merged into one bar. */}
-            <div className='flex flex-col gap-1'>
-                <div className='flex items-baseline justify-between text-xs'>
-                    <span className='text-content-muted'>
+            <div className='flex flex-col gap-1 px-4'>
+                <div className='flex items-baseline justify-between text-2xs'>
+                    <span className='text-content-subtle'>
                         {project.progressPercentage}% through
                     </span>
-                    {/* The LABELS, never the floats. `actualHours` is a sum of
-                        minutes over sixty, so rendering it raw put
-                        "56.083333333333336h" on screen. */}
-                    <span className='tabular-nums text-content-muted'>
-                        {project.estimatedHoursLabel
-                            ? `${project.actualHoursLabel} of ${project.estimatedHoursLabel}`
-                            : `${project.actualHoursLabel} logged`}
-                    </span>
+                    {/* Over the estimate is worth saying out loud rather than
+                        leaving as two numbers to compare. */}
+                    {project.hoursUsedRate !== null &&
+                        project.hoursUsedRate > 1 && (
+                            <span className='font-medium text-warning-fg'>
+                                over estimate
+                            </span>
+                        )}
                 </div>
                 <div className='h-1.5 overflow-hidden rounded-full bg-surface-inset'>
                     <div
-                        className='h-full rounded-full bg-primary'
+                        className={cn(
+                            'h-full rounded-full',
+                            project.isAtRisk ? 'bg-danger-solid' : 'bg-primary',
+                        )}
                         style={{ width: `${project.progressPercentage}%` }}
                     />
                 </div>
-                {/* Over the estimate is worth saying out loud rather than
-                    leaving as two numbers to compare. */}
-                {project.hoursUsedRate !== null &&
-                    project.hoursUsedRate > 1 && (
-                        <p className='text-2xs font-medium text-warning-fg'>
-                            {Math.round(project.hoursUsedRate * 100)}% of the
-                            estimate used
-                        </p>
-                    )}
             </div>
 
-            <div className='flex items-center justify-between gap-2 border-t border-line pt-3'>
+            <div className='flex items-center justify-between gap-2 border-t border-line px-4 pt-3'>
                 <div className='flex items-center'>
                     {project.members.slice(0, VISIBLE_MEMBERS).map((member) => (
                         <Avatar
@@ -129,18 +139,24 @@ export function ProjectCard({ project }: { project: DashboardProject }) {
                         </Avatar>
                     ))}
                     {overflow > 0 && (
-                        <span className='ml-2.5 text-2xs font-medium text-content-subtle'>
+                        <span className='ml-2 inline-flex size-6 items-center justify-center rounded-full bg-surface-inset text-2xs font-medium tabular-nums text-content-muted ring-2 ring-surface-overlay'>
                             +{overflow}
                         </span>
                     )}
                     {project.members.length === 0 && (
-                        <span className='text-2xs font-medium text-warning-fg'>
+                        <span className='flex items-center gap-1 text-2xs font-medium text-warning-fg'>
+                            <HugeiconsIcon
+                                aria-hidden
+                                icon={UserGroupIcon}
+                                className='size-3.5'
+                                strokeWidth={1.75}
+                            />
                             Nobody staffed
                         </span>
                     )}
                 </div>
 
-                <div className='flex items-center gap-2.5 text-xs text-content-muted'>
+                <div className='flex items-center gap-3 text-xs text-content-muted'>
                     {project.openBlockerCount > 0 && (
                         <span
                             className={cn(
@@ -151,9 +167,10 @@ export function ProjectCard({ project }: { project: DashboardProject }) {
                             title={
                                 project.highSeverityBlockerCount > 0
                                     ? `${project.highSeverityBlockerCount} at high severity`
-                                    : undefined
+                                    : `${project.openBlockerCount} open`
                             }>
                             <HugeiconsIcon
+                                aria-hidden
                                 icon={AlertDiamondIcon}
                                 className='size-3.5'
                                 strokeWidth={1.75}
@@ -162,8 +179,11 @@ export function ProjectCard({ project }: { project: DashboardProject }) {
                         </span>
                     )}
                     {project.minutesInRange > 0 && (
-                        <span className='flex items-center gap-1 tabular-nums'>
+                        <span
+                            className='flex items-center gap-1 tabular-nums'
+                            title='Logged in this window'>
                             <HugeiconsIcon
+                                aria-hidden
                                 icon={Timer01Icon}
                                 className='size-3.5'
                                 strokeWidth={1.75}

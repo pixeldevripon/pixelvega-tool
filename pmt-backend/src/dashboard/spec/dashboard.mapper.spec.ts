@@ -18,6 +18,7 @@ import {
   hasMyDay,
   resolveDashboardAudience,
   tallyOpenBlockers,
+  toAttention,
   toBreakdown,
   toDashboardClientProject,
   toDashboardHours,
@@ -26,6 +27,7 @@ import {
   toRankedRow,
   toRate,
   toSeries,
+  type DashboardAttentionCounts,
   type DashboardProjectRow,
 } from '@/dashboard/dashboard.mapper';
 
@@ -700,6 +702,236 @@ describe('toSeries', () => {
 
     expect(series.points[0].isWorkingDay).toBe(false);
     expect(series.points[1].isWorkingDay).toBe(true);
+  });
+
+  it('flags the busiest day as the peak', () => {
+    const series = toSeries({
+      label: 'Hours logged',
+      from,
+      days: 4,
+      minutesByDay: new Map([
+        ['2026-08-17', 120],
+        ['2026-08-18', 480],
+        ['2026-08-19', 90],
+      ]),
+      dailyTarget: null,
+    });
+
+    expect(series.points.map((p) => p.isPeak)).toEqual([
+      false,
+      true,
+      false,
+      false,
+    ]);
+  });
+
+  it('gives the earliest of two equal maxima the peak', () => {
+    // A tie broken consistently, so the chart's emphasis does not hop between
+    // two identical days depending on which client read the array first.
+    const series = toSeries({
+      label: 'Hours logged',
+      from,
+      days: 3,
+      minutesByDay: new Map([
+        ['2026-08-17', 300],
+        ['2026-08-19', 300],
+      ]),
+      dailyTarget: null,
+    });
+
+    expect(series.points.map((p) => p.isPeak)).toEqual([true, false, false]);
+  });
+
+  it('passes the daily target through, including a deliberate null', () => {
+    // Null is a real answer rather than a missing one. The team-wide series
+    // sends it, because TARGET_HOURS_PER_DAY is ONE person's eight hours: drawn
+    // under a team logging around 9,000 minutes a day it sat flat on the axis
+    // and read as "permanently at goal". `myHoursTrend` keeps the target.
+    const team = toSeries({
+      label: 'Hours logged',
+      from,
+      days: 2,
+      minutesByDay: new Map([['2026-08-17', 9000]]),
+      dailyTarget: null,
+    });
+    const mine = toSeries({
+      label: 'My hours',
+      from,
+      days: 2,
+      minutesByDay: new Map([['2026-08-17', 480]]),
+      dailyTarget: 480,
+    });
+
+    expect(team.dailyTarget).toBeNull();
+    expect(mine.dailyTarget).toBe(480);
+  });
+
+  it('flags no peak at all when every day is zero', () => {
+    // A fortnight of nothing has no busiest day, and colouring the first bar
+    // would claim a shape the data does not have.
+    const series = toSeries({
+      label: 'Hours logged',
+      from,
+      days: 3,
+      minutesByDay: new Map(),
+      dailyTarget: null,
+    });
+
+    expect(series.points.every((p) => p.isPeak === false)).toBe(true);
+  });
+});
+
+// ══════════════════════════════════════════════════════════════════════════
+// Needs attention
+// ══════════════════════════════════════════════════════════════════════════
+
+describe('toAttention', () => {
+  const counts = (
+    overrides: Partial<DashboardAttentionCounts> = {},
+  ): DashboardAttentionCounts => ({
+    overdueProjects: 0,
+    pendingRequirements: 0,
+    pendingLeaveRequests: 0,
+    notReadyToStart: 0,
+    internalReview: 0,
+    awaitingClientFeedback: 0,
+    ...overrides,
+  });
+
+  it('returns the declared order, not descending by count', () => {
+    // Sorting by size moves a row every time a project changes, so a reader
+    // never learns where to look.
+    const attention = toAttention(
+      counts({
+        overdueProjects: 1,
+        pendingRequirements: 9,
+        pendingLeaveRequests: 4,
+        notReadyToStart: 2,
+        internalReview: 7,
+        awaitingClientFeedback: 3,
+      }),
+    );
+
+    expect(attention.items.map((item) => item.key)).toEqual([
+      'overdueProjects',
+      'pendingRequirements',
+      'pendingLeaveRequests',
+      'notReadyToStart',
+      'internalReview',
+      'awaitingClientFeedback',
+    ]);
+  });
+
+  it('omits a queue with nothing in it', () => {
+    // A list of noughts is noise on a card whose job is to say what needs doing.
+    const attention = toAttention(
+      counts({ overdueProjects: 2, internalReview: 1 }),
+    );
+
+    expect(attention.items.map((item) => item.key)).toEqual([
+      'overdueProjects',
+      'internalReview',
+    ]);
+  });
+
+  it('omits pending leave entirely when the caller may not review it', () => {
+    // Null, not zero: a project manager cannot approve leave, so offering them
+    // the number would offer work they cannot do. A client that could tell null
+    // from absent would learn the queue exists.
+    const attention = toAttention(
+      counts({ pendingLeaveRequests: null, overdueProjects: 1 }),
+    );
+
+    expect(
+      attention.items.some((item) => item.key === 'pendingLeaveRequests'),
+    ).toBe(false);
+  });
+
+  it('includes pending leave when the caller may review it', () => {
+    const attention = toAttention(counts({ pendingLeaveRequests: 4 }));
+
+    expect(attention.items).toEqual([
+      {
+        key: 'pendingLeaveRequests',
+        label: 'Leave to approve',
+        count: 4,
+        tone: {
+          value: 'waiting',
+          label: 'Waiting on a decision',
+          tone: 'warning',
+        },
+      },
+    ]);
+  });
+
+  it('reads an overdue project as danger and internal review as neutral', () => {
+    // A project past its deadline is not the same kind of waiting as one moving
+    // through the lifecycle, and which is the red row is a judgment about the
+    // business rather than a styling choice.
+    const attention = toAttention(
+      counts({ overdueProjects: 1, internalReview: 1 }),
+    );
+
+    expect(attention.items[0].tone).toEqual({
+      value: 'overdue',
+      label: 'Past due',
+      tone: 'danger',
+    });
+    expect(attention.items[1].tone).toEqual({
+      value: 'routine',
+      label: 'Moving normally',
+      tone: 'default',
+    });
+  });
+
+  it('reads a project stuck in planning as a warning', () => {
+    const attention = toAttention(counts({ notReadyToStart: 3 }));
+
+    expect(attention.items[0].tone.tone).toBe('warning');
+  });
+
+  it('totals only the queues it returned', () => {
+    // Not the raw counts: a queue the caller may not act on is not part of what
+    // is waiting on them.
+    const attention = toAttention(
+      counts({
+        overdueProjects: 2,
+        internalReview: 3,
+        pendingLeaveRequests: null,
+      }),
+    );
+
+    expect(attention.total).toBe(5);
+    expect(attention.totalLabel).toBe('5 waiting');
+  });
+
+  it('returns an empty list and a zero total when nothing is waiting', () => {
+    const attention = toAttention(counts());
+
+    expect(attention).toEqual({
+      total: 0,
+      totalLabel: '0 waiting',
+      items: [],
+    });
+  });
+
+  it('labels every queue it emits', () => {
+    // A row with no wording renders as a blank line rather than failing loudly.
+    const attention = toAttention(
+      counts({
+        overdueProjects: 1,
+        pendingRequirements: 1,
+        pendingLeaveRequests: 1,
+        notReadyToStart: 1,
+        internalReview: 1,
+        awaitingClientFeedback: 1,
+      }),
+    );
+
+    expect(attention.items).toHaveLength(6);
+    expect(attention.items.every((item) => item.label.trim().length > 0)).toBe(
+      true,
+    );
   });
 });
 
