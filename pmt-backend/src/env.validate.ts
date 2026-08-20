@@ -120,6 +120,19 @@ const OPTIONAL: Record<string, Validator> = {
    */
   AUTH_DISABLE_ORIGIN_CHECK: anyValue,
 
+  /**
+   * Attempts per minute, per IP, on sign-in and the three password routes.
+   *
+   * Optional. Unset means 5, which is the production value and the defence
+   * against password guessing. Raise it locally, where the browser, the Next
+   * route guard and server-side rendering all arrive as one IP and a single
+   * page load can spend several attempts.
+   *
+   * Opt in by explicit value, for the same reason AUTH_DISABLE_ORIGIN_CHECK is:
+   * a limit inferred from NODE_ENV left staging unprotected.
+   */
+  AUTH_SENSITIVE_RATE_LIMIT_MAX: positiveInt,
+
   // Mail. Without these, invite and password reset emails are not delivered.
   SMTP_HOST: anyValue,
   SMTP_PORT: positiveInt,

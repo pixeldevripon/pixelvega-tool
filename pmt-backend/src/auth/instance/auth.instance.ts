@@ -5,6 +5,8 @@ import { prismaAdapter } from 'better-auth/adapters/prisma';
 import { openAPI } from 'better-auth/plugins';
 import { Role, UserStatus } from '@prisma/client';
 
+import { SENSITIVE_AUTH_MAX_PER_MINUTE } from './rate-limit.config';
+
 import { authPrismaClient } from '@/auth/instance/auth-prisma.client';
 import { parseCorsOrigins } from '@/common/utils/parse-cors-origins.util';
 import { mailService } from '@/mail/mail.singleton';
@@ -21,7 +23,6 @@ export { authPrismaClient };
  * failure here, and it is invisible until a user complains.
  */
 export const RESET_PASSWORD_TOKEN_TTL_SECONDS = 60 * 60;
-
 /**
  * Where better-auth is mounted, spelled once.
  *
@@ -220,14 +221,17 @@ export const auth = betterAuth({
     window: 60,
     max: 100,
     customRules: {
-      '/sign-in/email': { window: 60, max: 5 },
+      '/sign-in/email': { window: 60, max: SENSITIVE_AUTH_MAX_PER_MINUTE },
       // `/request-password-reset`, NOT `/forget-password`. The older spelling
       // is gone in better-auth 1.6: a rule naming it silently never matches,
       // which would leave password reset requests on the 100/min default.
       // Verified against the running app, which 404s the old path.
-      '/request-password-reset': { window: 60, max: 5 },
-      '/reset-password': { window: 60, max: 5 },
-      '/change-password': { window: 60, max: 5 },
+      '/request-password-reset': {
+        window: 60,
+        max: SENSITIVE_AUTH_MAX_PER_MINUTE,
+      },
+      '/reset-password': { window: 60, max: SENSITIVE_AUTH_MAX_PER_MINUTE },
+      '/change-password': { window: 60, max: SENSITIVE_AUTH_MAX_PER_MINUTE },
     },
   },
 
