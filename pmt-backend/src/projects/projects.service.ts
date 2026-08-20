@@ -8,6 +8,7 @@ import {
 } from '@nestjs/common';
 import {
   NotificationType,
+  Permission,
   Prisma,
   ProjectPriority,
   ProjectRole,
@@ -85,14 +86,16 @@ type ProjectWithRelations = Prisma.ProjectGetPayload<{
 
 // What a CLIENT sees for their own project. Deliberately excludes internal
 // fields like priority, rushReason, onHoldReason, cancellationReason, and
-// who created/manages the project.
+// who created/manages the project. `clientDeadline`, never the internal
+// working `deadline`, is what toClientProjectResponse() reshapes into the
+// wire field `deadline`.
 const CLIENT_PROJECT_SELECT = {
   id: true,
   name: true,
   description: true,
   status: true,
   plannedStartDate: true,
-  deadline: true,
+  clientDeadline: true,
   completedAt: true,
   createdAt: true,
   projectTypeTags: { select: { type: true } },
@@ -196,6 +199,9 @@ export class ProjectsService {
           ? new Date(dto.plannedStartDate)
           : undefined,
         deadline: dto.deadline ? new Date(dto.deadline) : undefined,
+        clientDeadline: dto.clientDeadline
+          ? new Date(dto.clientDeadline)
+          : undefined,
         projectTypeTags: {
           createMany: { data: projectTypes.map((type) => ({ type })) },
         },
@@ -412,8 +418,18 @@ export class ProjectsService {
     await this.getProjectOrThrow(id);
     await this.projectScope.assertActiveMember(id, actorId, actorRole);
 
+    // CLIENT_DEADLINE_CHANGED metadata carries the same date this endpoint's
+    // caller may otherwise be denied by toProjectResponse(). Filtering the
+    // row out of the query, not just redacting its metadata, hides the fact
+    // that a client deadline changed at all for a DEVELOPER/DESIGNER, which
+    // is the same absence rule the project response enforces.
     const { page = 1, pageSize = 20 } = query;
-    const where = { projectId: id };
+    const where: Prisma.ProjectActivityWhereInput = {
+      projectId: id,
+      ...(!this.canViewClientDeadline(actorRole) && {
+        type: { not: 'CLIENT_DEADLINE_CHANGED' },
+      }),
+    };
 
     const result = await paginate(
       (args) =>
@@ -572,6 +588,9 @@ export class ProjectsService {
     if (dto.deadline !== undefined) {
       data.deadline = new Date(dto.deadline);
     }
+    if (dto.clientDeadline !== undefined) {
+      data.clientDeadline = new Date(dto.clientDeadline);
+    }
 
     if (Object.keys(data).length === 0) {
       return this.getProjectWithInclude(id);
@@ -623,6 +642,18 @@ export class ProjectsService {
         metadata: {
           from: existing.deadline?.toISOString() ?? null,
           to: updated.deadline?.toISOString() ?? null,
+        },
+      });
+    }
+
+    if (
+      dto.clientDeadline !== undefined &&
+      existing.clientDeadline?.getTime() !== updated.clientDeadline?.getTime()
+    ) {
+      await this.projectActivity.log(id, actorId, 'CLIENT_DEADLINE_CHANGED', {
+        metadata: {
+          from: existing.clientDeadline?.toISOString() ?? null,
+          to: updated.clientDeadline?.toISOString() ?? null,
         },
       });
     }
@@ -867,7 +898,17 @@ export class ProjectsService {
       actorId,
     );
 
-    return updated;
+    // Unlike every other project mutation, CHANGE_PROJECT_STATUS is held by
+    // DEVELOPER/DESIGNER too, and this method returns the row directly rather
+    // than through toProjectResponse(). Without this, a status change by a
+    // developer would hand back clientDeadline on a plain column, undoing the
+    // exact visibility rule the response mapper enforces everywhere else.
+    if (this.canViewClientDeadline(actorRole)) {
+      return updated;
+    }
+    const { clientDeadline: _clientDeadline, ...withoutClientDeadline } =
+      updated;
+    return withoutClientDeadline;
   }
 
   // A project's status change always notifies someone, but which type and
@@ -1039,6 +1080,16 @@ export class ProjectsService {
         `Only ADMIN or SYSTEM_ADMIN can ${action} a project`,
       );
     }
+  }
+
+  // The gate `toProjectResponse()` reads for clientDeadline, re-derived here
+  // ONLY for the two methods that return a raw row rather than through that
+  // mapper (updateStatus, findActivities). One helper rather than two copies
+  // of the same lookup within this class.
+  private canViewClientDeadline(actorRole: Role): boolean {
+    return this.permissions
+      .getEffectivePermissions({ role: actorRole })
+      .includes(Permission.EDIT_PROJECT);
   }
 
   // For a project that never got a Slack channel (e.g. Slack wasn't set up

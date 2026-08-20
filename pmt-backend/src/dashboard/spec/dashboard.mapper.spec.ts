@@ -241,6 +241,7 @@ describe('toDashboardProject', () => {
     minutesInRange: 450,
     lastWorkedAt: new Date('2026-08-19T15:00:00.000Z'),
     capabilities,
+    canViewClientDeadline: true,
   };
 
   const base: DashboardProjectRow = {
@@ -249,6 +250,7 @@ describe('toDashboardProject', () => {
     status: ProjectStatus.IN_PROGRESS,
     priority: ProjectPriority.HIGH,
     deadline: new Date('2026-08-25T00:00:00.000Z'),
+    clientDeadline: new Date('2026-09-01T00:00:00.000Z'),
     plannedStartDate: new Date('2026-08-01T00:00:00.000Z'),
     estimatedHours: 120,
     actualHours: 47.5,
@@ -499,6 +501,44 @@ describe('toDashboardProject', () => {
       capabilities,
     );
   });
+
+  describe('clientDeadline', () => {
+    it('is present when the caller may view it', () => {
+      const result = toDashboardProject(base, context, now);
+      expect(result.clientDeadline).toEqual(
+        new Date('2026-09-01T00:00:00.000Z'),
+      );
+      expect(result.daysUntilClientDeadline).toBe(12);
+      expect(result.clientDeadlineLabel).toBe('in 12 days');
+      expect(result.isClientDeadlineOverdue).toBe(false);
+    });
+
+    it('is entirely absent for a DEVELOPER or DESIGNER card', () => {
+      const result = toDashboardProject(
+        base,
+        { ...context, canViewClientDeadline: false },
+        now,
+      );
+      expect('clientDeadline' in result).toBe(false);
+      expect('daysUntilClientDeadline' in result).toBe(false);
+      expect('clientDeadlineLabel' in result).toBe(false);
+      expect('isClientDeadlineOverdue' in result).toBe(false);
+    });
+
+    it('is independent of the internal deadline going overdue', () => {
+      const result = toDashboardProject(
+        {
+          ...base,
+          deadline: new Date('2026-12-01T00:00:00.000Z'),
+          clientDeadline: new Date('2026-08-01T00:00:00.000Z'),
+        },
+        context,
+        now,
+      );
+      expect(result.isOverdue).toBe(false);
+      expect(result.isClientDeadlineOverdue).toBe(true);
+    });
+  });
 });
 
 describe('toDashboardClientProject', () => {
@@ -508,7 +548,7 @@ describe('toDashboardClientProject', () => {
         id: 'p1',
         name: 'Acme corporate site',
         status: ProjectStatus.WAITING_FOR_FEEDBACK,
-        deadline: new Date('2026-09-01T00:00:00.000Z'),
+        clientDeadline: new Date('2026-09-01T00:00:00.000Z'),
       },
       true,
       new Date('2026-08-20T12:00:00.000Z'),

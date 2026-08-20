@@ -23,6 +23,7 @@ import {
 import { WEEKLY_OFF_DAY } from '@/common/working-day/working-day.constants';
 import {
   daysUntilDeadline,
+  isPastDeadline,
   TERMINAL_STATUSES,
   withRemainingHours,
 } from '@/projects/project.mapper';
@@ -457,6 +458,7 @@ export type DashboardProjectRow = {
   status: ProjectStatus;
   priority: ProjectPriority;
   deadline: Date | null;
+  clientDeadline: Date | null;
   plannedStartDate: Date | null;
   estimatedHours: number | null;
   actualHours: number;
@@ -494,14 +496,22 @@ export function toDashboardProject(
     /** Latest time entry across every user. Null when nobody has logged any. */
     lastWorkedAt: Date | null;
     capabilities: DashboardProjectCapabilitiesDto;
+    /**
+     * Whether this caller's ROLE holds EDIT_PROJECT, the same gate
+     * `project.mapper.ts` reads for the main project response. Company wide,
+     * not project scoped: a DEVELOPER or DESIGNER never sees it, whichever
+     * project this card is for.
+     */
+    canViewClientDeadline: boolean;
   },
   now: Date = new Date(),
 ): DashboardProjectDto {
   const isTerminal = TERMINAL_STATUSES.includes(project.status);
   const daysLeft = daysUntilDeadline(project.deadline, now);
   // Same predicate as the project response, from the same import, so the two
-  // cannot drift. A finished project is never overdue: it is finished.
-  const isOverdue = daysLeft !== null && daysLeft < 0 && !isTerminal;
+  // cannot drift.
+  const isOverdue = isPastDeadline(daysLeft, isTerminal);
+  const clientDaysLeft = daysUntilDeadline(project.clientDeadline, now);
 
   const { remainingHours } = withRemainingHours(project);
 
@@ -517,6 +527,12 @@ export function toDashboardProject(
     daysUntilDeadline: daysLeft,
     deadlineLabel: formatDeadlineLabel(daysLeft),
     isOverdue,
+    ...(context.canViewClientDeadline && {
+      clientDeadline: project.clientDeadline,
+      daysUntilClientDeadline: clientDaysLeft,
+      clientDeadlineLabel: formatDeadlineLabel(clientDaysLeft),
+      isClientDeadlineOverdue: isPastDeadline(clientDaysLeft, isTerminal),
+    }),
     // ONE definition of at risk, so a card, a count and a filter cannot
     // disagree. A finished project is excluded even if it has a stale blocker:
     // there is no risk left to manage.
@@ -566,24 +582,28 @@ export function toDashboardProject(
  * Built from its own narrow row type rather than by omitting fields from the
  * wider mapper above. Omitting at runtime is how an internal number reaches a
  * client the first time someone edits the shared function.
+ *
+ * `deadline` on the wire is sourced from the row's `clientDeadline`, never
+ * from the internal working deadline the staff cards use: a client has one
+ * concept of "deadline", the date they were promised.
  */
 export function toDashboardClientProject(
   project: {
     id: string;
     name: string;
     status: ProjectStatus;
-    deadline: Date | null;
+    clientDeadline: Date | null;
   },
   isAwaitingMyFeedback: boolean,
   now: Date = new Date(),
 ): DashboardClientProjectDto {
-  const daysLeft = daysUntilDeadline(project.deadline, now);
+  const daysLeft = daysUntilDeadline(project.clientDeadline, now);
 
   return {
     id: project.id,
     name: project.name,
     status: toEnumDisplay(PROJECT_STATUS_DISPLAY, project.status),
-    deadline: project.deadline,
+    deadline: project.clientDeadline,
     deadlineLabel: formatDeadlineLabel(daysLeft),
     isAwaitingMyFeedback,
   };

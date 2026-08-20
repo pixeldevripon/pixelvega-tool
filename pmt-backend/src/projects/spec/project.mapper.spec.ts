@@ -3,6 +3,7 @@ import { Permission, ProjectPriority, ProjectStatus } from '@prisma/client';
 import {
   buildProjectCapabilities,
   daysUntilDeadline,
+  toClientProjectResponse,
   toProjectResponse,
 } from '../project.mapper';
 
@@ -26,12 +27,21 @@ const MANAGER = {
   mayChangeStatus: true,
 };
 
+// A DEVELOPER/DESIGNER: staffed, may change status, but does not hold
+// EDIT_PROJECT, which is the gate for clientDeadline.
+const DEVELOPER = {
+  permissions: [Permission.CHANGE_PROJECT_STATUS],
+  managesProject: false,
+  mayChangeStatus: true,
+};
+
 function project(overrides: Record<string, unknown> = {}) {
   return {
     status: ProjectStatus.IN_PROGRESS,
     priority: ProjectPriority.HIGH,
     archivedAt: null,
     deadline: new Date('2026-09-30T00:00:00.000Z'),
+    clientDeadline: new Date('2026-10-07T00:00:00.000Z'),
     estimatedHours: 120,
     actualHours: 47.5,
     ...overrides,
@@ -141,6 +151,79 @@ describe('toProjectResponse', () => {
         toProjectResponse(project({ deadline: null }), MANAGER, NOW).isOverdue,
       ).toBe(false);
     });
+  });
+
+  describe('clientDeadline', () => {
+    it('is present for a caller who holds EDIT_PROJECT', () => {
+      const result = toProjectResponse(project(), MANAGER, NOW);
+      expect(result.clientDeadline).toEqual(
+        new Date('2026-10-07T00:00:00.000Z'),
+      );
+      expect(result.daysUntilClientDeadline).toBe(49);
+      expect(result.isClientDeadlineOverdue).toBe(false);
+    });
+
+    it('is entirely absent for a DEVELOPER or DESIGNER', () => {
+      // Absent, not null: a DEVELOPER must not learn a client deadline exists
+      // at all, and JSON.stringify drops an undefined key the same way a
+      // caller who lacks the key entirely would see it.
+      const result = toProjectResponse(project(), DEVELOPER, NOW);
+      expect('clientDeadline' in result).toBe(false);
+      expect('daysUntilClientDeadline' in result).toBe(false);
+      expect('isClientDeadlineOverdue' in result).toBe(false);
+    });
+
+    it('is true once past clientDeadline, independent of the internal deadline', () => {
+      const result = toProjectResponse(
+        project({
+          deadline: new Date('2026-12-01T00:00:00.000Z'), // internal date not yet due
+          clientDeadline: new Date('2026-08-01T00:00:00.000Z'), // client date overdue
+        }),
+        MANAGER,
+        NOW,
+      );
+      expect(result.isOverdue).toBe(false);
+      expect(result.isClientDeadlineOverdue).toBe(true);
+    });
+
+    it('is false for a finished project past clientDeadline', () => {
+      const done = project({
+        clientDeadline: new Date('2026-08-01T00:00:00.000Z'),
+        status: ProjectStatus.COMPLETED,
+      });
+      expect(
+        toProjectResponse(done, MANAGER, NOW).isClientDeadlineOverdue,
+      ).toBe(false);
+    });
+
+    it('is null, not absent, when the caller may view it but none is set', () => {
+      const result = toProjectResponse(
+        project({ clientDeadline: null }),
+        MANAGER,
+        NOW,
+      );
+      expect(result.clientDeadline).toBeNull();
+      expect(result.daysUntilClientDeadline).toBeNull();
+    });
+  });
+});
+
+describe('toClientProjectResponse', () => {
+  it('exposes clientDeadline as the wire field deadline', () => {
+    const result = toClientProjectResponse({
+      status: ProjectStatus.IN_PROGRESS,
+      clientDeadline: new Date('2026-10-07T00:00:00.000Z'),
+    });
+    expect(result.deadline).toEqual(new Date('2026-10-07T00:00:00.000Z'));
+    expect('clientDeadline' in result).toBe(false);
+  });
+
+  it('maps status to a display object', () => {
+    const result = toClientProjectResponse({
+      status: ProjectStatus.WAITING_FOR_FEEDBACK,
+      clientDeadline: null,
+    });
+    expect(result.status.value).toBe('WAITING_FOR_FEEDBACK');
   });
 });
 

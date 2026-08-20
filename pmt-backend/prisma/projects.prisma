@@ -16,7 +16,8 @@ model Project {
   createdBy   User   @relation("ProjectCreatedBy", fields: [createdById], references: [id])
 
   plannedStartDate DateTime?
-  deadline         DateTime?
+  deadline         DateTime? // the internal/working date. Never shown to a CLIENT.
+  clientDeadline   DateTime? // the date actually promised to the client. Withheld from DEVELOPER/DESIGNER.
   completedAt      DateTime?
 
   onHoldReason       String?

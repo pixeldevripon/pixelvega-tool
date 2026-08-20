@@ -79,6 +79,10 @@ describe('ProjectsService: status, archive and restore', () => {
         findUniqueOrThrow: jest.fn(),
       },
       projectTypeTag: { deleteMany: jest.fn(), createMany: jest.fn() },
+      projectActivity: {
+        findMany: jest.fn().mockResolvedValue([]),
+        count: jest.fn().mockResolvedValue(0),
+      },
     };
     projectActivity = { log: jest.fn().mockResolvedValue(undefined) };
 
@@ -387,6 +391,76 @@ describe('ProjectsService: status, archive and restore', () => {
     });
   });
 
+  describe('updateStatus: clientDeadline visibility', () => {
+    // updateStatus() returns the row directly rather than through
+    // toProjectResponse(), and CHANGE_PROJECT_STATUS is the one project
+    // mutation permission a DEVELOPER/DESIGNER also holds. Without this guard
+    // they would receive clientDeadline on a plain column. The update() mock
+    // is overridden per test to echo it back, the way Prisma returns the full
+    // row: the default mock only echoes `data`, which never carries
+    // clientDeadline for a status change, so a test relying on it would pass
+    // whether or not the strip logic existed at all.
+    const CLIENT_DEADLINE = new Date('2026-10-07T00:00:00.000Z');
+
+    beforeEach(() => {
+      setProject({ status: ProjectStatus.IN_PROGRESS });
+      prisma.project.update.mockResolvedValue({
+        id: PROJECT_ID,
+        name: 'Acme corporate site',
+        status: ProjectStatus.INTERNAL_REVIEW,
+        clientDeadline: CLIENT_DEADLINE,
+        projectTypeTags: [],
+      });
+    });
+
+    it('is stripped for a DEVELOPER', async () => {
+      const result = await service.updateStatus(
+        PROJECT_ID,
+        { status: ProjectStatus.INTERNAL_REVIEW },
+        DEV_ID,
+        Role.DEVELOPER,
+      );
+      expect('clientDeadline' in result).toBe(false);
+    });
+
+    it('is present for a PROJECT_MANAGER', async () => {
+      const result = await service.updateStatus(
+        PROJECT_ID,
+        { status: ProjectStatus.INTERNAL_REVIEW },
+        PM_ID,
+        Role.PROJECT_MANAGER,
+      );
+      expect((result as any).clientDeadline).toEqual(CLIENT_DEADLINE);
+    });
+  });
+
+  describe('findActivities: CLIENT_DEADLINE_CHANGED visibility', () => {
+    // The activity log is a second serialization path outside
+    // toProjectResponse(). Without filtering it, a DEVELOPER reading the
+    // timeline would learn a client deadline exists, changed, and its exact
+    // before/after values, straight through metadata.
+    it('excludes the type from the query for a DEVELOPER', async () => {
+      await service.findActivities(PROJECT_ID, {}, DEV_ID, Role.DEVELOPER);
+      expect(prisma.projectActivity.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: {
+            projectId: PROJECT_ID,
+            type: { not: 'CLIENT_DEADLINE_CHANGED' },
+          },
+        }),
+      );
+    });
+
+    it('does not filter the query for a PROJECT_MANAGER', async () => {
+      await service.findActivities(PROJECT_ID, {}, PM_ID, Role.PROJECT_MANAGER);
+      expect(prisma.projectActivity.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: { projectId: PROJECT_ID },
+        }),
+      );
+    });
+  });
+
   describe('archive', () => {
     it.each([Role.PROJECT_MANAGER, Role.DEVELOPER, Role.DESIGNER, Role.CLIENT])(
       'rejects a %s',
@@ -500,6 +574,7 @@ describe('ProjectsService: status, archive and restore', () => {
           priority: 'HIGH',
           archivedAt: null,
           deadline: null,
+          clientDeadline: null,
           completedAt: null,
           estimatedHours: null,
           actualHours: 0,

@@ -119,9 +119,11 @@ export const ApiGetProjectDocs = () =>
       description:
         'One handler, three audiences. A CLIENT gets a reduced field set for their own ' +
         'project only, with priority, rush reason, hold reason, cancellation reason and ' +
-        'staffing all withheld. A DEVELOPER or DESIGNER must be an active member. A PM ' +
-        'or admin may read any project. remainingHours is computed on the way out from ' +
-        'estimated minus actual, never stored, so it cannot drift.',
+        'staffing all withheld, and their one deadline field is the date actually ' +
+        'promised to them. A DEVELOPER or DESIGNER must be an active member, and sees ' +
+        'the internal deadline only: clientDeadline is absent from their response. A PM ' +
+        'or admin may read any project and sees both. remainingHours is computed on the ' +
+        'way out from estimated minus actual, never stored, so it cannot drift.',
     }),
     idParam,
     ApiResponse({
@@ -140,7 +142,10 @@ export const ApiGetProjectActivityDocs = () =>
       description:
         'Append only, written at meaningful points across the whole project domain: ' +
         'status and priority changes, staffing, documents, time, requirements, work ' +
-        'reports, blockers, reviews and feedback. Internal, so a CLIENT is excluded.',
+        'reports, blockers, reviews and feedback. Internal, so a CLIENT is excluded. ' +
+        'A CLIENT_DEADLINE_CHANGED entry is filtered out of this list entirely for a ' +
+        'DEVELOPER or DESIGNER, the same absence rule the project response applies to ' +
+        'clientDeadline itself.',
     }),
     idParam,
     ApiResponse({
@@ -157,7 +162,9 @@ export const ApiUpdateProjectDocs = () =>
       summary: "Update a project's details",
       description:
         'A PROJECT_MANAGER must be actively staffed as PM on this specific project; ' +
-        'holding the role company wide is not enough. An admin bypasses that.',
+        'holding the role company wide is not enough. An admin bypasses that. ' +
+        'clientDeadline is a separate optional field from deadline: the internal ' +
+        'working date and the date actually promised to the client are independent.',
     }),
     idParam,
     ApiResponse({
@@ -254,7 +261,9 @@ export const ApiUpdateProjectStatusDocs = () =>
         'A reason is required for ON_HOLD and for CANCELLED. Only an admin may cancel; a ' +
         'DEVELOPER or DESIGNER may change status generally but not to ON_HOLD. Reopening ' +
         'a COMPLETED or CANCELLED project to READY_FOR_WORK is admin only and refused ' +
-        'once the project is archived, where restore is the way back.',
+        'once the project is archived, where restore is the way back. clientDeadline is ' +
+        'stripped from the response for a DEVELOPER or DESIGNER, the one role able to ' +
+        'reach this endpoint without holding EDIT_PROJECT.',
     }),
     idParam,
     ApiResponse({

@@ -52,6 +52,7 @@ type ProjectShape = {
   priority: ProjectPriority;
   archivedAt: Date | null;
   deadline: Date | null;
+  clientDeadline: Date | null;
   estimatedHours: number | null;
   actualHours: number;
   projectTypeTags?: Array<{ type: ProjectType }>;
@@ -72,6 +73,21 @@ export function daysUntilDeadline(
   const startOfDay = (date: Date) =>
     Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate());
   return Math.round((startOfDay(deadline) - startOfDay(now)) / MS_PER_DAY);
+}
+
+/**
+ * Whether a deadline has passed and the work is still live.
+ *
+ * A finished project is never overdue: it is finished. Shared by `deadline`
+ * and `clientDeadline` alike, in both the project response and the
+ * dashboard, so the three places that ask "is this overdue" cannot drift
+ * apart on what overdue means.
+ */
+export function isPastDeadline(
+  daysUntil: number | null,
+  isTerminal: boolean,
+): boolean {
+  return daysUntil !== null && daysUntil < 0 && !isTerminal;
 }
 
 export function buildProjectCapabilities(
@@ -156,9 +172,23 @@ export function toProjectResponse<T extends ProjectShape>(
   const isArchived = project.archivedAt !== null;
   const isTerminal = TERMINAL_STATUSES.includes(project.status);
   const daysLeft = daysUntilDeadline(project.deadline, now);
+  const clientDaysLeft = daysUntilDeadline(project.clientDeadline, now);
+
+  // Whoever may edit a project may also see the date actually promised to the
+  // client. Everyone else, a DEVELOPER or DESIGNER, sees only the internal
+  // `deadline` above. Read from `context.permissions` rather than a role check
+  // (D2), the same source `canEdit` reads in buildProjectCapabilities.
+  const canViewClientDeadline = context.permissions.includes(
+    Permission.EDIT_PROJECT,
+  );
+
+  // Destructured out rather than left in `...project`, or the raw value would
+  // still leak through to a DEVELOPER/DESIGNER underneath the conditional
+  // spread below, which only ever ADDS keys, never removes one already there.
+  const { clientDeadline: rawClientDeadline, ...rest } = project;
 
   return {
-    ...project,
+    ...rest,
     status: toEnumDisplay(PROJECT_STATUS_DISPLAY, project.status),
     priority: toEnumDisplay(PROJECT_PRIORITY_DISPLAY, project.priority),
     ...(project.projectTypeTags && {
@@ -171,9 +201,12 @@ export function toProjectResponse<T extends ProjectShape>(
     isArchived,
     isTerminal,
     daysUntilDeadline: daysLeft,
-    // A finished project is never overdue: it is finished. Only live work can
-    // be late, which is the distinction a raw date comparison in a client loses.
-    isOverdue: daysLeft !== null && daysLeft < 0 && !isTerminal,
+    isOverdue: isPastDeadline(daysLeft, isTerminal),
+    ...(canViewClientDeadline && {
+      clientDeadline: rawClientDeadline,
+      daysUntilClientDeadline: clientDaysLeft,
+      isClientDeadlineOverdue: isPastDeadline(clientDaysLeft, isTerminal),
+    }),
     capabilities: buildProjectCapabilities(project, context),
   };
 }
@@ -181,19 +214,27 @@ export function toProjectResponse<T extends ProjectShape>(
 /**
  * The CLIENT projection.
  *
- * Only the status and the type tags need mapping: everything a client is not
- * shown was already excluded by `CLIENT_PROJECT_SELECT`, which is the security
- * boundary. This function must never add a field back.
+ * Everything a client is not shown was already excluded by
+ * `CLIENT_PROJECT_SELECT`, which is the security boundary. This function must
+ * never add a field back beyond the one deliberate reshape below.
+ *
+ * `deadline` on the wire is sourced from the row's `clientDeadline`, never
+ * from the internal working `deadline`, which `CLIENT_PROJECT_SELECT` does not
+ * even select. A client has one concept of "deadline": the date they were
+ * promised.
  */
 export function toClientProjectResponse<
   T extends {
     status: ProjectStatus;
+    clientDeadline: Date | null;
     projectTypeTags?: Array<{ type: ProjectType }>;
   },
 >(project: T) {
+  const { clientDeadline, ...rest } = project;
   return {
-    ...project,
+    ...rest,
     status: toEnumDisplay(PROJECT_STATUS_DISPLAY, project.status),
+    deadline: clientDeadline,
     ...(project.projectTypeTags && {
       projectTypeTags: project.projectTypeTags.map((tag) => ({
         ...tag,

@@ -187,8 +187,39 @@ export class ProjectResponseDto {
   @ApiPropertyOptional({ example: '2026-09-01T00:00:00.000Z', nullable: true })
   plannedStartDate!: Date | null;
 
-  @ApiPropertyOptional({ example: '2026-10-15T00:00:00.000Z', nullable: true })
+  @ApiPropertyOptional({
+    example: '2026-10-15T00:00:00.000Z',
+    nullable: true,
+    description: 'The internal, working date. Never returned to a CLIENT.',
+  })
   deadline!: Date | null;
+
+  @ApiPropertyOptional({
+    example: '2026-10-22T00:00:00.000Z',
+    nullable: true,
+    description:
+      'The date actually promised to the client. Present only for a caller who ' +
+      'holds EDIT_PROJECT (PROJECT_MANAGER, ADMIN, SYSTEM_ADMIN); absent, not ' +
+      'null, for a DEVELOPER or DESIGNER.',
+  })
+  clientDeadline?: Date | null;
+
+  @ApiPropertyOptional({
+    example: 19,
+    nullable: true,
+    description:
+      'Whole days until clientDeadline, negative when overdue. Same visibility ' +
+      'as clientDeadline: absent for a DEVELOPER or DESIGNER.',
+  })
+  daysUntilClientDeadline?: number | null;
+
+  @ApiPropertyOptional({
+    example: false,
+    description:
+      'Whether clientDeadline has passed and the project is not finished. Same ' +
+      'visibility as clientDeadline: absent for a DEVELOPER or DESIGNER.',
+  })
+  isClientDeadlineOverdue?: boolean;
 
   @ApiPropertyOptional({ example: null, nullable: true })
   completedAt!: Date | null;
@@ -313,7 +344,13 @@ export class ClientProjectResponseDto {
   @ApiPropertyOptional({ example: '2026-09-01T00:00:00.000Z', nullable: true })
   plannedStartDate!: Date | null;
 
-  @ApiPropertyOptional({ example: '2026-10-15T00:00:00.000Z', nullable: true })
+  @ApiPropertyOptional({
+    example: '2026-10-22T00:00:00.000Z',
+    nullable: true,
+    description:
+      'The date actually promised to this client. Sourced from clientDeadline, ' +
+      'never from the internal working deadline.',
+  })
   deadline!: Date | null;
 
   @ApiPropertyOptional({ example: null, nullable: true })
@@ -384,6 +421,7 @@ export class ProjectActivityResponseDto {
 export const PROJECT_SORT_FIELDS = [
   'name',
   'deadline',
+  'clientDeadline',
   'plannedStartDate',
   'createdAt',
   'updatedAt',
@@ -512,6 +550,14 @@ export class CreateProjectDto {
   @IsOptional()
   @IsDateString()
   deadline?: string;
+
+  @ApiPropertyOptional({
+    example: '2026-10-07',
+    description: 'The date actually promised to the client.',
+  })
+  @IsOptional()
+  @IsDateString()
+  clientDeadline?: string;
 }
 
 export class UpdateProjectDto {
@@ -534,6 +580,14 @@ export class UpdateProjectDto {
   @IsOptional()
   @IsDateString()
   deadline?: string;
+
+  @ApiPropertyOptional({
+    example: '2026-10-07',
+    description: 'The date actually promised to the client.',
+  })
+  @IsOptional()
+  @IsDateString()
+  clientDeadline?: string;
 }
 
 export class UpdateProjectStatusDto {

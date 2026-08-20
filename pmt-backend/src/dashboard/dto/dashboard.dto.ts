@@ -370,6 +370,39 @@ export class DashboardProjectDto {
   })
   isOverdue!: boolean;
 
+  @ApiPropertyOptional({
+    example: '2026-09-22T00:00:00.000Z',
+    nullable: true,
+    description:
+      'The date actually promised to the client. Present only for a caller who ' +
+      'holds EDIT_PROJECT (PROJECT_MANAGER, ADMIN, SYSTEM_ADMIN); absent, not ' +
+      'null, for a DEVELOPER or DESIGNER.',
+  })
+  clientDeadline?: Date | null;
+
+  @ApiPropertyOptional({
+    example: 19,
+    nullable: true,
+    description:
+      'Whole days until clientDeadline, negative when overdue. Same visibility ' +
+      'as clientDeadline.',
+  })
+  daysUntilClientDeadline?: number | null;
+
+  @ApiPropertyOptional({
+    example: 'in 19 days',
+    nullable: true,
+    description: 'clientDeadline in words. Same visibility as clientDeadline.',
+  })
+  clientDeadlineLabel?: string | null;
+
+  @ApiPropertyOptional({
+    example: false,
+    description:
+      'Past clientDeadline and not finished. Same visibility as clientDeadline.',
+  })
+  isClientDeadlineOverdue?: boolean;
+
   @ApiProperty({
     example: false,
     description:
@@ -480,7 +513,13 @@ export class DashboardClientProjectDto {
   @ApiProperty({ type: EnumDisplayDto })
   status!: EnumDisplayDto;
 
-  @ApiPropertyOptional({ example: '2026-09-15T00:00:00.000Z', nullable: true })
+  @ApiPropertyOptional({
+    example: '2026-09-15T00:00:00.000Z',
+    nullable: true,
+    description:
+      'The date actually promised to this client. Sourced from clientDeadline, ' +
+      'never from the internal working deadline.',
+  })
   deadline!: Date | null;
 
   @ApiPropertyOptional({ example: 'in 12 days', nullable: true })

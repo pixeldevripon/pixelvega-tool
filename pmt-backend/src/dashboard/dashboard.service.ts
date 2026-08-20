@@ -199,8 +199,8 @@ export class DashboardService {
   private async buildClientBlock(actorId: string, now: Date) {
     const projects = await this.prisma.project.findMany({
       where: { clientId: actorId, archivedAt: null },
-      select: { id: true, name: true, status: true, deadline: true },
-      orderBy: [{ deadline: 'asc' }, { createdAt: 'desc' }],
+      select: { id: true, name: true, status: true, clientDeadline: true },
+      orderBy: [{ clientDeadline: 'asc' }, { createdAt: 'desc' }],
       take: PROJECT_CARD_LIMIT,
     });
 
@@ -230,6 +230,11 @@ export class DashboardService {
     const scope = this.resolveProjectScope(actor.id, audience);
     const held = new Set<Permission>(permissions);
     const isAdmin = audience === 'ADMIN';
+    // Same gate `project.mapper.ts` reads for the main project response:
+    // whoever may edit a project may also see the date promised to the
+    // client. Company wide, not project scoped, so computed once here rather
+    // than per card.
+    const canViewClientDeadline = held.has(Permission.EDIT_PROJECT);
 
     // ONE parallel wave. Every one of these is needed before anything can
     // render, so firing them in sequence would multiply the cold load by six.
@@ -349,6 +354,7 @@ export class DashboardService {
                 (member) => member.role === ProjectRole.PROJECT_MANAGER,
               ),
             }),
+            canViewClientDeadline,
           },
           now,
         );
@@ -470,6 +476,7 @@ export class DashboardService {
         status: true,
         priority: true,
         deadline: true,
+        clientDeadline: true,
         plannedStartDate: true,
         estimatedHours: true,
         actualHours: true,

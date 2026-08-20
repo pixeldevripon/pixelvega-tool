@@ -135,6 +135,12 @@ describe('ROLE_PERMISSIONS', () => {
       Permission.SUBMIT_INTERNAL_REVIEW,
       Permission.INVITE_USER,
       Permission.VIEW_AUDIT_LOG,
+      // updatePriority()/updateTypes() in ProjectsService return the raw
+      // Prisma row rather than through toProjectResponse(), so they depend on
+      // these two staying PM/ADMIN only or clientDeadline leaks with no
+      // mapper-level test able to catch it.
+      Permission.CHANGE_PROJECT_PRIORITY,
+      Permission.MANAGE_PROJECT_TYPES,
     ])('a DEVELOPER does NOT hold %s', (permission) => {
       expect(ROLE_PERMISSIONS[Role.DEVELOPER]).not.toContain(permission);
     });

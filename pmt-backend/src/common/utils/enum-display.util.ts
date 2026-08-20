@@ -368,6 +368,10 @@ export const PROJECT_ACTIVITY_TYPE_DISPLAY: Record<
     label: 'Deadline changed',
     tone: 'default',
   },
+  [ProjectActivityType.CLIENT_DEADLINE_CHANGED]: {
+    label: 'Client deadline changed',
+    tone: 'default',
+  },
   [ProjectActivityType.PROJECT_TYPES_CHANGED]: {
     label: 'Project types changed',
     tone: 'default',
