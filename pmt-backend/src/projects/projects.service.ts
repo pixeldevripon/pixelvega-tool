@@ -77,6 +77,23 @@ const PROJECT_INCLUDE = {
   projectTypeTags: true,
   client: { select: { id: true, name: true, email: true } },
   createdBy: { select: { id: true, name: true, email: true } },
+  /**
+   * The current team, so a list can show who is on a project and group by its
+   * manager without a request per row.
+   *
+   * `leftAt` comes back rather than being filtered in the query, because the
+   * MAPPER enforces "current team only". A query that forgot the filter would
+   * otherwise put former members on a row and nothing in the response would look
+   * wrong. Same reason the dashboard does it this way.
+   */
+  members: {
+    select: {
+      userId: true,
+      role: true,
+      leftAt: true,
+      user: { select: { id: true, name: true, avatarUrl: true } },
+    },
+  },
 };
 
 type ProjectWithRelations = Prisma.ProjectGetPayload<{
@@ -319,20 +336,21 @@ export class ProjectsService {
     }
   }
 
-  async findAll(query: QueryProjectsDto, actorId: string, actorRole: Role) {
-    const {
-      page = 1,
-      pageSize = 20,
-      status,
-      priority,
-      clientId,
-      projectTypes,
-      sortBy = 'createdAt',
-      sortOrder = 'desc',
-      archived = false,
-      search,
-    } = query;
-    const where: Prisma.ProjectWhereInput = {
+  /**
+   * The filter clause every project list shares.
+   *
+   * Shared rather than written twice because `/projects` and `/projects/mine`
+   * offer the same filters to different audiences, and a second copy is how one
+   * of them ends up quietly ignoring `archived` and showing an admin's archive
+   * to a developer. The caller adds its own scope clause on top.
+   */
+  private buildProjectFilters(
+    query: QueryProjectsDto | QueryMyProjectsDto,
+  ): Prisma.ProjectWhereInput {
+    const { status, priority, projectTypes, archived = false, search } = query;
+    const clientId = 'clientId' in query ? query.clientId : undefined;
+
+    return {
       ...(status && { status }),
       ...(priority && { priority }),
       ...(clientId && { clientId }),
@@ -345,6 +363,16 @@ export class ProjectsService {
         name: { contains: search, mode: 'insensitive' },
       }),
     };
+  }
+
+  async findAll(query: QueryProjectsDto, actorId: string, actorRole: Role) {
+    const {
+      page = 1,
+      pageSize = 20,
+      sortBy = 'createdAt',
+      sortOrder = 'desc',
+    } = query;
+    const where = this.buildProjectFilters(query);
 
     const result = await paginate(
       (args) =>
@@ -516,16 +544,26 @@ export class ProjectsService {
     actorId: string,
     actorRole: Role,
   ) {
-    const { page = 1, pageSize = 20, archived = false } = query;
+    const { page = 1, pageSize = 20, sortBy, sortOrder = 'desc' } = query;
+
+    const where: Prisma.ProjectWhereInput = {
+      ...this.buildProjectFilters(query),
+      // The scope clause, and the one part a caller may not influence.
+      // `leftAt: null` is what stops a former member still seeing the work they
+      // left.
+      members: { some: { userId: subjectId, leftAt: null } },
+    };
 
     const projects = await this.prisma.project.findMany({
-      where: {
-        members: { some: { userId: subjectId, leftAt: null } },
-        archivedAt: archived ? { not: null } : null,
-      },
+      where,
+      // Only when a column was asked for. The default is deliberately NOT a
+      // column: `compareForDashboard` puts the work in the order it should be
+      // picked up in, which is what "my projects" is for, and a database cannot
+      // express it.
+      ...(sortBy && { orderBy: { [sortBy]: sortOrder } }),
       include: PROJECT_INCLUDE,
     });
-    const sorted = projects.sort(compareForDashboard);
+    const sorted = sortBy ? projects : projects.sort(compareForDashboard);
     const total = sorted.length;
 
     // Advisory only, and only meaningful for individual contributors. A

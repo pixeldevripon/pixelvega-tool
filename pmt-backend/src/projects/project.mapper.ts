@@ -2,13 +2,19 @@ import {
   Permission,
   ProjectActivityType,
   ProjectPriority,
+  ProjectRole,
   ProjectStatus,
   ProjectType,
 } from '@prisma/client';
 
 import {
+  formatDeadlineLabel,
+  formatHoursLabel,
+} from '@/common/utils/duration.util';
+import {
   PROJECT_ACTIVITY_TYPE_DISPLAY,
   PROJECT_PRIORITY_DISPLAY,
+  PROJECT_ROLE_DISPLAY,
   PROJECT_STATUS_DISPLAY,
   PROJECT_TYPE_DISPLAY,
   toEnumDisplay,
@@ -55,6 +61,9 @@ type ProjectShape = {
   estimatedHours: number | null;
   actualHours: number;
   projectTypeTags?: Array<{ type: ProjectType }>;
+  // Optional, because the client projection and the activity mapper both use
+  // this shape and neither includes the team.
+  members?: ProjectMemberRow[];
 };
 
 /**
@@ -148,6 +157,61 @@ export function withRemainingHours<
  * `withRemainingHours` above computed one of these five; the other four were
  * being computed in the browser, each by a different component.
  */
+/**
+ * A staffed member as the include returns it.
+ *
+ * `leftAt` is part of the row so the MAPPER enforces "current team only". A query
+ * that forgot the filter would otherwise put former members on a row, and
+ * nothing in the response would look wrong.
+ */
+export type ProjectMemberRow = {
+  role: ProjectRole;
+  leftAt: Date | null;
+  user: { id: string; name: string; avatarUrl: string | null };
+};
+
+/** Managers first, then everyone else by name, so a row's first face is the owner. */
+const PROJECT_ROLE_RANK: Record<ProjectRole, number> = {
+  PROJECT_MANAGER: 0,
+  DEVELOPER: 1,
+  DESIGNER: 2,
+};
+
+export function toProjectMemberSummaries(members: ProjectMemberRow[]) {
+  return members
+    .filter((member) => member.leftAt === null)
+    .sort(
+      (a, b) =>
+        PROJECT_ROLE_RANK[a.role] - PROJECT_ROLE_RANK[b.role] ||
+        a.user.name.localeCompare(b.user.name),
+    )
+    .map((member) => ({
+      id: member.user.id,
+      name: member.user.name,
+      avatarUrl: member.user.avatarUrl,
+      projectRole: toEnumDisplay(PROJECT_ROLE_DISPLAY, member.role),
+    }));
+}
+
+/**
+ * The one project manager a list groups by.
+ *
+ * A project can have several, so "the lead" needs a rule or two clients will
+ * pick differently and group the same project under different people. The rule
+ * is the first staffed manager by name, which is stable and needs no extra
+ * column. Null when nobody is staffed as one, which is exactly the state that
+ * keeps a project in Planning.
+ */
+export function toProjectLead(
+  members: ReturnType<typeof toProjectMemberSummaries>,
+) {
+  return (
+    members.find(
+      (member) => member.projectRole.value === ProjectRole.PROJECT_MANAGER,
+    ) ?? null
+  );
+}
+
 export function toProjectResponse<T extends ProjectShape>(
   project: T,
   context: ProjectContext,
@@ -156,6 +220,10 @@ export function toProjectResponse<T extends ProjectShape>(
   const isArchived = project.archivedAt !== null;
   const isTerminal = TERMINAL_STATUSES.includes(project.status);
   const daysLeft = daysUntilDeadline(project.deadline, now);
+  const remainingHours = withRemainingHours(project).remainingHours;
+  // Mapped once. It was called twice, once for the list and once to pick the
+  // lead out of it, which sorted the same array a second time per project.
+  const members = toProjectMemberSummaries(project.members ?? []);
 
   return {
     ...project,
@@ -167,13 +235,22 @@ export function toProjectResponse<T extends ProjectShape>(
         type: toEnumDisplay(PROJECT_TYPE_DISPLAY, tag.type),
       })),
     }),
-    remainingHours: withRemainingHours(project).remainingHours,
+    remainingHours,
+    // The readable form of each figure travels with it. A client that renders
+    // the number itself shows the repeating decimal an hours column really
+    // holds, which is the defect these three exist to close.
+    actualHoursLabel: formatHoursLabel(project.actualHours) as string,
+    estimatedHoursLabel: formatHoursLabel(project.estimatedHours),
+    remainingHoursLabel: formatHoursLabel(remainingHours),
     isArchived,
     isTerminal,
     daysUntilDeadline: daysLeft,
+    deadlineLabel: formatDeadlineLabel(daysLeft),
     // A finished project is never overdue: it is finished. Only live work can
     // be late, which is the distinction a raw date comparison in a client loses.
     isOverdue: daysLeft !== null && daysLeft < 0 && !isTerminal,
+    members,
+    lead: toProjectLead(members),
     capabilities: buildProjectCapabilities(project, context),
   };
 }

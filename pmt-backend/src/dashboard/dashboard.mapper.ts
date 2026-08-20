@@ -8,7 +8,11 @@ import {
   Role,
 } from '@prisma/client';
 
-import { formatDuration, toHours } from '@/common/utils/duration.util';
+import {
+  formatDeadlineLabel,
+  formatDuration,
+  toHours,
+} from '@/common/utils/duration.util';
 import {
   DASHBOARD_AUDIENCE_DISPLAY,
   PROJECT_PRIORITY_DISPLAY,
@@ -95,23 +99,6 @@ export function toAudienceDisplay(audience: DashboardAudience) {
 }
 
 // ── Formatting ────────────────────────────────────────────────────────────
-
-/**
- * A deadline in words.
- *
- * On the server because it is measured against the SERVER clock, which is the
- * clock `daysUntilDeadline` was computed on. A browser rendering "in 12 days"
- * from a raw date measures against its own clock, and a laptop three hours off
- * would disagree with the number beside it.
- */
-export function formatDeadlineLabel(days: number | null): string | null {
-  if (days === null) return null;
-  if (days === 0) return 'due today';
-  if (days === 1) return 'due tomorrow';
-  if (days === -1) return '1 day overdue';
-  if (days < 0) return `${Math.abs(days)} days overdue`;
-  return `in ${days} days`;
-}
 
 /** A signed percentage, for a delta badge. */
 export function formatChangeLabel(rate: number | null): string | null {
