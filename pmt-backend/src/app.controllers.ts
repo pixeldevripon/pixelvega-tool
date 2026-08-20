@@ -31,6 +31,7 @@ import { LeaveBalancesController } from '@/leave/balances/leave-balances.control
 import { LeaveTypesController } from '@/leave/types/leave-types.controller';
 import { NotificationsController } from '@/notifications/notifications.controller';
 import { ProfilesController } from '@/profiles/profiles.controller';
+import { ProfileSessionsController } from '@/profiles/sessions/profile-sessions.controller';
 import { ProjectDocumentsController } from '@/projects/documents/project-documents.controller';
 import { ProjectMembersController } from '@/projects/members/project-members.controller';
 import { DeveloperReportsController } from '@/reports/developers/developer-reports.controller';
@@ -62,6 +63,7 @@ export const ALL_CONTROLLERS = [
   LeaveTypesController,
   NotificationsController,
   ProfilesController,
+  ProfileSessionsController,
   ProjectDocumentsController,
   ProjectMembersController,
   DeveloperReportsController,

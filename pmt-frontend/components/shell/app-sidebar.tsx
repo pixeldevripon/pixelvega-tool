@@ -97,7 +97,7 @@ export function AppSidebar({
 
             {/*         <SidebarFooter className='border-t border-sidebar-line p-2'>
                 <Link
-                    href='/profile'
+                    href='/account'
                     title='Your profile'
                     className='group/identity flex items-center gap-3 rounded-lg border border-transparent p-2 transition-colors duration-fast hover:border-sidebar-line hover:bg-sidebar-accent/60'>
                     <span className='relative flex size-9 shrink-0 items-center justify-center overflow-hidden rounded-lg bg-primary-subtle text-sm font-medium text-primary-subtle-content'>

@@ -43,12 +43,13 @@ The v1 feature build: every requirement in `features.md`, `features1.md`, `Proje
 `AI Integration Module.md`, delivered on the shell and design system copied from
 `tripwheel-x-islandtours-dashboard`.
 
-| Doc                                                      | What it answers                                                                                                                           |
-| -------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------- |
-| [`00-requirements.md`](./dashboard/00-requirements.md)   | All 178 requirements, each with what the backend already serves and what is left. The six document conflicts, with a recommendation each  |
-| [`01-plan.md`](./dashboard/01-plan.md)                   | Twelve phases, what to copy from the reference and what not to, the per-module recipe, sequencing, risks                                  |
-| [`02-checklist.md`](./dashboard/02-checklist.md)         | The same work as 320 tickable items. **Tick it in the same PR as the work**                                                               |
-| [`03-header-chrome.md`](./dashboard/03-header-chrome.md) | The header's icon row, activity panel, notification panel, profile menu and palette trigger: the spec, and why one feed serves two panels |
+| Doc                                                                  | What it answers                                                                                                                                                                                    |
+| -------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| [`00-requirements.md`](./dashboard/00-requirements.md)               | All 178 requirements, each with what the backend already serves and what is left. The six document conflicts, with a recommendation each                                                           |
+| [`01-plan.md`](./dashboard/01-plan.md)                               | Twelve phases, what to copy from the reference and what not to, the per-module recipe, sequencing, risks                                                                                           |
+| [`02-checklist.md`](./dashboard/02-checklist.md)                     | The same work as 320 tickable items. **Tick it in the same PR as the work**                                                                                                                        |
+| [`03-header-chrome.md`](./dashboard/03-header-chrome.md)             | The header's icon row, activity panel, notification panel, profile menu and palette trigger: the spec, and why one feed serves two panels                                                          |
+| [`04-account-and-profile.md`](./dashboard/04-account-and-profile.md) | The `/account` screen: the served password policy, the stored-not-derived full name, the capability flags and their predicates, and the four tabs the design shows that this product does not have |
 
 ---
 

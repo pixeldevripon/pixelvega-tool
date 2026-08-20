@@ -56,3 +56,23 @@ export class EnumDisplayDto {
   })
   tone!: DisplayTone;
 }
+
+/**
+ * A choice in a select, where there is nothing to be severe about.
+ *
+ * Deliberately NOT an `EnumDisplayDto` with `tone: 'default'`. A country is not
+ * an enum: the list comes from a standard rather than from the schema, it has no
+ * business meaning to grade, and a tone field on 249 rows would be 249 lies
+ * about a judgment nobody made. Reach for this whenever the answer to "how
+ * severely does this read" is "it does not".
+ */
+export class OptionDto {
+  @ApiProperty({
+    example: 'BD',
+    description: 'The stored value. The only field a client may branch on.',
+  })
+  value!: string;
+
+  @ApiProperty({ example: 'Bangladesh', description: 'Advisory display text.' })
+  label!: string;
+}

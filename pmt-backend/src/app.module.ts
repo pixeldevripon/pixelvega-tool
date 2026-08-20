@@ -5,6 +5,7 @@ import { PrismaModule } from '@/prisma/prisma.module';
 import { UsersModule } from '@/users/users.module';
 import { AuthModule } from '@/auth/auth.module';
 import { ProfilesModule } from '@/profiles/profiles.module';
+import { ProfileSessionsModule } from '@/profiles/sessions/profile-sessions.module';
 import { AuditLogModule } from '@/audit-logs/audit-log.module';
 import { LeaveModule } from '@/leave/leave.module';
 import { ProjectActivityModule } from '@/projects/activity/project-activity.module';
@@ -36,6 +37,7 @@ import { PermissionsModule } from '@/auth/permissions/permissions.module';
     AuthModule,
     UsersModule,
     ProfilesModule,
+    ProfileSessionsModule,
     AuditLogModule,
     NotificationsModule,
     LeaveModule,

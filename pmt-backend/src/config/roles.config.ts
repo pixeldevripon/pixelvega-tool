@@ -45,6 +45,17 @@ const EVERYONE: Permission[] = [
   Permission.VIEW_OWN_PERMISSIONS,
   Permission.VIEW_OWN_NOTIFICATIONS,
   Permission.MANAGE_OWN_NOTIFICATIONS,
+  // Seeing where you are signed in, and signing one of those places out, is
+  // self service in the same sense as the profile: the routes only ever read and
+  // write the caller's own Session rows, so there is nobody to scope them
+  // against.
+  Permission.VIEW_OWN_SESSIONS,
+  Permission.MANAGE_OWN_SESSIONS,
+  // Held by every role including SYSTEM_ADMIN, and refused for SYSTEM_ADMIN in
+  // the service. The permission answers "may this role ever"; "except the one
+  // root account" is a rule about a row, which is not a question a permission
+  // can answer.
+  Permission.DELETE_OWN_ACCOUNT,
   Permission.VIEW_HOLIDAYS,
   Permission.VIEW_LEAVE_TYPES,
 ];

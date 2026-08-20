@@ -9,6 +9,7 @@ import {
   ClientFeedbackDecision,
   DailyWorkReportStatus,
   EmployeeWorkStatus,
+  Gender,
   InternalReviewDecision,
   LeaveStatus,
   NotificationType,
@@ -166,6 +167,35 @@ export const ROLE_DISPLAY: Record<Role, EnumDisplayEntry> = {
   [Role.DEVELOPER]: { label: 'Developer', tone: 'default' },
   [Role.DESIGNER]: { label: 'Designer', tone: 'default' },
   [Role.CLIENT]: { label: 'Client', tone: 'default' },
+};
+
+/**
+ * Every gender reads as `default`.
+ *
+ * There is nothing here to grade. A tone on this map would be a judgment about
+ * people rather than about work, which is not a judgment this API makes.
+ */
+export const GENDER_DISPLAY: Record<Gender, EnumDisplayEntry> = {
+  [Gender.MALE]: { label: 'Male', tone: 'default' },
+  [Gender.FEMALE]: { label: 'Female', tone: 'default' },
+  [Gender.NON_BINARY]: { label: 'Non-binary', tone: 'default' },
+  [Gender.PREFER_NOT_TO_SAY]: { label: 'Prefer not to say', tone: 'default' },
+};
+
+/**
+ * The things that can be linked to an account, and how a chip for one reads.
+ *
+ * Not a Prisma enum: the credential provider id is better-auth's
+ * (`'credential'`), and Slack is a cached member id on the User row rather than
+ * an `Account` at all. The map is keyed on the value this API publishes, which
+ * is the only vocabulary a client sees.
+ *
+ * `CREDENTIAL` tones `primary` because it is the account's actual key: in a row
+ * of chips it is the one that must not read as optional.
+ */
+export const CONNECTED_ACCOUNT_DISPLAY: Record<string, EnumDisplayEntry> = {
+  CREDENTIAL: { label: 'Email and password', tone: 'primary' },
+  SLACK: { label: 'Slack', tone: 'default' },
 };
 
 /** Tones lifted from `statusTone` in `users-admin.tsx`. */

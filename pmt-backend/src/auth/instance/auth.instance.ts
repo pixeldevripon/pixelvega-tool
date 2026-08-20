@@ -8,6 +8,11 @@ import { Role, UserStatus } from '@prisma/client';
 import { SENSITIVE_AUTH_MAX_PER_MINUTE } from './rate-limit.config';
 
 import { authPrismaClient } from '@/auth/instance/auth-prisma.client';
+import {
+  PASSWORD_WRITE_PATHS,
+  assertPasswordMeetsPolicy,
+} from '@/auth/instance/password-policy.hook';
+import { PASSWORD_MIN_LENGTH } from '@/common/constants/password-policy';
 import { parseCorsOrigins } from '@/common/utils/parse-cors-origins.util';
 import { mailService } from '@/mail/mail.singleton';
 
@@ -90,6 +95,9 @@ export const auth = betterAuth({
    */
   hooks: {
     before: createAuthMiddleware((ctx) => {
+      if (PASSWORD_WRITE_PATHS.has(ctx.path)) {
+        assertPasswordMeetsPolicy(ctx);
+      }
       if (ctx.path === '/sign-up/email') {
         refuseAnonymousSignUp(ctx);
       }
@@ -130,7 +138,11 @@ export const auth = betterAuth({
     // instead, refusing only requests that arrived over HTTP. Do not
     // reintroduce `disableSignUp` here.
 
-    minPasswordLength: 8,
+    // The floor better-auth itself enforces, kept in step with the policy so a
+    // password can never fail one check and pass the other. The four character
+    // class rules are enforced by `assertPasswordMeetsPolicy` in `hooks.before`,
+    // which better-auth has no equivalent for.
+    minPasswordLength: PASSWORD_MIN_LENGTH,
     // Never mint a session for a server-initiated sign-up (the invite flow).
     autoSignIn: false,
 

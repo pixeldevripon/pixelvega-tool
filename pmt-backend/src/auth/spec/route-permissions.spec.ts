@@ -80,8 +80,15 @@ const EXPECTED: Record<string, Expected> = {
   'GET /leave/types': [P.VIEW_LEAVE_TYPES],
   'GET /notifications': [P.VIEW_OWN_NOTIFICATIONS],
   'GET /notifications/unread-count': [P.VIEW_OWN_NOTIFICATIONS],
+  'DELETE /profiles/me': [P.DELETE_OWN_ACCOUNT],
+  'DELETE /profiles/me/avatar': [P.EDIT_OWN_PROFILE],
+  'DELETE /profiles/me/connections/:provider': [P.EDIT_OWN_PROFILE],
+  'DELETE /profiles/me/sessions/:sessionId': [P.MANAGE_OWN_SESSIONS],
+  'DELETE /profiles/me/sessions/others': [P.MANAGE_OWN_SESSIONS],
   'GET /profiles/:userId': [P.VIEW_USER_PROFILE],
   'GET /profiles/me': [P.VIEW_OWN_PROFILE],
+  'GET /profiles/me/sessions': [P.VIEW_OWN_SESSIONS],
+  'GET /profiles/options': [P.VIEW_OWN_PROFILE],
   'GET /projects': [P.VIEW_ALL_PROJECTS],
   'GET /projects/:projectId': any(P.VIEW_ALL_PROJECTS, P.VIEW_OWN_PROJECTS),
   'GET /projects/:projectId/activities': [P.VIEW_PROJECT_ACTIVITY],
@@ -209,12 +216,12 @@ describe('route permission matrix', () => {
     // pinned by this file and the matrix is quietly incomplete.
     // Counted from disk, so this cannot drift into agreeing with an outdated
     // number. AuthController is gone: better-auth owns that surface now.
-    const controllerFiles = 29;
+    const controllerFiles = 30;
     expect(ALL_CONTROLLERS).toHaveLength(controllerFiles);
   });
 
   it('finds the expected number of routes', () => {
-    expect(actual).toHaveLength(109);
+    expect(actual).toHaveLength(116);
   });
 
   it('has an expectation for every route, and a route for every expectation', () => {

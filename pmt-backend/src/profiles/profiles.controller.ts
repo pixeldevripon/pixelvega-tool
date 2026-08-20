@@ -2,6 +2,7 @@ import {
   BadRequestException,
   Body,
   Controller,
+  Delete,
   Get,
   Param,
   Patch,
@@ -14,11 +15,18 @@ import { ApiCookieAuth, ApiTags } from '@nestjs/swagger';
 import { Permission, Role } from '@prisma/client';
 import { RequirePermissions } from '@/auth/permissions/require-permissions.decorator';
 import { CurrentUser } from '@/common/decorators/current-user.decorator';
-import { UpdateProfileRequestDto } from '@/profiles/dto/profile.dto';
+import {
+  DeleteAccountRequestDto,
+  UpdateProfileRequestDto,
+} from '@/profiles/dto/profile.dto';
 import { imageUploadOptions } from '@/uploads/upload-options';
 import {
+  ApiDeleteOwnAccountDocs,
+  ApiDisconnectOwnConnectionDocs,
   ApiGetOwnProfileDocs,
+  ApiGetProfileOptionsDocs,
   ApiGetUserProfileDocs,
+  ApiRemoveOwnAvatarDocs,
   ApiUpdateOwnProfileDocs,
   ApiUploadOwnAvatarDocs,
 } from './profiles.swagger';
@@ -27,8 +35,8 @@ import { ProfilesService } from './profiles.service';
 /**
  * Routing only. Documentation lives in profiles.swagger.ts.
  *
- * Static routes are declared above dynamic ones: `me` and `me/avatar` must come
- * before `:userId`, or Nest matches them as a user id.
+ * Static routes are declared above dynamic ones: `options`, `me` and everything
+ * under `me` must come before `:userId`, or Nest matches them as a user id.
  */
 @ApiTags('Profiles')
 @ApiCookieAuth('better-auth.session_token')
@@ -36,11 +44,18 @@ import { ProfilesService } from './profiles.service';
 export class ProfilesController {
   constructor(private readonly profilesService: ProfilesService) {}
 
+  @ApiGetProfileOptionsDocs()
+  @RequirePermissions(Permission.VIEW_OWN_PROFILE)
+  @Get('options')
+  options() {
+    return this.profilesService.getOptions();
+  }
+
   @ApiGetOwnProfileDocs()
   @RequirePermissions(Permission.VIEW_OWN_PROFILE)
   @Get('me')
   me(@CurrentUser() user: { id: string }) {
-    return this.profilesService.findByUserId(user.id);
+    return this.profilesService.findOwnProfile(user.id);
   }
 
   @ApiUpdateOwnProfileDocs()
@@ -67,6 +82,37 @@ export class ProfilesController {
       throw new BadRequestException('No file uploaded');
     }
     return this.profilesService.updateAvatar(user.id, file);
+  }
+
+  @ApiRemoveOwnAvatarDocs()
+  @RequirePermissions(Permission.EDIT_OWN_PROFILE)
+  @Delete('me/avatar')
+  removeAvatar(@CurrentUser() user: { id: string }) {
+    return this.profilesService.removeAvatar(user.id);
+  }
+
+  @ApiDisconnectOwnConnectionDocs()
+  @RequirePermissions(Permission.EDIT_OWN_PROFILE)
+  @Delete('me/connections/:provider')
+  disconnect(
+    @Param('provider') provider: string,
+    @CurrentUser() user: { id: string },
+  ) {
+    return this.profilesService.disconnect(user.id, provider);
+  }
+
+  @ApiDeleteOwnAccountDocs()
+  @RequirePermissions(Permission.DELETE_OWN_ACCOUNT)
+  @Delete('me')
+  deleteMe(
+    @Body() dto: DeleteAccountRequestDto,
+    @CurrentUser() user: { id: string; role: Role },
+  ) {
+    return this.profilesService.deleteOwnAccount(
+      user.id,
+      user.role,
+      dto.confirmEmail,
+    );
   }
 
   @ApiGetUserProfileDocs()
