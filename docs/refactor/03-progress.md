@@ -409,3 +409,43 @@ Four asks, on `refactor/phase-7-auth-routing-uploads`.
 | C.1 | One reusable uploader: every file type, single and multiple           | done   | `resource_type: auto`, single and batch, all or nothing with rollback                                                                                            |
 | C.2 | Specs for the uploader                                                | done   | 19 cases, covering the batch rollback and the mimetype allowlist                                                                                                 |
 | D.1 | Whole gate green, checklist ticked, PR opened                         | done   | 1004 unit, 25 E2E, build. PR opened                                                                                                                              |
+
+---
+
+## Phase 6c: the route path is the folder path — complete, 2026-08-20
+
+On `refactor/route-path-is-folder-path`. The decision is
+[`../decisions/0004-the-route-path-is-the-folder-path.md`](../decisions/0004-the-route-path-is-the-folder-path.md);
+this is what it cost and what it caught.
+
+### Why now
+
+Phase 6b nested the folders and left the routes where they were, so fourteen controllers served a
+path their own folder did not name. Three more problems came out of writing that down: the same
+entity was `:id` in one place and `:projectId` in another, `/leave-requests/:id/approve` and
+`/leave-requests/:userId/balance` put two different entity types in one slot, and `/blockers` and
+`/projects/:projectId/blockers` both existed with no stated rule about which one mutates.
+
+### What changed
+
+| Kind                   | Count | Breaking? | Notes                                                                                                          |
+| ---------------------- | ----- | --------- | -------------------------------------------------------------------------------------------------------------- |
+| Path parameter renames | 40    | No        | A parameter name is not part of the URL. The largest part of the diff and the cheapest                         |
+| Route prefix moves     | 9     | Yes       | `/leave/*`, `/blockers/reasons`, `requirements/additional`, `reviews/client`, `reviews/internal`, `ai/summary` |
+| Folder moves           | 4     | No        | `audit-logs`, `ai/status-reports`, `reports/developers`, `time-entries/meetings`                               |
+| Controllers split      | 2     | Yes       | `LeaveBalancesController` out of leave requests, meeting timers out of `/time-entries`                         |
+| New module             | 1     | No        | `ReportsModule`: developer reports are not project scoped, so they do not belong under `projects/`             |
+
+### Two defects the rename surfaced
+
+| Defect                                                                                                                                              | Fix                                                                                                                        |
+| --------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------- |
+| `POST /blockers` took `projectId` in the **body** while the caller's scope was checked against it, so the body chose which project the check ran on | The id comes from the path now, and `getBlockerOrThrow` is `findFirst({ id, projectId })`, so a foreign blocker id 404s    |
+| The frontend called three URLs that did not exist: `/api/reports/developer`, `/api/users/me/password`, and the `/api/auth-flows/*` trio             | All corrected. The trio was deleted in phase 6b and nothing had updated the client, which is the cost of a deferred client |
+
+### Verified
+
+`lint · typecheck · 1087 unit · 54 E2E · build`, plus a real boot that printed the whole 108 route
+table: every parameter named for its entity, every static route ahead of its dynamic sibling
+(`me` before `:userId`, `deadline-impact` before `:blockerId`), and no route left on a path its
+folder does not name.

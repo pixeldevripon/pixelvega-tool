@@ -2,4 +2,4 @@
 
 One line per memory file: `- [Title](file.md) — hook`. No memory content in this file.
 
-<!-- empty: this agent has not saved a memory yet -->
+- [PixelVega trust model notes](pixelvega_trust_model_notes.md) — confirmed forbidNonWhitelisted is ON, blocker scoping pattern, route-permission spec is metadata-based, and a recurring "split resource, blanket find/replace" frontend miss class

@@ -4,7 +4,7 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { PrismaService } from '@/prisma/prisma.service';
-import { AuditLogService } from '@/audit-log/audit-log.service';
+import { AuditLogService } from '@/audit-logs/audit-log.service';
 import { CreateHolidayDto, UpdateHolidayDto } from '@/leave/dto/leave.dto';
 import { toHolidayResponse } from '@/leave/leave.mapper';
 

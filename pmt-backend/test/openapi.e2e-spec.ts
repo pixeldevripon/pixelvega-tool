@@ -144,8 +144,8 @@ describe('OpenAPI document (e2e)', () => {
       }
     });
 
-    it('types the 200 on GET /api/projects/{id}', () => {
-      const op = document.paths['/api/projects/{id}']?.get as {
+    it('types the 200 on GET /api/projects/{projectId}', () => {
+      const op = document.paths['/api/projects/{projectId}']?.get as {
         responses?: Record<string, { content?: object }>;
       };
       expect(op?.responses?.['200']?.content).toBeDefined();

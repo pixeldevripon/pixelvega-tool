@@ -17,7 +17,7 @@ export interface EnqueueAiJobOptions {
   input?: Prisma.InputJsonValue;
 }
 
-// The AiJob row is the thing a client polls (GET /ai/jobs/:id), bullmq's own
+// The AiJob row is the thing a client polls (GET /ai/jobs/:jobId), bullmq's own
 // job object is not exposed outside the backend. Shared across both async
 // features (CHECK_SCOPE, GENERATE_STATUS_REPORT), not duplicated per
 // feature, since enqueue/lookup/access-check logic is identical for both.

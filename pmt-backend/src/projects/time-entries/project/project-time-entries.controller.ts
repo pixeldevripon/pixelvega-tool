@@ -88,10 +88,10 @@ export class ProjectTimeEntriesController {
 
   @ApiPauseProjectTimerDocs()
   @RequirePermissions(Permission.TRACK_PROJECT_TIME)
-  @Patch(':id/pause')
+  @Patch(':timeEntryId/pause')
   pause(
     @Param('projectId') projectId: string,
-    @Param('id') id: string,
+    @Param('timeEntryId') id: string,
     @Body() dto: TimeEntryNoteDto,
     @CurrentUser() user: { id: string },
   ) {
@@ -100,10 +100,10 @@ export class ProjectTimeEntriesController {
 
   @ApiResumeProjectTimerDocs()
   @RequirePermissions(Permission.TRACK_PROJECT_TIME)
-  @Patch(':id/resume')
+  @Patch(':timeEntryId/resume')
   resume(
     @Param('projectId') projectId: string,
-    @Param('id') id: string,
+    @Param('timeEntryId') id: string,
     @Body() dto: TimeEntryNoteDto,
     @CurrentUser() user: { id: string },
   ) {
@@ -112,10 +112,10 @@ export class ProjectTimeEntriesController {
 
   @ApiStopProjectTimerDocs()
   @RequirePermissions(Permission.TRACK_PROJECT_TIME)
-  @Patch(':id/stop')
+  @Patch(':timeEntryId/stop')
   stop(
     @Param('projectId') projectId: string,
-    @Param('id') id: string,
+    @Param('timeEntryId') id: string,
     @Body() dto: TimeEntryNoteDto,
     @CurrentUser() user: { id: string },
   ) {

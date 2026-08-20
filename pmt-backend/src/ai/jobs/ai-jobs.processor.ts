@@ -4,7 +4,7 @@ import { Job } from 'bullmq';
 import { AiJobStatus, AiJobType } from '@prisma/client';
 import { PrismaService } from '@/prisma/prisma.service';
 import { ScopeCheckService } from '@/ai/scope-check/scope-check.service';
-import { StatusReportService } from '@/ai/status-report/status-report.service';
+import { StatusReportService } from '@/ai/status-reports/status-report.service';
 
 interface AiJobData {
   aiJobId: string;

@@ -292,6 +292,21 @@ One PR per module. Order: `users` and `profiles` first (smallest, proves the pat
 - [x] Register every new module in `AppModule.imports`
 - [~] Move the AI and Slack calls still running in the request path onto BullMQ **Partly, and the rest deliberately not.** The Slack calls were already fire and forget (9 `.catch()` sites, each with a comment saying a Slack outage must not fail the action). `connectSlack` blocks on purpose: the user asked to connect and needs the answer. That leaves the AI summary, which is queued **only if the product accepts a 202 and polling**; see the decision in `03-progress.md`. Its timeout is fixed either way.
 
+### Route naming, so the folder predicts the path ([ADR 0004](../decisions/0004-the-route-path-is-the-folder-path.md))
+
+Added 2026-08-20. Fourteen controllers served a route their own folder did not name, which is D1
+half kept: the folders were nested during the phase 6b refactor and the routes were not moved with
+them.
+
+- [x] Every route moved onto its folder's path: `/leave/requests`, `/leave/types`, `/leave/holidays`, `/blockers/reasons`, `/projects/:projectId/requirements/additional`, `/projects/:projectId/reviews/client`, `/projects/:projectId/reviews/internal`, `/projects/:projectId/ai/summary`
+- [x] Every folder moved onto its route's path: `audit-log` to `audit-logs`, `ai/status-report` to `ai/status-reports`, `projects/reports/developer` to `reports/developers`, `projects/time-entries/meeting` to `meetings`
+- [x] All 40 bare `:id` path parameters renamed for the entity they identify No URL changes: a parameter name is not part of the path
+- [x] Blocker mutations moved under `/projects/:projectId/blockers`, and `projectId` dropped from `AddBlockerDto` The id now comes from the path, and the lookup is scoped `findFirst({ id, projectId })`, so a blocker id from another project 404s instead of being updated
+- [x] `/leave-requests/:userId/balance` split out as `/leave/balances/:userId` and `/leave/balances/me` One slot no longer holds two entity types
+- [x] `/time-entries` split: the cross-project reads stay at the resource root, the meeting timer moves to `/time-entries/meetings`
+- [x] `route-permissions.spec.ts` regenerated from the real controllers 108 routes, which is what catches a rename that missed one
+- [x] The frontend API client follows, and three URLs it already had wrong are fixed `/api/reports/developer` was singular, `/api/users/me/password` no longer exists (better-auth serves it), and the `/api/auth-flows/*` trio was deleted in phase 6b
+
 **Exit criteria.** Every module matches the template in [`../architecture/03-target-architecture.md`](../architecture/03-target-architecture.md). No service over 600 lines. No
 module with more than four controllers. `/api/docs` shows request and response schemas for every
 endpoint. The suite green throughout.
@@ -364,6 +379,7 @@ build the same screens without re-deriving anything.
 - [ ] Port `components/data-table/use-table-state.ts` (URL synced page, limit, debounced search, filters)
 - [ ] `contexts/role-context.tsx` fed from `GET /users/me/permissions`, never from a hardcoded role check
 - [ ] Port `proxy.ts` **with its comments**. Cookie shape only, no network call
+- [ ] NEXT.js PPR and suspense
 
 **Exit criteria.** One screen migrated end to end, measurably shorter, with a test.
 

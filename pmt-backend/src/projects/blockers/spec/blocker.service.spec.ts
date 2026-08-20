@@ -130,7 +130,7 @@ describe('BlockerService: the update lifecycle', () => {
 
   describe('RESOLVED is permanently locked', () => {
     beforeEach(() => {
-      prisma.blocker.findUnique.mockResolvedValue(
+      prisma.blocker.findFirst.mockResolvedValue(
         blocker({ status: BlockerStatus.RESOLVED, resolvedAt: new Date() }),
       );
     });
@@ -138,6 +138,7 @@ describe('BlockerService: the update lifecycle', () => {
     it('rejects any further edit with 409', async () => {
       await expect(
         service.updateBlocker(
+          PROJECT_ID,
           BLOCKER_ID,
           { description: 'edited' },
           REPORTER_ID,
@@ -151,6 +152,7 @@ describe('BlockerService: the update lifecycle', () => {
       // resolved blocker is an audit record.
       await expect(
         service.updateBlocker(
+          PROJECT_ID,
           BLOCKER_ID,
           { description: 'edited' },
           'admin-1',
@@ -164,6 +166,7 @@ describe('BlockerService: the update lifecycle', () => {
       // the more useful message and leaks nothing.
       await expect(
         service.updateBlocker(
+          PROJECT_ID,
           BLOCKER_ID,
           { description: 'x' },
           OTHER_DEV_ID,
@@ -177,6 +180,7 @@ describe('BlockerService: the update lifecycle', () => {
     it('allows OPEN to IN_PROGRESS', async () => {
       await expect(
         service.updateBlocker(
+          PROJECT_ID,
           BLOCKER_ID,
           { status: BlockerStatus.IN_PROGRESS },
           REPORTER_ID,
@@ -189,6 +193,7 @@ describe('BlockerService: the update lifecycle', () => {
       // A blocker can be resolved before anyone marks it in progress.
       await expect(
         service.updateBlocker(
+          PROJECT_ID,
           BLOCKER_ID,
           { status: BlockerStatus.RESOLVED, resolutionNotes: 'Keys arrived' },
           REPORTER_ID,
@@ -198,11 +203,12 @@ describe('BlockerService: the update lifecycle', () => {
     });
 
     it('rejects IN_PROGRESS back to OPEN', async () => {
-      prisma.blocker.findUnique.mockResolvedValue(
+      prisma.blocker.findFirst.mockResolvedValue(
         blocker({ status: BlockerStatus.IN_PROGRESS }),
       );
       await expect(
         service.updateBlocker(
+          PROJECT_ID,
           BLOCKER_ID,
           { status: BlockerStatus.OPEN },
           REPORTER_ID,
@@ -216,6 +222,7 @@ describe('BlockerService: the update lifecycle', () => {
     it('requires resolutionNotes when resolving', async () => {
       await expect(
         service.updateBlocker(
+          PROJECT_ID,
           BLOCKER_ID,
           { status: BlockerStatus.RESOLVED },
           REPORTER_ID,
@@ -227,6 +234,7 @@ describe('BlockerService: the update lifecycle', () => {
     it('rejects resolutionNotes sent without a resolve', async () => {
       await expect(
         service.updateBlocker(
+          PROJECT_ID,
           BLOCKER_ID,
           { resolutionNotes: 'premature' },
           REPORTER_ID,
@@ -240,6 +248,7 @@ describe('BlockerService: the update lifecycle', () => {
       // derived from how long the blocker was open.
       await expect(
         service.updateBlocker(
+          PROJECT_ID,
           BLOCKER_ID,
           { deadlineExtensionDays: 3 },
           REPORTER_ID,
@@ -251,6 +260,7 @@ describe('BlockerService: the update lifecycle', () => {
     it('accepts deadlineExtensionDays alongside a resolve', async () => {
       await expect(
         service.updateBlocker(
+          PROJECT_ID,
           BLOCKER_ID,
           {
             status: BlockerStatus.RESOLVED,
@@ -267,6 +277,7 @@ describe('BlockerService: the update lifecycle', () => {
       // Additive, never an absolute override, matching how an approved
       // AdditionalRequirement extends a deadline.
       await service.updateBlocker(
+        PROJECT_ID,
         BLOCKER_ID,
         {
           status: BlockerStatus.RESOLVED,
@@ -291,6 +302,7 @@ describe('BlockerService: the update lifecycle', () => {
     it('allows the original reporter', async () => {
       await expect(
         service.updateBlocker(
+          PROJECT_ID,
           BLOCKER_ID,
           { description: 'clarified' },
           REPORTER_ID,
@@ -303,6 +315,7 @@ describe('BlockerService: the update lifecycle', () => {
       prisma.projectMember.findFirst.mockResolvedValue(null);
       await expect(
         service.updateBlocker(
+          PROJECT_ID,
           BLOCKER_ID,
           { description: 'meddling' },
           OTHER_DEV_ID,
@@ -314,6 +327,7 @@ describe('BlockerService: the update lifecycle', () => {
     it('allows a PROJECT_MANAGER staffed on the project', async () => {
       await expect(
         service.updateBlocker(
+          PROJECT_ID,
           BLOCKER_ID,
           { description: 'triaged' },
           PM_ID,
@@ -325,10 +339,43 @@ describe('BlockerService: the update lifecycle', () => {
 
   describe('not found', () => {
     it('throws 404 for a blocker that does not exist', async () => {
-      prisma.blocker.findUnique.mockResolvedValue(null);
+      prisma.blocker.findFirst.mockResolvedValue(null);
       await expect(
         service.updateBlocker(
+          PROJECT_ID,
           'ghost',
+          { description: 'x' },
+          REPORTER_ID,
+          Role.DEVELOPER,
+        ),
+      ).rejects.toBeInstanceOf(NotFoundException);
+    });
+
+    it('scopes the lookup by BOTH the project and the blocker', async () => {
+      // The route is /projects/:projectId/blockers/:blockerId. A lookup on the
+      // blocker id alone would make the project segment decorative: any
+      // project id in the path would edit any blocker, and a client that mixed
+      // two ids up would never find out.
+      await service.updateBlocker(
+        PROJECT_ID,
+        BLOCKER_ID,
+        { description: 'edited' },
+        REPORTER_ID,
+        Role.DEVELOPER,
+      );
+
+      expect(prisma.blocker.findFirst.mock.calls[0][0].where).toMatchObject({
+        id: BLOCKER_ID,
+        projectId: PROJECT_ID,
+      });
+    });
+
+    it('404s for a blocker that belongs to a different project', async () => {
+      prisma.blocker.findFirst.mockResolvedValue(null);
+      await expect(
+        service.updateBlocker(
+          'another-project',
+          BLOCKER_ID,
           { description: 'x' },
           REPORTER_ID,
           Role.DEVELOPER,

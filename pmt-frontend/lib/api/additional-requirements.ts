@@ -62,13 +62,13 @@ function buildQuery(query: AdditionalRequirementsQuery = {}) {
 export const additionalRequirementsApi = {
   async list(projectId: string, query?: AdditionalRequirementsQuery) {
     return apiRequest<AdditionalRequirementsResponse>(
-      `/api/projects/${projectId}/additional-requirements${buildQuery(query)}`,
+      `/api/projects/${projectId}/requirements/additional${buildQuery(query)}`,
     );
   },
 
   async create(projectId: string, input: CreateAdditionalRequirementInput) {
     return apiRequest<AdditionalRequirement>(
-      `/api/projects/${projectId}/additional-requirements`,
+      `/api/projects/${projectId}/requirements/additional`,
       { method: "POST", body: input },
     );
   },
@@ -79,7 +79,7 @@ export const additionalRequirementsApi = {
     input: ReviewAdditionalRequirementInput,
   ) {
     return apiRequest<AdditionalRequirement>(
-      `/api/projects/${projectId}/additional-requirements/${requirementId}/review`,
+      `/api/projects/${projectId}/requirements/additional/${requirementId}/review`,
       { method: "PATCH", body: input },
     );
   },

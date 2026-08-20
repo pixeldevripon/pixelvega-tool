@@ -34,9 +34,9 @@ import { Permission as P } from '@prisma/client';
 import { AdditionalRequirementsController } from '@/projects/requirements/additional/additional-requirements.controller';
 import { AiJobsController } from '@/ai/jobs/ai-jobs.controller';
 import { AiTemplatesController } from '@/ai/templates/ai-templates.controller';
-import { ProjectStatusReportsController } from '@/ai/status-report/project-status-reports.controller';
+import { ProjectStatusReportsController } from '@/ai/status-reports/project-status-reports.controller';
 import { ProjectAiSummaryController } from '@/ai/summary/project-ai-summary.controller';
-import { AuditLogController } from '@/audit-log/audit-log.controller';
+import { AuditLogController } from '@/audit-logs/audit-log.controller';
 import { BlockerReasonsController } from '@/projects/blockers/reasons/blocker-reasons.controller';
 import { BlockersController } from '@/projects/blockers/blockers.controller';
 import { ProjectBlockersController } from '@/projects/blockers/project-blockers.controller';
@@ -44,16 +44,18 @@ import { ClientFeedbackController } from '@/projects/reviews/client/client-feedb
 import { InternalReviewsController } from '@/projects/reviews/internal/internal-reviews.controller';
 import { HolidaysController } from '@/leave/holidays/holidays.controller';
 import { LeaveRequestsController } from '@/leave/requests/leave-requests.controller';
+import { LeaveBalancesController } from '@/leave/balances/leave-balances.controller';
 import { LeaveTypesController } from '@/leave/types/leave-types.controller';
 import { NotificationsController } from '@/notifications/notifications.controller';
 import { ProfilesController } from '@/profiles/profiles.controller';
 import { ProjectDocumentsController } from '@/projects/documents/project-documents.controller';
 import { ProjectMembersController } from '@/projects/members/project-members.controller';
-import { DeveloperReportsController } from '@/projects/reports/developer/developer-reports.controller';
+import { DeveloperReportsController } from '@/reports/developers/developer-reports.controller';
 import { ProjectReportsController } from '@/projects/reports/project/project-reports.controller';
 import { ProjectsController } from '@/projects/projects.controller';
 import { ProjectTimeEntriesController } from '@/projects/time-entries/project/project-time-entries.controller';
-import { TimeEntriesController } from '@/projects/time-entries/meeting/time-entries.controller';
+import { TimeEntriesController } from '@/projects/time-entries/time-entries.controller';
+import { MeetingTimeEntriesController } from '@/projects/time-entries/meetings/meeting-time-entries.controller';
 import { UsersController } from '@/users/users.controller';
 import { DailyWorkReportController } from '@/projects/daily-work-reports/daily-work-report.controller';
 import { ProjectDailyWorkReportsController } from '@/projects/daily-work-reports/project-daily-work-reports.controller';
@@ -83,6 +85,7 @@ const CONTROLLERS = [
   InternalReviewsController,
   HolidaysController,
   LeaveRequestsController,
+  LeaveBalancesController,
   LeaveTypesController,
   NotificationsController,
   ProfilesController,
@@ -93,6 +96,7 @@ const CONTROLLERS = [
   ProjectsController,
   ProjectTimeEntriesController,
   TimeEntriesController,
+  MeetingTimeEntriesController,
   UsersController,
   DailyWorkReportController,
   ProjectDailyWorkReportsController,
@@ -107,52 +111,54 @@ const CONTROLLERS = [
  * and never reaches a Nest guard at all. Every route Nest owns is gated.
  */
 const EXPECTED: Record<string, Expected> = {
-  'DELETE /ai/templates/:id': [P.MANAGE_AI_TEMPLATES],
-  'DELETE /blocker-reasons/:id': [P.MANAGE_BLOCKER_REASONS],
-  'DELETE /holidays/:id': [P.MANAGE_HOLIDAYS],
-  'DELETE /leave-types/:id': [P.MANAGE_LEAVE_TYPES],
-  'DELETE /projects/:projectId/documents/:id': [P.MANAGE_PROJECT_DOCUMENTS],
+  'DELETE /ai/templates/:templateId': [P.MANAGE_AI_TEMPLATES],
+  'DELETE /blockers/reasons/:reasonId': [P.MANAGE_BLOCKER_REASONS],
+  'DELETE /leave/holidays/:holidayId': [P.MANAGE_HOLIDAYS],
+  'DELETE /leave/types/:leaveTypeId': [P.MANAGE_LEAVE_TYPES],
+  'DELETE /projects/:projectId/documents/:documentId': [
+    P.MANAGE_PROJECT_DOCUMENTS,
+  ],
   'DELETE /projects/:projectId/members/:memberId': [P.MANAGE_PROJECT_MEMBERS],
-  'DELETE /users/:id': [P.DELETE_USER],
-  'GET /ai/jobs/:id': [P.VIEW_AI_JOB],
+  'DELETE /users/:userId': [P.DELETE_USER],
+  'GET /ai/jobs/:jobId': [P.VIEW_AI_JOB],
   'GET /ai/templates': [P.VIEW_AI_TEMPLATES],
   'GET /audit-logs': [P.VIEW_AUDIT_LOG],
-  'GET /blocker-reasons': [P.VIEW_BLOCKERS],
   'GET /blockers': [P.VIEW_BLOCKERS],
+  'GET /blockers/reasons': [P.VIEW_BLOCKERS],
   'GET /daily-work-reports': [P.VIEW_WORK_REPORTS],
   'GET /daily-work-reports/today': [P.SUBMIT_WORK_REPORT],
-  'GET /holidays': [P.VIEW_HOLIDAYS],
-  'GET /leave-requests': [P.VIEW_LEAVE_REQUESTS],
-  'GET /leave-requests/:userId/balance': [P.VIEW_LEAVE_REQUESTS],
-  'GET /leave-requests/me': [P.REQUEST_LEAVE],
-  'GET /leave-requests/me/balance': [P.REQUEST_LEAVE],
-  'GET /leave-requests/summary': [P.VIEW_LEAVE_SUMMARY],
-  'GET /leave-requests/summary/export': [P.VIEW_LEAVE_SUMMARY],
-  'GET /leave-types': [P.VIEW_LEAVE_TYPES],
+  'GET /leave/balances/:userId': [P.VIEW_LEAVE_REQUESTS],
+  'GET /leave/balances/me': [P.REQUEST_LEAVE],
+  'GET /leave/holidays': [P.VIEW_HOLIDAYS],
+  'GET /leave/requests': [P.VIEW_LEAVE_REQUESTS],
+  'GET /leave/requests/me': [P.REQUEST_LEAVE],
+  'GET /leave/requests/summary': [P.VIEW_LEAVE_SUMMARY],
+  'GET /leave/requests/summary/export': [P.VIEW_LEAVE_SUMMARY],
+  'GET /leave/types': [P.VIEW_LEAVE_TYPES],
   'GET /notifications': [P.VIEW_OWN_NOTIFICATIONS],
   'GET /notifications/unread-count': [P.VIEW_OWN_NOTIFICATIONS],
   'GET /profiles/:userId': [P.VIEW_USER_PROFILE],
   'GET /profiles/me': [P.VIEW_OWN_PROFILE],
   'GET /projects': [P.VIEW_ALL_PROJECTS],
-  'GET /projects/:id': any(P.VIEW_ALL_PROJECTS, P.VIEW_OWN_PROJECTS),
-  'GET /projects/:id/activities': [P.VIEW_PROJECT_ACTIVITY],
-  'GET /projects/:projectId/additional-requirements': [
-    P.VIEW_ADDITIONAL_REQUIREMENTS,
-  ],
-  'GET /projects/:projectId/additional-requirements/:id': [
-    P.VIEW_ADDITIONAL_REQUIREMENTS,
-  ],
+  'GET /projects/:projectId': any(P.VIEW_ALL_PROJECTS, P.VIEW_OWN_PROJECTS),
+  'GET /projects/:projectId/activities': [P.VIEW_PROJECT_ACTIVITY],
   'GET /projects/:projectId/ai/status-reports': [P.VIEW_STATUS_REPORTS],
   'GET /projects/:projectId/ai/summary': [P.REQUEST_AI_SUMMARY],
   'GET /projects/:projectId/blockers': [P.VIEW_BLOCKERS],
   'GET /projects/:projectId/blockers/deadline-impact': [P.VIEW_BLOCKERS],
-  'GET /projects/:projectId/client-feedback': [P.VIEW_CLIENT_FEEDBACK],
   'GET /projects/:projectId/daily-work-reports': [P.VIEW_WORK_REPORTS],
   'GET /projects/:projectId/documents': [P.VIEW_PROJECT_DOCUMENTS],
-  'GET /projects/:projectId/documents/:id': [P.VIEW_PROJECT_DOCUMENTS],
-  'GET /projects/:projectId/internal-reviews': [P.VIEW_INTERNAL_REVIEWS],
+  'GET /projects/:projectId/documents/:documentId': [P.VIEW_PROJECT_DOCUMENTS],
   'GET /projects/:projectId/members': [P.VIEW_PROJECT_MEMBERS],
   'GET /projects/:projectId/reports': [P.VIEW_PROJECT_REPORTS],
+  'GET /projects/:projectId/requirements/additional': [
+    P.VIEW_ADDITIONAL_REQUIREMENTS,
+  ],
+  'GET /projects/:projectId/requirements/additional/:requirementId': [
+    P.VIEW_ADDITIONAL_REQUIREMENTS,
+  ],
+  'GET /projects/:projectId/reviews/client': [P.VIEW_CLIENT_FEEDBACK],
+  'GET /projects/:projectId/reviews/internal': [P.VIEW_INTERNAL_REVIEWS],
   'GET /projects/:projectId/time-entries': [P.VIEW_TIME_ENTRIES],
   'GET /projects/:projectId/time-entries/daily-summary': [P.VIEW_TIME_ENTRIES],
   'GET /projects/mine': [P.VIEW_OWN_PROJECTS],
@@ -163,69 +169,76 @@ const EXPECTED: Record<string, Expected> = {
   'GET /time-entries/meetings': [P.TRACK_MEETING_TIME],
   'GET /time-entries/project-summary': [P.VIEW_TIME_ENTRIES],
   'GET /users': [P.VIEW_USERS],
-  'GET /users/:id': [P.VIEW_USERS],
+  'GET /users/:userId': [P.VIEW_USERS],
   'GET /users/me': [P.VIEW_OWN_PROFILE],
   'GET /users/me/permissions': [P.VIEW_OWN_PERMISSIONS],
-  'PATCH /ai/templates/:id': [P.MANAGE_AI_TEMPLATES],
-  'PATCH /blocker-reasons/:id': [P.MANAGE_BLOCKER_REASONS],
-  'PATCH /blockers/:blockerId': [P.REPORT_BLOCKER],
-  'PATCH /daily-work-reports/:id/plan': [P.SUBMIT_WORK_REPORT],
-  'PATCH /daily-work-reports/:id/wrap-up': [P.SUBMIT_WORK_REPORT],
+  'PATCH /ai/templates/:templateId': [P.MANAGE_AI_TEMPLATES],
+  'PATCH /blockers/reasons/:reasonId': [P.MANAGE_BLOCKER_REASONS],
   'PATCH /daily-work-reports/:reportId/entries/:entryId/review': [
     P.REVIEW_WORK_REPORT,
   ],
-  'PATCH /holidays/:id': [P.MANAGE_HOLIDAYS],
-  'PATCH /leave-requests/:id/approve': [P.REVIEW_LEAVE_REQUEST],
-  'PATCH /leave-requests/:id/cancel': [P.REQUEST_LEAVE],
-  'PATCH /leave-requests/:id/reject': [P.REVIEW_LEAVE_REQUEST],
-  'PATCH /leave-types/:id': [P.MANAGE_LEAVE_TYPES],
-  'PATCH /notifications/:id/read': [P.MANAGE_OWN_NOTIFICATIONS],
+  'PATCH /daily-work-reports/:reportId/plan': [P.SUBMIT_WORK_REPORT],
+  'PATCH /daily-work-reports/:reportId/wrap-up': [P.SUBMIT_WORK_REPORT],
+  'PATCH /leave/holidays/:holidayId': [P.MANAGE_HOLIDAYS],
+  'PATCH /leave/requests/:leaveRequestId/approve': [P.REVIEW_LEAVE_REQUEST],
+  'PATCH /leave/requests/:leaveRequestId/cancel': [P.REQUEST_LEAVE],
+  'PATCH /leave/requests/:leaveRequestId/reject': [P.REVIEW_LEAVE_REQUEST],
+  'PATCH /leave/types/:leaveTypeId': [P.MANAGE_LEAVE_TYPES],
+  'PATCH /notifications/:notificationId/read': [P.MANAGE_OWN_NOTIFICATIONS],
   'PATCH /notifications/read-all': [P.MANAGE_OWN_NOTIFICATIONS],
   'PATCH /profiles/me': [P.EDIT_OWN_PROFILE],
-  'PATCH /projects/:id': [P.EDIT_PROJECT],
-  'PATCH /projects/:id/archive': [P.ARCHIVE_PROJECT],
-  'PATCH /projects/:id/estimated-hours': [P.MANAGE_ESTIMATED_HOURS],
-  'PATCH /projects/:id/priority': [P.CHANGE_PROJECT_PRIORITY],
-  'PATCH /projects/:id/restore': [P.ARCHIVE_PROJECT],
-  'PATCH /projects/:id/slack-channel': [P.CONNECT_PROJECT_SLACK],
-  'PATCH /projects/:id/status': [P.CHANGE_PROJECT_STATUS],
-  'PATCH /projects/:id/types': [P.MANAGE_PROJECT_TYPES],
-  'PATCH /projects/:projectId/additional-requirements/:id/review': [
+  'PATCH /projects/:projectId': [P.EDIT_PROJECT],
+  'PATCH /projects/:projectId/archive': [P.ARCHIVE_PROJECT],
+  'PATCH /projects/:projectId/blockers/:blockerId': [P.REPORT_BLOCKER],
+  'PATCH /projects/:projectId/documents/:documentId': [
+    P.MANAGE_PROJECT_DOCUMENTS,
+  ],
+  'PATCH /projects/:projectId/estimated-hours': [P.MANAGE_ESTIMATED_HOURS],
+  'PATCH /projects/:projectId/priority': [P.CHANGE_PROJECT_PRIORITY],
+  'PATCH /projects/:projectId/requirements/additional/:requirementId/review': [
     P.REVIEW_ADDITIONAL_REQUIREMENT,
   ],
-  'PATCH /projects/:projectId/documents/:id': [P.MANAGE_PROJECT_DOCUMENTS],
-  'PATCH /projects/:projectId/time-entries/:id/pause': [P.TRACK_PROJECT_TIME],
-  'PATCH /projects/:projectId/time-entries/:id/resume': [P.TRACK_PROJECT_TIME],
-  'PATCH /projects/:projectId/time-entries/:id/stop': [P.TRACK_PROJECT_TIME],
-  'PATCH /time-entries/meetings/:id/pause': [P.TRACK_MEETING_TIME],
-  'PATCH /time-entries/meetings/:id/resume': [P.TRACK_MEETING_TIME],
-  'PATCH /time-entries/meetings/:id/stop': [P.TRACK_MEETING_TIME],
-  'PATCH /users/:id': [P.UPDATE_USER],
+  'PATCH /projects/:projectId/restore': [P.ARCHIVE_PROJECT],
+  'PATCH /projects/:projectId/slack-channel': [P.CONNECT_PROJECT_SLACK],
+  'PATCH /projects/:projectId/status': [P.CHANGE_PROJECT_STATUS],
+  'PATCH /projects/:projectId/time-entries/:timeEntryId/pause': [
+    P.TRACK_PROJECT_TIME,
+  ],
+  'PATCH /projects/:projectId/time-entries/:timeEntryId/resume': [
+    P.TRACK_PROJECT_TIME,
+  ],
+  'PATCH /projects/:projectId/time-entries/:timeEntryId/stop': [
+    P.TRACK_PROJECT_TIME,
+  ],
+  'PATCH /projects/:projectId/types': [P.MANAGE_PROJECT_TYPES],
+  'PATCH /time-entries/meetings/:timeEntryId/pause': [P.TRACK_MEETING_TIME],
+  'PATCH /time-entries/meetings/:timeEntryId/resume': [P.TRACK_MEETING_TIME],
+  'PATCH /time-entries/meetings/:timeEntryId/stop': [P.TRACK_MEETING_TIME],
+  'PATCH /users/:userId': [P.UPDATE_USER],
   'POST /ai/templates': [P.MANAGE_AI_TEMPLATES],
-  'POST /blocker-reasons': [P.MANAGE_BLOCKER_REASONS],
-  'POST /blockers': [P.REPORT_BLOCKER],
+  'POST /blockers/reasons': [P.MANAGE_BLOCKER_REASONS],
   'POST /daily-work-reports': [P.SUBMIT_WORK_REPORT],
-  'POST /daily-work-reports/:id/wrap-up': [P.SUBMIT_WORK_REPORT],
-  'POST /holidays': [P.MANAGE_HOLIDAYS],
-  'POST /leave-requests': [P.REQUEST_LEAVE],
-  'POST /leave-types': [P.MANAGE_LEAVE_TYPES],
+  'POST /daily-work-reports/:reportId/wrap-up': [P.SUBMIT_WORK_REPORT],
+  'POST /leave/holidays': [P.MANAGE_HOLIDAYS],
+  'POST /leave/requests': [P.REQUEST_LEAVE],
+  'POST /leave/types': [P.MANAGE_LEAVE_TYPES],
   'POST /profiles/me/avatar': [P.EDIT_OWN_PROFILE],
   'POST /projects': [P.CREATE_PROJECT],
-  'POST /projects/:projectId/additional-requirements': [
-    P.CREATE_ADDITIONAL_REQUIREMENT,
-  ],
-  'POST /projects/:projectId/additional-requirements/:id/check-scope': [
-    P.RUN_SCOPE_CHECK,
-  ],
   'POST /projects/:projectId/ai/status-reports': [P.GENERATE_STATUS_REPORT],
-  'POST /projects/:projectId/client-feedback': [P.SUBMIT_CLIENT_FEEDBACK],
+  'POST /projects/:projectId/blockers': [P.REPORT_BLOCKER],
   'POST /projects/:projectId/documents': [P.MANAGE_PROJECT_DOCUMENTS],
   'POST /projects/:projectId/documents/batch': [P.MANAGE_PROJECT_DOCUMENTS],
-  'POST /projects/:projectId/internal-reviews': [P.SUBMIT_INTERNAL_REVIEW],
   'POST /projects/:projectId/members': [P.MANAGE_PROJECT_MEMBERS],
   'POST /projects/:projectId/members/:memberId/resync-slack': [
     P.MANAGE_PROJECT_MEMBERS,
   ],
+  'POST /projects/:projectId/requirements/additional': [
+    P.CREATE_ADDITIONAL_REQUIREMENT,
+  ],
+  'POST /projects/:projectId/requirements/additional/:requirementId/check-scope':
+    [P.RUN_SCOPE_CHECK],
+  'POST /projects/:projectId/reviews/client': [P.SUBMIT_CLIENT_FEEDBACK],
+  'POST /projects/:projectId/reviews/internal': [P.SUBMIT_INTERNAL_REVIEW],
   'POST /projects/:projectId/time-entries/start': [P.TRACK_PROJECT_TIME],
   'POST /time-entries/meetings/start': [P.TRACK_MEETING_TIME],
   'POST /users/invite': [P.INVITE_USER],
@@ -253,7 +266,7 @@ describe('route permission matrix', () => {
     // pinned by this file and the matrix is quietly incomplete.
     // Counted from disk, so this cannot drift into agreeing with an outdated
     // number. AuthController is gone: better-auth owns that surface now.
-    const controllerFiles = 26;
+    const controllerFiles = 28;
     expect(CONTROLLERS).toHaveLength(controllerFiles);
   });
 

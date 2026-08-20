@@ -22,7 +22,7 @@ import { CreateHolidayDto, UpdateHolidayDto } from '@/leave/dto/leave.dto';
 
 @ApiTags('Holidays')
 @ApiCookieAuth('better-auth.session_token')
-@Controller('holidays')
+@Controller('leave/holidays')
 export class HolidaysController {
   constructor(private readonly holidaysService: HolidaysService) {}
 
@@ -42,9 +42,9 @@ export class HolidaysController {
 
   @ApiUpdateHolidayDocs()
   @RequirePermissions(Permission.MANAGE_HOLIDAYS)
-  @Patch(':id')
+  @Patch(':holidayId')
   update(
-    @Param('id') id: string,
+    @Param('holidayId') id: string,
     @Body() dto: UpdateHolidayDto,
     @CurrentUser() user: { id: string },
   ) {
@@ -53,8 +53,8 @@ export class HolidaysController {
 
   @ApiDeleteHolidayDocs()
   @RequirePermissions(Permission.MANAGE_HOLIDAYS)
-  @Delete(':id')
-  remove(@Param('id') id: string, @CurrentUser() user: { id: string }) {
+  @Delete(':holidayId')
+  remove(@Param('holidayId') id: string, @CurrentUser() user: { id: string }) {
     return this.holidaysService.remove(id, user.id);
   }
 }

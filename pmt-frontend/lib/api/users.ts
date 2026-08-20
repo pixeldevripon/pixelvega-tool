@@ -54,9 +54,13 @@ export const usersApi = {
     });
   },
 
+  // better-auth's own route. The PATCH /users/me/password wrapper that used to
+  // back this was deleted: it was a second door onto one action with different
+  // security properties. An after hook on the API side clears
+  // mustResetPassword and writes the audit entry.
   async changePassword(currentPassword: string, newPassword: string) {
-    return apiRequest<{ message: string }>("/api/users/me/password", {
-      method: "PATCH",
+    return apiRequest<{ user: unknown }>("/api/auth/change-password", {
+      method: "POST",
       body: { currentPassword, newPassword },
     });
   },

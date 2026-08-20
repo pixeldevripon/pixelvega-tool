@@ -22,7 +22,7 @@ import { CreateLeaveTypeDto, UpdateLeaveTypeDto } from '@/leave/dto/leave.dto';
 
 @ApiTags('Leave Types')
 @ApiCookieAuth('better-auth.session_token')
-@Controller('leave-types')
+@Controller('leave/types')
 export class LeaveTypesController {
   constructor(private readonly leaveTypesService: LeaveTypesService) {}
 
@@ -42,9 +42,9 @@ export class LeaveTypesController {
 
   @ApiUpdateLeaveTypeDocs()
   @RequirePermissions(Permission.MANAGE_LEAVE_TYPES)
-  @Patch(':id')
+  @Patch(':leaveTypeId')
   update(
-    @Param('id') id: string,
+    @Param('leaveTypeId') id: string,
     @Body() dto: UpdateLeaveTypeDto,
     @CurrentUser() user: { id: string },
   ) {
@@ -53,8 +53,11 @@ export class LeaveTypesController {
 
   @ApiDeleteLeaveTypeDocs()
   @RequirePermissions(Permission.MANAGE_LEAVE_TYPES)
-  @Delete(':id')
-  remove(@Param('id') id: string, @CurrentUser() user: { id: string }) {
+  @Delete(':leaveTypeId')
+  remove(
+    @Param('leaveTypeId') id: string,
+    @CurrentUser() user: { id: string },
+  ) {
     return this.leaveTypesService.remove(id, user.id);
   }
 }

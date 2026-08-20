@@ -1,6 +1,6 @@
 import { ProjectStatusReport } from '@prisma/client';
 
-import { toStatusReportResponse } from '@/ai/status-report/project-status-report.mapper';
+import { toStatusReportResponse } from '@/ai/status-reports/project-status-report.mapper';
 
 const report = {
   id: 'sr1',

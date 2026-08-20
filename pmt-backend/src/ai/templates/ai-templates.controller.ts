@@ -50,15 +50,15 @@ export class AiTemplatesController {
 
   @ApiUpdateAiTemplateDocs()
   @RequirePermissions(Permission.MANAGE_AI_TEMPLATES)
-  @Patch(':id')
-  update(@Param('id') id: string, @Body() dto: UpdateAiTemplateDto) {
+  @Patch(':templateId')
+  update(@Param('templateId') id: string, @Body() dto: UpdateAiTemplateDto) {
     return this.aiTemplatesService.update(id, dto);
   }
 
   @ApiDeleteAiTemplateDocs()
   @RequirePermissions(Permission.MANAGE_AI_TEMPLATES)
-  @Delete(':id')
-  remove(@Param('id') id: string) {
+  @Delete(':templateId')
+  remove(@Param('templateId') id: string) {
     return this.aiTemplatesService.remove(id);
   }
 }

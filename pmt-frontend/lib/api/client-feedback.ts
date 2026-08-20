@@ -38,13 +38,13 @@ export type CreateClientFeedbackInput = {
 export const clientFeedbackApi = {
   list(projectId: string, page = 1, pageSize = 10) {
     return apiRequest<ClientFeedbackResponse>(
-      `/api/projects/${projectId}/client-feedback?page=${page}&pageSize=${pageSize}`,
+      `/api/projects/${projectId}/reviews/client?page=${page}&pageSize=${pageSize}`,
     );
   },
 
   create(projectId: string, input: CreateClientFeedbackInput) {
     return apiRequest<ClientFeedback>(
-      `/api/projects/${projectId}/client-feedback`,
+      `/api/projects/${projectId}/reviews/client`,
       { method: "POST", body: input },
     );
   },

@@ -16,7 +16,7 @@ import { CreateInternalReviewDto } from '@/projects/reviews/internal/dto/interna
 
 @ApiTags('Internal Reviews')
 @ApiCookieAuth('better-auth.session_token')
-@Controller('projects/:projectId/internal-reviews')
+@Controller('projects/:projectId/reviews/internal')
 export class InternalReviewsController {
   constructor(
     private readonly internalReviewsService: InternalReviewsService,

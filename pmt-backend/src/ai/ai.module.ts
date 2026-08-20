@@ -14,7 +14,7 @@ import { AiJobsController } from '@/ai/jobs/ai-jobs.controller';
 import { AiTemplatesService } from '@/ai/templates/ai-templates.service';
 import { AiTemplatesController } from '@/ai/templates/ai-templates.controller';
 import { ScopeCheckService } from '@/ai/scope-check/scope-check.service';
-import { StatusReportService } from '@/ai/status-report/status-report.service';
+import { StatusReportService } from '@/ai/status-reports/status-report.service';
 
 @Module({
   imports: [

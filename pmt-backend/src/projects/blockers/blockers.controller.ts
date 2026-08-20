@@ -27,41 +27,25 @@ import {
 // reported and updated from a single top level endpoint regardless of which
 // project it belongs to. The read scoped to one project (PM dashboard) lives
 // in ProjectBlockersController instead.
-// Same role set as REPORT_ROLES. DEVELOPER/DESIGNER only see blockers on
-// projects they're actively staffed on (enforced in BlockerService.findAll()
-// via a project membership filter); PROJECT_MANAGER can see every project.
+/**
+ * Blockers across every project. READ ONLY.
+ *
+ * ADR 0004: a resource that needs a project mutates under
+ * `/projects/:projectId/blockers`, and appears once at the top level as a
+ * cross-project view that takes its filters as query params. Reporting and
+ * editing used to live here, which meant a blocker was created at an address
+ * that did not name its own project.
+ *
+ * DEVELOPER and DESIGNER see only blockers on projects they are actively
+ * staffed on, enforced in `BlockerService.findAll()` by a membership filter.
+ * PROJECT_MANAGER sees every project.
+ */
 
 @ApiTags('Blockers')
 @ApiCookieAuth('better-auth.session_token')
 @Controller('blockers')
 export class BlockersController {
   constructor(private readonly blockerService: BlockerService) {}
-
-  @ApiReportBlockerDocs()
-  @RequirePermissions(Permission.REPORT_BLOCKER)
-  @Post()
-  addBlocker(
-    @Body() dto: AddBlockerDto,
-    @CurrentUser() user: { id: string; role: Role },
-  ) {
-    return this.blockerService.addBlocker(dto, user.id, user.role);
-  }
-
-  @ApiUpdateBlockerDocs()
-  @RequirePermissions(Permission.REPORT_BLOCKER)
-  @Patch(':blockerId')
-  updateBlocker(
-    @Param('blockerId') blockerId: string,
-    @Body() dto: UpdateBlockerDto,
-    @CurrentUser() user: { id: string; role: Role },
-  ) {
-    return this.blockerService.updateBlocker(
-      blockerId,
-      dto,
-      user.id,
-      user.role,
-    );
-  }
 
   @ApiListBlockersDocs()
   @RequirePermissions(Permission.VIEW_BLOCKERS)

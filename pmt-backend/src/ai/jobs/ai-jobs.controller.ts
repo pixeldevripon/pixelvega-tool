@@ -19,9 +19,9 @@ export class AiJobsController {
 
   @ApiGetAiJobDocs()
   @RequirePermissions(Permission.VIEW_AI_JOB)
-  @Get(':id')
+  @Get(':jobId')
   findOne(
-    @Param('id') id: string,
+    @Param('jobId') id: string,
     @CurrentUser() user: { id: string; role: Role },
   ) {
     return this.aiJobsService.findOneScoped(id, user.id, user.role);
