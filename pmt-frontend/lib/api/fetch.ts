@@ -49,13 +49,22 @@ export async function apiFetch<T>(path: string, init?: RequestInit): Promise<T> 
 
   const request = async (): Promise<Response> => {
     try {
+      // `...init` FIRST, then the two things this client owns.
+      //
+      // It used to come last, which meant a caller passing `headers` replaced
+      // the merged object wholesale and took `Content-Type` with it: a JSON POST
+      // arrived with no content type and an unparseable body. Latent, because
+      // nothing passed a header yet, which is exactly how it would have been
+      // found the hard way. `credentials` is now equally non-negotiable, and
+      // that is deliberate: a request from this client without the session
+      // cookie is an anonymous request, which is never what a caller meant.
       return await fetch(`${BASE_URL}${path}`, {
+        ...init,
         credentials: 'include',
         headers: {
           ...(isFormData ? {} : { 'Content-Type': 'application/json' }),
           ...init?.headers,
         },
-        ...init,
       });
     } catch {
       // fetch() only rejects on network-level failure (offline, DNS, CORS,
