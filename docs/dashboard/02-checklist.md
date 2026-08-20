@@ -9,22 +9,22 @@ A stale checklist is worse than no checklist, because the next person trusts it.
 
 ## Progress
 
-| Phase | What                                        | Items   | Done   | Status      |
-| ----- | ------------------------------------------- | ------- | ------ | ----------- |
-| ~     | Decisions to make first                     | 9       | 0      | not started |
-| D0    | Mirror, then prune                          | 99      | 68     | in progress |
-| D1    | The module kit                              | 29      | 0      | not started |
-| D2    | Backend, the dashboards                     | 42      | 30     | in progress |
-| D3    | Frontend, the four dashboards               | 11      | 0      | not started |
-| D4    | Backend, the contract gaps                  | 7       | 0      | not started |
-| D5    | Projects, list to detail                    | 33      | 0      | not started |
-| D6    | Time tracking and standups                  | 20      | 0      | not started |
-| D7    | Blockers, requirements, reviews, feedback   | 29      | 0      | not started |
-| D8    | People, leave, notifications, audit, client | 29      | 0      | not started |
-| D9    | The AI module                               | 24      | 0      | not started |
-| D10   | The named gaps                              | 30      | 0      | not started |
-| D11   | Hardening and close                         | 16      | 0      | not started |
-|       | **Total**                                   | **379** | **98** |             |
+| Phase | What                                        | Items   | Done    | Status      |
+| ----- | ------------------------------------------- | ------- | ------- | ----------- |
+| ~     | Decisions to make first                     | 9       | 0       | not started |
+| D0    | Mirror, then prune                          | 99      | 68      | in progress |
+| D1    | The module kit                              | 29      | 0       | not started |
+| D2    | Backend, the dashboards                     | 55      | 51      | in progress |
+| D3    | Frontend, the overview                      | 11      | 8       | in progress |
+| D4    | Backend, the contract gaps                  | 7       | 0       | not started |
+| D5    | Projects, list to detail                    | 33      | 0       | not started |
+| D6    | Time tracking and standups                  | 20      | 0       | not started |
+| D7    | Blockers, requirements, reviews, feedback   | 29      | 0       | not started |
+| D8    | People, leave, notifications, audit, client | 29      | 0       | not started |
+| D9    | The AI module                               | 24      | 0       | not started |
+| D10   | The named gaps                              | 30      | 0       | not started |
+| D11   | Hardening and close                         | 16      | 0       | not started |
+|       | **Total**                                   | **386** | **113** |             |     |
 
 Regenerate the counts with
 `awk '/^## /{if(s!="")print s": "n; s=$0; n=0} /^- \[ \]|^- \[x\]/{n++} END{print s": "n}' 02-checklist.md`
@@ -335,7 +335,7 @@ conflating them was the mistake the first draft nearly made.
       permission at all
 - [x] "Unrestricted" is identified by a capability only an admin holds (`ARCHIVE_PROJECT`), never by
       a role string (D2)
-- [ ] **The service's own assertion must call the same predicate.** Two copies is the defect
+- [x] **The service's own assertion must call the same predicate.** Two copies is the defect
       `pmt-backend/CLAUDE.md` names as the most repeated one here: five flags once shipped wider than
       their enforcement, each offering a button that then answered 403
 
@@ -348,11 +348,11 @@ conflating them was the mistake the first draft nearly made.
 | `STAFF`   | projects where they are an active member in any role | `members: { some: { userId, leftAt: null } }`            |
 | `CLIENT`  | projects where `clientId` is them                    | `where: { clientId: userId }`                            |
 
-- [ ] **The filter is in the `where`, never in the mapper.** A mapper that drops rows is a leak the
+- [x] **The filter is in the `where`, never in the mapper.** A mapper that drops rows is a leak the
       first time someone edits it, and the response would look correct while carrying data the caller
       may not have
-- [ ] Archived projects are excluded from every block
-- [ ] Every list is bounded by the service, never by a client-supplied page size
+- [x] Archived projects are excluded from every block
+- [x] Every list is bounded by the service, never by a client-supplied page size
 - [ ] A spec per audience asserting a project outside the caller's scope is absent from the response
 
 ### Data heavy, because a brief overview is the point
@@ -415,12 +415,55 @@ Status, who is working on it, blockers, and progress, all on one card:
       break them, and a literal list would keep passing while the real answer moved
 - [x] Backend gate green: lint clean, typecheck 0, **1,181 tests**, build succeeds
 
+### Built, and verified against the running stack
+
+The endpoint exists, the screen renders it, and every scoping rule was checked by signing in as four
+real accounts rather than by reading the code.
+
+- [x] `GET /api/dashboard` returns 200 with the caller's block
+- [x] Registered in `src/app.controllers.ts`, and both route specs updated: 29 controllers, 109 routes
+- [x] `spec/dashboard.mapper.spec.ts` at **88 cases**
+- [x] Frontend: `types/dashboard.ts`, `lib/api/dashboard.ts`, `hooks/dashboard/use-dashboard.ts`
+- [x] `components/common/stats/`: stat card, mini bars, ranked list, breakdown card, hours chart
+- [x] `components/home/`: project card, my day, attention, workspace view, client view, home view
+- [x] All four view states handled. An empty dashboard is the common case on a fresh install, and an
+      error on the landing screen is the first thing a new user would see
+
+| Signed in as    | Projects in scope    | `canManage` | `topContributors` | `pendingLeave` | `myDay` |
+| --------------- | -------------------- | ----------- | ----------------- | -------------- | ------- |
+| ADMIN           | 111 (all)            | all true    | present           | 51             | present |
+| PROJECT_MANAGER | 111 (all)            | **2 of 12** | present           | null           | null    |
+| DEVELOPER       | **13 (only theirs)** | all false   | null              | null           | present |
+| CLIENT          | 12, reduced          | absent      | absent            | absent         | absent  |
+
+The PM row is the rule working: **sees every project, manages only their own.** The CLIENT row
+carries exactly six keys per project, so no internal figure exists in the payload to leak.
+
+### Four defects this found
+
+| Found                                                                                                                                        | How                                                                                                                                              |
+| -------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------ |
+| I invented `progressPercentage` and `lastWorkedAt`. Neither is a column: `Project Module.md` specifies the first but the schema never got it | The build failed on the Prisma `select`. Progress is now derived from the lifecycle, and `lastWorkedAt` from one grouped query over time entries |
+| The comparison window leaked into the response as `previousFrom` and `previousTo`, fields the DTO does not declare                           | Reading the live payload. `whitelist` and `forbidNonWhitelisted` guard request bodies, not responses, so nothing else would have caught it       |
+| I claimed `myDay` was null for an admin. An ADMIN holds `TRACK_PROJECT_TIME`, so they get one, and hiding it would hide a control they have  | The live response disagreed with my own comment                                                                                                  |
+| `56.083333333333336h of 114h` on screen. An hours sum is a float, and the card rendered the exact value instead of a label                   | Looking at it. Every hours figure now ships with its readable form (ADR 0003)                                                                    |
+
+### Two decisions worth knowing
+
+**Progress is the lifecycle position, not hours used.** A project can burn 90% of its estimate while
+still sitting in Planning, and calling that 90% done would be wrong in the most expensive direction.
+Hours against estimate ships separately as `hoursUsedRate`, and a card shows both.
+
+**Standup compliance is not project-scoped.** A standup belongs to a person, not a project, so "9 of
+72 filed today" is a fact about the team whichever projects the caller can see. Expected counts only
+active developers and designers, so a client or a suspended account cannot drag the rate down.
+
 ### Still to build
 
-- [ ] `dashboard.service.ts`, with the scoped queries and the aggregation
-- [ ] `dashboard.controller.ts`, one `GET /` gated on `VIEW_DASHBOARD`
-- [ ] `dashboard.swagger.ts`, one `applyDecorators()` function
-- [ ] `dashboard.module.ts`, registered in `AppModule.imports`
+- [x] `dashboard.service.ts`, with the scoped queries and the aggregation
+- [x] `dashboard.controller.ts`, one `GET /` gated on `VIEW_DASHBOARD`
+- [x] `dashboard.swagger.ts`, one `applyDecorators()` function
+- [x] `dashboard.module.ts`, registered in `AppModule.imports`
 - [ ] **Registered in `src/app.controllers.ts`**, or neither route spec sees it and both silently
       cover less. Both assert the controller count for this reason
 - [ ] `spec/dashboard.service.spec.ts`, Prisma fully mocked, one case per audience plus the scoping

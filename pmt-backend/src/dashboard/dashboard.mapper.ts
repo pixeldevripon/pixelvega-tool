@@ -14,6 +14,7 @@ import {
   PROJECT_PRIORITY_DISPLAY,
   PROJECT_ROLE_DISPLAY,
   PROJECT_STATUS_DISPLAY,
+  PROJECT_STATUS_PROGRESS,
   PROJECT_TYPE_DISPLAY,
   toEnumDisplay,
   type DashboardAudience,
@@ -457,8 +458,6 @@ export type DashboardProjectRow = {
   priority: ProjectPriority;
   deadline: Date | null;
   plannedStartDate: Date | null;
-  lastWorkedAt: Date | null;
-  progressPercentage: number;
   estimatedHours: number | null;
   actualHours: number;
   projectTypeTags: { type: ProjectType }[];
@@ -492,6 +491,8 @@ export function toDashboardProject(
   context: {
     blockers: DashboardBlockerTally;
     minutesInRange: number;
+    /** Latest time entry across every user. Null when nobody has logged any. */
+    lastWorkedAt: Date | null;
     capabilities: DashboardProjectCapabilitiesDto;
   },
   now: Date = new Date(),
@@ -521,10 +522,29 @@ export function toDashboardProject(
     // there is no risk left to manage.
     isAtRisk: !isTerminal && (isOverdue || context.blockers.openCount > 0),
     plannedStartDate: project.plannedStartDate,
-    progressPercentage: project.progressPercentage,
+    // Derived from the lifecycle, because the `progressPercentage` column
+    // `Project Module.md` specifies was never added to the schema. Deliberately
+    // not hours-used: a project can burn 90% of its estimate while still in
+    // Planning, and calling that 90% done would be wrong in the most expensive
+    // direction. Hours against estimate ships separately as `hoursUsedRate`.
+    progressPercentage: PROJECT_STATUS_PROGRESS[project.status],
     estimatedHours: project.estimatedHours,
     actualHours: project.actualHours,
+    // `formatDuration` takes MINUTES, and these are stored as decimal hours, so
+    // they are converted here rather than a second formatter being written for
+    // hours. One definition of how a duration reads (D4).
+    actualHoursLabel: formatDuration(
+      Math.round(project.actualHours * 60),
+    ) as string,
+    estimatedHoursLabel:
+      project.estimatedHours === null
+        ? null
+        : formatDuration(Math.round(project.estimatedHours * 60)),
     remainingHours,
+    remainingHoursLabel:
+      remainingHours === null
+        ? null
+        : formatDuration(Math.round(remainingHours * 60)),
     hoursUsedRate:
       project.estimatedHours && project.estimatedHours > 0
         ? project.actualHours / project.estimatedHours
@@ -534,7 +554,7 @@ export function toDashboardProject(
     highSeverityBlockerCount: context.blockers.highSeverityCount,
     minutesInRange: context.minutesInRange,
     minutesInRangeLabel: formatDuration(context.minutesInRange) as string,
-    lastWorkedAt: project.lastWorkedAt,
+    lastWorkedAt: context.lastWorkedAt,
     members: toDashboardMembers(project.members),
     capabilities: context.capabilities,
   };
@@ -570,11 +590,18 @@ export function toDashboardClientProject(
 }
 
 /**
- * Whether a role does the work, and so gets a "My day" block.
+ * Whether this caller can actually start a timer, and so gets a "My day" block.
  *
- * Expressed as a permission test rather than `role === DEVELOPER`, so a role
- * that gains time tracking later gets the block without this file changing.
- * `Role` is imported only for the type here, never compared against.
+ * A permission test rather than `role === DEVELOPER`, so a role that gains time
+ * tracking later gets the block without this file changing.
+ *
+ * **An ADMIN and a SYSTEM_ADMIN get it, and that is correct.** They hold
+ * `TRACK_PROJECT_TIME` in `ROLE_PERMISSIONS`, so they genuinely can track time,
+ * and hiding the block would hide a control they have. A PROJECT_MANAGER does
+ * not hold it, which is why they get no block and no "My day" in the navigation:
+ * `features.md` says PMs and Admins cannot track time, but the permission map
+ * grants it to admins as part of being a strict superset. Where the two
+ * disagree, the permission map is what the API enforces.
  */
 export function hasMyDay(permissions: Permission[]): boolean {
   return new Set<Permission>(permissions).has(Permission.TRACK_PROJECT_TIME);

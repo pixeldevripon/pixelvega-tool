@@ -389,6 +389,16 @@ export class DashboardProjectDto {
   @ApiProperty({ example: 47.5 })
   actualHours!: number;
 
+  @ApiProperty({
+    example: '47h 30m',
+    description:
+      'The hours figures as they should READ. `actualHours` is a float sum of minutes over sixty, so it arrives as 56.083333333333336 often enough that rendering it raw is a visible defect. The exact value ships alongside for arithmetic and this for display (ADR 0003).',
+  })
+  actualHoursLabel!: string;
+
+  @ApiPropertyOptional({ example: '120h', nullable: true })
+  estimatedHoursLabel!: string | null;
+
   @ApiPropertyOptional({
     example: 72.5,
     nullable: true,
@@ -396,6 +406,9 @@ export class DashboardProjectDto {
       'Null when no estimate has been set, because "remaining" has nothing to be remaining against.',
   })
   remainingHours!: number | null;
+
+  @ApiPropertyOptional({ example: '72h 30m', nullable: true })
+  remainingHoursLabel!: string | null;
 
   @ApiPropertyOptional({
     example: 0.4,
@@ -543,12 +556,12 @@ export class DashboardActiveTimerDto {
 }
 
 /**
- * The caller own day. Present only for someone who actually does the work: a
- * DEVELOPER or DESIGNER, who hold TRACK_PROJECT_TIME and SUBMIT_WORK_REPORT.
+ * The caller own day. Present for anyone who holds TRACK_PROJECT_TIME, which is
+ * a DEVELOPER, a DESIGNER, an ADMIN and a SYSTEM_ADMIN.
  *
- * Null for a PROJECT_MANAGER, deliberately. They hold neither permission, which
- * is the same reason they have no "My day" in the navigation, and sending them an
- * empty timer card would imply a control they do not have.
+ * Null for a PROJECT_MANAGER and a CLIENT, deliberately: neither holds the
+ * permission, and sending them an empty timer card would imply a control they do
+ * not have. It is the same reason a PM has no "My day" in the navigation.
  */
 export class DashboardMyDayDto {
   @ApiPropertyOptional({
@@ -709,7 +722,7 @@ export class WorkspaceDashboardDto {
     type: DashboardMyDayDto,
     nullable: true,
     description:
-      'Null for a caller who neither tracks time nor files standups, which is every project manager and administrator.',
+      'Null for a caller who cannot track time, which is every project manager and client. An admin holds the permission, so they get one.',
   })
   myDay!: DashboardMyDayDto | null;
 }

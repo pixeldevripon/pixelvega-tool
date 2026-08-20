@@ -17,6 +17,7 @@ import { DailyWorkReportsModule } from '@/projects/daily-work-reports/daily-work
 import { BlockersModule } from '@/projects/blockers/blockers.module';
 import { InternalReviewsModule } from '@/projects/reviews/internal/internal-reviews.module';
 import { ProjectReportsModule } from '@/projects/reports/project-reports.module';
+import { DashboardModule } from '@/dashboard/dashboard.module';
 import { ReportsModule } from '@/reports/reports.module';
 import { SlackModule } from '@/slack/slack.module';
 import { NotificationsModule } from '@/notifications/notifications.module';
@@ -51,6 +52,7 @@ import { PermissionsModule } from '@/auth/permissions/permissions.module';
     BlockersModule,
     InternalReviewsModule,
     ProjectReportsModule,
+    DashboardModule,
     ReportsModule,
     SlackModule,
   ],

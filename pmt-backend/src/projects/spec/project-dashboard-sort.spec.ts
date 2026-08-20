@@ -32,7 +32,11 @@ function project(overrides: {
     deadline: overrides.deadline ?? null,
     plannedStartDate: overrides.plannedStartDate ?? null,
     name: overrides.name ?? 'project',
-  } as unknown as Parameters<typeof compareForDashboard>[0];
+  };
+  // No cast. The comparator takes the four columns the ordering depends on, so
+  // this fixture satisfies it structurally and keeps its own `name` for the
+  // assertions below. It used to be cast to the comparator's parameter type,
+  // which erased `name` and forced a second cast at every call site.
 }
 
 const d = (iso: string) => new Date(iso);
@@ -211,7 +215,9 @@ describe('compareForDashboard', () => {
 
       const sorted = [...list]
         .sort(compareForDashboard)
-        .map((p) => (p as { name: string }).name);
+        // No cast: the comparator is generic over its row type, so sorting a
+        // list of fixtures returns fixtures rather than the minimal shape.
+        .map((p) => p.name);
 
       expect(sorted).toEqual([
         // active statuses first, ordered by priority then deadline

@@ -103,6 +103,18 @@ describe('hasMyDay', () => {
   it('a CLIENT does not', () => {
     expect(hasMyDay(ROLE_PERMISSIONS.CLIENT)).toBe(false);
   });
+
+  it.each(['ADMIN', 'SYSTEM_ADMIN'] as const)(
+    '%s DOES get one, because the permission map grants it',
+    (role) => {
+      // Pinned because it is surprising and was nearly written the other way.
+      // features.md says PMs and Admins cannot track project time, but
+      // ROLE_PERMISSIONS grants TRACK_PROJECT_TIME to an admin as part of being a
+      // strict superset of every lower role. The permission map is what the API
+      // enforces, so hiding the block would hide a control they actually have.
+      expect(hasMyDay(ROLE_PERMISSIONS[role])).toBe(true);
+    },
+  );
 });
 
 // ══════════════════════════════════════════════════════════════════════════
@@ -224,7 +236,12 @@ describe('toDashboardProject', () => {
     canTrackTime: true,
     isMember: true,
   };
-  const context = { blockers: noBlockers, minutesInRange: 450, capabilities };
+  const context = {
+    blockers: noBlockers,
+    minutesInRange: 450,
+    lastWorkedAt: new Date('2026-08-19T15:00:00.000Z'),
+    capabilities,
+  };
 
   const base: DashboardProjectRow = {
     id: 'p1',
@@ -233,8 +250,6 @@ describe('toDashboardProject', () => {
     priority: ProjectPriority.HIGH,
     deadline: new Date('2026-08-25T00:00:00.000Z'),
     plannedStartDate: new Date('2026-08-01T00:00:00.000Z'),
-    lastWorkedAt: new Date('2026-08-19T15:00:00.000Z'),
-    progressPercentage: 40,
     estimatedHours: 120,
     actualHours: 47.5,
     projectTypeTags: [
@@ -260,6 +275,60 @@ describe('toDashboardProject', () => {
     ],
   };
 
+  it('derives progress from the lifecycle, not from hours used', () => {
+    // The `progressPercentage` column Project Module.md specifies was never
+    // added to the schema, so it is derived from the status machine. Hours-used
+    // would be wrong in the most expensive direction: a project can burn 90% of
+    // its estimate while still sitting in Planning.
+    expect(toDashboardProject(base, context, now).progressPercentage).toBe(40);
+
+    expect(
+      toDashboardProject(
+        { ...base, status: ProjectStatus.PLANNING },
+        // Nearly all the estimate spent, and still 0% done.
+        { ...context, minutesInRange: 0 },
+        now,
+      ).progressPercentage,
+    ).toBe(0);
+
+    expect(
+      toDashboardProject(
+        { ...base, status: ProjectStatus.COMPLETED },
+        context,
+        now,
+      ).progressPercentage,
+    ).toBe(100);
+  });
+
+  it('keeps ON_HOLD at the progress already made, rather than dropping to zero', () => {
+    // Pausing a project does not undo the work already done.
+    expect(
+      toDashboardProject(
+        { ...base, status: ProjectStatus.ON_HOLD },
+        context,
+        now,
+      ).progressPercentage,
+    ).toBe(
+      toDashboardProject(
+        { ...base, status: ProjectStatus.IN_PROGRESS },
+        context,
+        now,
+      ).progressPercentage,
+    );
+  });
+
+  it('carries lastWorkedAt from the context, since it is not a column', () => {
+    // There is no such field on Project: the service reads the latest time
+    // entry per project in one grouped query and passes it in.
+    expect(toDashboardProject(base, context, now).lastWorkedAt).toEqual(
+      new Date('2026-08-19T15:00:00.000Z'),
+    );
+    expect(
+      toDashboardProject(base, { ...context, lastWorkedAt: null }, now)
+        .lastWorkedAt,
+    ).toBeNull();
+  });
+
   it('sends every enum as a display object, never a bare value', () => {
     const result = toDashboardProject(base, context, now);
 
@@ -279,6 +348,33 @@ describe('toDashboardProject', () => {
     const result = toDashboardProject(base, context, now);
     expect(result.remainingHours).toBe(72.5);
     expect(result.hoursUsedRate).toBeCloseTo(0.3958, 4);
+  });
+
+  it('sends a readable label beside every hours figure', () => {
+    // The defect this prevents was visible on screen: `actualHours` is a float
+    // sum of minutes over sixty, so a card rendering it raw showed
+    // "56.083333333333336h of 114h". The exact value is for arithmetic, the
+    // label is for reading (ADR 0003).
+    const result = toDashboardProject(
+      { ...base, actualHours: 56.083333333333336, estimatedHours: 114 },
+      context,
+      now,
+    );
+    expect(result.actualHoursLabel).toBe('56h 5m');
+    expect(result.estimatedHoursLabel).toBe('114h');
+    expect(result.remainingHoursLabel).toBe('57h 55m');
+  });
+
+  it('leaves the estimate and remaining labels null without an estimate', () => {
+    const result = toDashboardProject(
+      { ...base, estimatedHours: null },
+      context,
+      now,
+    );
+    expect(result.estimatedHoursLabel).toBeNull();
+    expect(result.remainingHoursLabel).toBeNull();
+    // The actual is always known, so its label is never null.
+    expect(result.actualHoursLabel).toBe('47h 30m');
   });
 
   it('leaves both null when there is no estimate', () => {

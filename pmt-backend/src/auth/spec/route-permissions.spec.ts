@@ -66,6 +66,7 @@ const EXPECTED: Record<string, Expected> = {
   'GET /ai/templates': [P.VIEW_AI_TEMPLATES],
   'GET /audit-logs': [P.VIEW_AUDIT_LOG],
   'GET /blockers': [P.VIEW_BLOCKERS],
+  'GET /dashboard': [P.VIEW_DASHBOARD],
   'GET /blockers/reasons': [P.VIEW_BLOCKERS],
   'GET /daily-work-reports': [P.VIEW_WORK_REPORTS],
   'GET /daily-work-reports/today': [P.SUBMIT_WORK_REPORT],
@@ -208,12 +209,12 @@ describe('route permission matrix', () => {
     // pinned by this file and the matrix is quietly incomplete.
     // Counted from disk, so this cannot drift into agreeing with an outdated
     // number. AuthController is gone: better-auth owns that surface now.
-    const controllerFiles = 28;
+    const controllerFiles = 29;
     expect(ALL_CONTROLLERS).toHaveLength(controllerFiles);
   });
 
   it('finds the expected number of routes', () => {
-    expect(actual).toHaveLength(108);
+    expect(actual).toHaveLength(109);
   });
 
   it('has an expectation for every route, and a route for every expectation', () => {
