@@ -17,6 +17,7 @@ import {
     CommandShortcut,
 } from '@/components/ui/command';
 import { Permission, ROLE_PERMISSIONS } from '@/lib/config/rbac';
+import { modifierKeyLabel } from '@/lib/platform';
 import {
     navGroupsForRole,
     resolvePermissions,
@@ -94,6 +95,23 @@ export function CommandPalette({
     }, []);
 
     /**
+     * The shortcut badge on the trigger.
+     *
+     * A shortcut nobody can see is a shortcut nobody uses, and this one is the
+     * whole reason the palette exists ("the real answer to click depth").
+     *
+     * Set in an effect and null until then, deliberately: the modifier depends
+     * on the operating system, which a server render cannot know, so rendering
+     * `⌘` optimistically would mismatch hydration on every Windows machine.
+     * Null renders nothing rather than a placeholder, because the trigger's
+     * width is fixed by its `md:w-64` and does not reflow when the badge lands.
+     */
+    const [modifier, setModifier] = React.useState<string | null>(null);
+    React.useEffect(() => {
+        setModifier(modifierKeyLabel(window.navigator.userAgent));
+    }, []);
+
+    /**
      * Entity search. Each block is one `use<Entity>` call gated on BOTH `searching`
      * and the permission that page needs, so a role never fires a query for
      * something it cannot open.
@@ -127,13 +145,22 @@ export function CommandPalette({
             <button
                 type='button'
                 onClick={() => setOpen(true)}
-                aria-label='Search (Command+K)'
-                className='inline-flex h-9 items-center gap-2 rounded-md border border-input bg-surface px-3 text-sm text-muted-foreground transition-colors hover:bg-muted md:w-64 lg:w-96'>
-                <HugeiconsIcon icon={Search01Icon} className='size-3.5 shrink-0' />
+                aria-label={
+                    modifier
+                        ? `Search the dashboard, ${modifier} K`
+                        : 'Search the dashboard'
+                }
+                className='inline-flex h-9 cursor-pointer items-center gap-2 rounded-full border border-input bg-surface px-4 text-sm text-muted-foreground transition-colors hover:border-line-strong hover:bg-muted focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none md:w-64 lg:w-80'>
+                <HugeiconsIcon icon={Search01Icon} className='size-4 shrink-0' />
                 <span className='hidden md:inline'>Search…</span>
-                {/* <kbd className='ml-auto hidden rounded border border-line bg-surface-inset px-1 text-2xs font-medium text-content-subtle md:inline'>
-                    ⌘K
-                </kbd> */}
+                {modifier && (
+                    // Hidden below md, where the trigger is icon-only and there
+                    // is usually no keyboard to press anyway.
+                    <kbd className='ml-auto hidden items-center gap-1 rounded-full border border-line bg-surface-inset px-2 py-0.5 font-sans text-2xs font-medium text-content-subtle md:inline-flex'>
+                        <span>{modifier}</span>
+                        <span>K</span>
+                    </kbd>
+                )}
             </button>
 
             <CommandDialog

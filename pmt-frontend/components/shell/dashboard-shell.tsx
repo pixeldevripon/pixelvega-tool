@@ -15,6 +15,8 @@ interface DashboardShellProps {
     userName?: string;
     userEmail?: string;
     userRole?: EnumDisplay;
+    /** Account status, for the presence dot on the header avatar. */
+    userStatus?: EnumDisplay;
     /** Effective permission set from the backend (staff/team grants included). */
     userPermissions?: string[];
     userImage?: string | null;
@@ -40,6 +42,7 @@ export default function DashboardShell({
     userName,
     userEmail,
     userRole,
+    userStatus,
     userPermissions,
     userImage,
 }: DashboardShellProps) {
@@ -87,6 +90,7 @@ export default function DashboardShell({
                         userName={userName}
                         userEmail={userEmail}
                         userRole={userRole}
+                        userStatus={userStatus}
                         userPermissions={userPermissions}
                         userImage={userImage}
                     />

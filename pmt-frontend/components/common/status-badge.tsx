@@ -29,7 +29,15 @@ const surface: Record<StatusVariant, string> = {
     info: 'bg-info-subtle border-info-border text-info-fg',
 };
 
-const dot: Record<StatusVariant, string> = {
+/**
+ * Exported, because a dot is not always inside a badge.
+ *
+ * The presence dot on the header avatar is the same idea at a different size: a
+ * solid circle carrying the API's tone. It reads this map rather than declaring
+ * its own, which is what "do not add a status color anywhere else" means in
+ * practice. Anything that needs the FULL surface treatment should use the badge.
+ */
+export const statusDot: Record<StatusVariant, string> = {
     neutral: 'bg-content-subtle',
     success: 'bg-success-solid',
     warning: 'bg-warning-solid',
@@ -68,7 +76,7 @@ export function StatusBadge({
             )}>
             <span
                 aria-hidden
-                className={cn('size-2 shrink-0 rounded-full', dot[variant])}
+                className={cn('size-2 shrink-0 rounded-full', statusDot[variant])}
             />
             {icon}
             {children}
