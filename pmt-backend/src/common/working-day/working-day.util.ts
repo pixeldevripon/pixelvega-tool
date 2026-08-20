@@ -1,4 +1,4 @@
-import { WEEKLY_OFF_DAY } from '@/projects/reports/working-day/working-day.constants';
+import { WEEKLY_OFF_DAY } from '@/common/working-day/working-day.constants';
 
 interface HolidayRange {
   startDate: Date;

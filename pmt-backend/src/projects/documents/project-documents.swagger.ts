@@ -20,7 +20,7 @@ const projectIdParam = ApiParam({
   description: 'The project id',
 });
 const documentIdParam = ApiParam({
-  name: 'id',
+  name: 'documentId',
   description: 'The document id',
 });
 

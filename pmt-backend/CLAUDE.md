@@ -22,13 +22,9 @@ src/projects/reviews/internal/       ->  /projects/:projectId/reviews/internal
 src/projects/requirements/additional/ -> /projects/:projectId/requirements/additional
 src/leave/requests/                  ->  /leave/requests
 src/reports/developers/              ->  /reports/developers
+src/projects/ai/summary/             ->  /projects/:projectId/ai/summary
+src/projects/ai/status-reports/      ->  /projects/:projectId/ai/status-reports
 ```
-
-One exception, and it is corollary 2 rather than a hole in the rule: a project scoped resource that
-also has a cross project view keeps ONE folder under `projects/`, and that folder serves both forms.
-`src/projects/blockers/` holds `project-blockers.controller.ts` (`/projects/:projectId/blockers`) and
-`blockers.controller.ts` (`/blockers`), and its `reasons/` child serves `/blockers/reasons`, because a
-reason is not owned by a project.
 
 1. **A resource's folder names it.** No route segment exists that is not a folder, and no folder
    serves a route it is not named for. Adding a sub-resource decides its URL.
@@ -43,6 +39,28 @@ reason is not owned by a project.
 4. **One entity type per slot.** A segment holding a LeaveRequest id never holds a User id. Where a
    second entity is genuinely the subject it gets its own resource: `/leave/requests/:leaveRequestId`
    and `/leave/balances/:userId` are two resources, not one path with two meanings.
+
+Two things the rule does not literally cover, both consequences of corollary 2:
+
+**A resource with both forms keeps ONE folder, under `projects/`, and it serves both.**
+`src/projects/blockers/` holds `project-blockers.controller.ts` (`/projects/:projectId/blockers`) and
+`blockers.controller.ts` (`/blockers`), and its `reasons/` child serves `/blockers/reasons`, because a
+reason is not owned by a project. Same for `src/projects/time-entries/`, whose root controller answers
+the cross project reads.
+
+**A folder that serves no route is named for what it is, not for a path.** `projects/scope`,
+`projects/activity` and `ai/status-reports` (the job handler, after the resource moved to
+`projects/ai/status-reports/`) sit beside their siblings with no route to mirror. Two folders may
+therefore share a name across domains, one routed and one not.
+
+`src/projects/time-entries/meetings/` is the case to understand before moving anything: a meeting time
+entry may have no project, so by corollary 2 it could have been extracted to a top level
+`src/time-entries/` the way developer reports were extracted to `src/reports/`. It was not, because
+its route is `/time-entries/meetings` and the rest of `/time-entries` is served from
+`src/projects/time-entries/`, so extracting the folder would split one route prefix across two
+domains to fix a mismatch that only exists one level up. Keeping the timer beside the reads it shares
+a service with is the smaller cost. `reports/developers` had no such tie: nothing else served
+`/reports`.
 
 A module is:
 
@@ -61,6 +79,13 @@ src/<module>/
   feature (`jobs/`, `templates/`), never a dumping ground.
 - **`@/` alias for every internal import.** A new `../../` chain is a defect.
 - Static routes before dynamic ones: `@Get('me')` above `@Get(':userId')`, or Nest matches `me` as an id.
+- **Two specs pin the whole route surface, and a new controller has to be added to
+  `src/app.controllers.ts` for either to see it.** `auth/spec/route-permissions.spec.ts` pins which
+  permission gates each route; `common/swagger/spec/route-params.spec.ts` pins that every `@ApiParam`
+  names the parameter its route actually takes, in both directions, and that no parameter is called
+  `id`. Both assert the controller count, so a missing registration fails rather than silently
+  reducing coverage. The second one exists because a stale `@ApiParam({ name: 'id' })` breaks nothing
+  at runtime (Nest matches by position) and publishes the wrong name to every reader of `/api/docs`.
 
 ## 2. The backend serves everything (D4)
 

@@ -28,15 +28,22 @@ const DEFAULT_SYSTEM_PROMPT =
 
 // Handles GENERATE_STATUS_REPORT jobs, dispatched into directly by
 // AiJobsProcessor, the same shared queue pattern ScopeCheckService already
-// uses, see the note on that class for why. Lives here in src/modules/ai/,
-// not ProjectsModule, for the same circular dependency reason: this handler
-// needs nothing ProjectsModule specific. ProjectReportService's numbers
-// were already computed once by ProjectStatusReportsService (in
-// ProjectsModule, where the PM staffing check and access control also
-// live) at enqueue time and travel here as a plain JSON snapshot on
-// AiJob.input, so this handler never needs to inject ProjectReportService
-// directly, avoiding an AiModule to ProjectsModule dependency the same way
-// Feature 1's scope checker avoids one.
+// uses, see the note on that class for why.
+//
+// This folder is the job handler only, and it serves no route, which is why it
+// keeps a name a routed folder also uses. The resource itself
+// (`GET|POST /projects/:projectId/ai/status-reports`) lives at
+// `src/projects/ai/status-reports/`, because ADR 0004 puts a folder that serves
+// a project scoped route under `projects/`.
+//
+// The handler stays in `src/ai/` rather than moving with it, to avoid a
+// circular dependency: it needs nothing ProjectsModule specific.
+// ProjectReportService's numbers were already computed once by
+// ProjectStatusReportsService (where the PM staffing check and access control
+// also live) at enqueue time, and travel here as a plain JSON snapshot on
+// AiJob.input, so this handler never injects ProjectReportService and AiModule
+// never depends on ProjectsModule. Feature 1's scope checker avoids the same
+// cycle the same way.
 @Injectable()
 export class StatusReportService {
   private readonly logger = new Logger(StatusReportService.name);

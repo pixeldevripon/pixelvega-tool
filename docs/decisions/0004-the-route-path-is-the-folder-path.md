@@ -153,3 +153,36 @@ kinds of requirement.
 
 **Keep both forms of every URL, with the old one redirecting.** Two URLs for one
 resource is the problem, not the fix. There is one client, and it is ours.
+
+## Amendment, 2026-08-20
+
+Applying the rule missed three things, all found by review of the PR that
+introduced it. Recorded here rather than by rewriting the decision, because the
+decision did not change: only how completely it had been applied.
+
+**Corollary 3 covers the DOCUMENTED name too, not only the route.** The rename
+changed forty `@Param()` decorators and route strings and left fourteen
+`@ApiParam({ name: 'id' })` declarations behind, across ten swagger files, so
+`/api/docs` described a parameter called `id` on operations whose real parameter
+is `projectId`. Nothing caught it, because Nest matches path parameters by
+position: the routes all worked and only the published contract was wrong, which
+is the confusion this ADR was written to end.
+`common/swagger/spec/route-params.spec.ts` now pins the agreement in both
+directions, and pins that no parameter anywhere is called `id`.
+
+**Two project scoped route folders had not moved.** `src/ai/summary/` and
+`src/ai/status-reports/` both serve `/projects/:projectId/ai/...`, so they now
+live at `src/projects/ai/summary/` and `src/projects/ai/status-reports/`. The
+status report's BullMQ job handler stays at `src/ai/status-reports/`, which
+serves no route and keeps AiModule from depending on ProjectsModule.
+
+**`time-entries/meetings` deliberately stays under `projects/`, and the rule
+should say so.** By corollary 2 a meeting time entry does not require a project,
+so it could have been extracted to a top level `src/time-entries/` the way
+developer reports were extracted to `src/reports/`. It was not: its route is
+`/time-entries/meetings`, and the rest of `/time-entries` is served from
+`src/projects/time-entries/`, so extracting the folder would split one route
+prefix across two domains in order to fix a mismatch one level up.
+`reports/developers` had no such tie, because nothing else served `/reports`.
+The reasoning is in `pmt-backend/CLAUDE.md` beside the rule, so the next person
+reads it before moving the folder.

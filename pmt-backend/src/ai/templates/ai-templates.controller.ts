@@ -9,7 +9,7 @@ import {
   Query,
 } from '@nestjs/common';
 import { ApiCookieAuth, ApiTags } from '@nestjs/swagger';
-import { Permission, Role } from '@prisma/client';
+import { Permission } from '@prisma/client';
 import { CurrentUser } from '@/common/decorators/current-user.decorator';
 import { AiTemplatesService } from '@/ai/templates/ai-templates.service';
 import { RequirePermissions } from '@/auth/permissions/require-permissions.decorator';

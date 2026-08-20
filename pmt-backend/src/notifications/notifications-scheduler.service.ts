@@ -9,7 +9,7 @@ import {
 } from '@prisma/client';
 import { PrismaService } from '@/prisma/prisma.service';
 import { SlackService } from '@/slack/slack.service';
-import { toDateOnly } from '@/projects/reports/working-day/working-day.util';
+import { toDateOnly } from '@/common/working-day/working-day.util';
 import { NotificationsService } from './notifications.service';
 
 const MS_PER_DAY = 24 * 60 * 60 * 1000;

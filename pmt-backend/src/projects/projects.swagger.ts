@@ -21,7 +21,7 @@ import {
 
 /** Documentation for the core Project entity. */
 
-const idParam = ApiParam({ name: 'id', description: 'The project id' });
+const idParam = ApiParam({ name: 'projectId', description: 'The project id' });
 
 const archivedQuery = ApiQuery({
   name: 'archived',

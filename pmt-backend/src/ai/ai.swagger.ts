@@ -47,7 +47,7 @@ export const ApiCreateAiTemplateDocs = () =>
 export const ApiUpdateAiTemplateDocs = () =>
   applyDecorators(
     ApiOperation({ summary: 'Update an AI template' }),
-    ApiParam({ name: 'id', description: 'The template id' }),
+    ApiParam({ name: 'templateId', description: 'The template id' }),
     ApiResponse({
       status: 200,
       description: 'The updated template',
@@ -64,7 +64,7 @@ export const ApiDeleteAiTemplateDocs = () =>
       description:
         'The default template for a kind cannot be deleted while it is the default.',
     }),
-    ApiParam({ name: 'id', description: 'The template id' }),
+    ApiParam({ name: 'templateId', description: 'The template id' }),
     ApiResponse({
       status: 200,
       description: 'Deleted',

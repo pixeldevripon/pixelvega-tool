@@ -23,6 +23,11 @@ import { MessageResponseDto } from '@/users/dto/user.dto';
 
 // ── Blockers ─────────────────────────────────────────────────────────────────
 
+const projectIdParam = ApiParam({
+  name: 'projectId',
+  description: 'The project id',
+});
+
 export const ApiReportBlockerDocs = () =>
   applyDecorators(
     ApiOperation({
@@ -33,6 +38,7 @@ export const ApiReportBlockerDocs = () =>
         'defaulting to the seeded "Unspecified" reason. The reporter must be actively ' +
         'staffed on the project, which an admin bypasses.',
     }),
+    projectIdParam,
     ApiResponse({
       status: 201,
       description: 'The reported blocker',
@@ -53,6 +59,7 @@ export const ApiUpdateBlockerDocs = () =>
         'is an explicit decision made only at that point, never derived from how long ' +
         'the blocker was open. Editable by the original reporter or a PM on that project.',
     }),
+    projectIdParam,
     ApiParam({ name: 'blockerId', description: 'The blocker id' }),
     ApiResponse({
       status: 200,
@@ -88,7 +95,7 @@ export const ApiListProjectBlockersDocs = () =>
       description:
         'The PM dashboard view. Same read scoping as the cross project list.',
     }),
-    ApiParam({ name: 'projectId', description: 'The project id' }),
+    projectIdParam,
     ApiResponse({
       status: 200,
       description: 'Paginated blockers for this project',
@@ -105,7 +112,7 @@ export const ApiBlockerDeadlineImpactDocs = () =>
         'Sums resolution time and granted deadline extension days across the resolved ' +
         'blockers on this project.',
     }),
-    ApiParam({ name: 'projectId', description: 'The project id' }),
+    projectIdParam,
     ApiResponse({
       status: 200,
       description: 'The impact summary',
@@ -157,7 +164,7 @@ export const ApiUpdateBlockerReasonDocs = () =>
       description:
         'The seeded "Unspecified" reason is protected and cannot be renamed.',
     }),
-    ApiParam({ name: 'id', description: 'The reason id' }),
+    ApiParam({ name: 'reasonId', description: 'The reason id' }),
     ApiResponse({
       status: 200,
       description: 'The updated reason',
@@ -176,7 +183,7 @@ export const ApiDeleteBlockerReasonDocs = () =>
         'Soft delete, so blockers already categorised by it keep their history. The ' +
         'seeded "Unspecified" reason is protected and cannot be deleted.',
     }),
-    ApiParam({ name: 'id', description: 'The reason id' }),
+    ApiParam({ name: 'reasonId', description: 'The reason id' }),
     ApiResponse({
       status: 200,
       description: 'Deleted',

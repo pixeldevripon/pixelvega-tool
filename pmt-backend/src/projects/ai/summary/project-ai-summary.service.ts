@@ -8,8 +8,8 @@ import { ProjectReportService } from '@/projects/reports/project/project-report.
 import {
   endOfRangeExclusive,
   toDateOnly,
-} from '@/projects/reports/working-day/working-day.util';
-import { QueryProjectAiSummaryDto } from '@/ai/summary/dto/project-ai-summary.dto';
+} from '@/common/working-day/working-day.util';
+import { QueryProjectAiSummaryDto } from '@/projects/ai/summary/dto/project-ai-summary.dto';
 
 const MODEL = 'claude-haiku-4-5';
 

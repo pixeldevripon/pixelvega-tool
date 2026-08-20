@@ -5,7 +5,7 @@ import { CurrentUser } from '@/common/decorators/current-user.decorator';
 import { ProjectAiSummaryService } from './project-ai-summary.service';
 import { RequirePermissions } from '@/auth/permissions/require-permissions.decorator';
 import { ApiGetProjectAiSummaryDocs } from './project-ai-summary.swagger';
-import { QueryProjectAiSummaryDto } from '@/ai/summary/dto/project-ai-summary.dto';
+import { QueryProjectAiSummaryDto } from '@/projects/ai/summary/dto/project-ai-summary.dto';
 
 @ApiTags('AI Project Summary')
 @ApiCookieAuth('better-auth.session_token')

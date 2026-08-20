@@ -4,7 +4,7 @@ import { projectScopedErrors } from '@/common/swagger/error-sets';
 import {
   QueuedStatusReportResponseDto,
   StatusReportResponseDto,
-} from '@/ai/status-reports/dto/project-status-report.dto';
+} from '@/projects/ai/status-reports/dto/project-status-report.dto';
 
 const projectIdParam = ApiParam({
   name: 'projectId',

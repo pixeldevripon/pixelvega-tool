@@ -23,7 +23,7 @@ import {
  */
 
 const reportIdParam = ApiParam({
-  name: 'id',
+  name: 'reportId',
   description: 'The daily work report id',
 });
 

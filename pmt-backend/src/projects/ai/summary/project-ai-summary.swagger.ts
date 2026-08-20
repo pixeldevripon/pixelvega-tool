@@ -1,7 +1,7 @@
 import { applyDecorators } from '@nestjs/common';
 import { ApiOperation, ApiParam, ApiResponse } from '@nestjs/swagger';
 import { projectScopedErrors } from '@/common/swagger/error-sets';
-import { ProjectAiSummaryResponseDto } from '@/ai/summary/dto/project-ai-summary.dto';
+import { ProjectAiSummaryResponseDto } from '@/projects/ai/summary/dto/project-ai-summary.dto';
 
 export const ApiGetProjectAiSummaryDocs = () =>
   applyDecorators(

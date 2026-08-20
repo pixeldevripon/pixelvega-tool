@@ -6,13 +6,7 @@ import {
   Logger,
   NotFoundException,
 } from '@nestjs/common';
-import {
-  BlockerStatus,
-  NotificationType,
-  Prisma,
-  ProjectRole,
-  Role,
-} from '@prisma/client';
+import { BlockerStatus, NotificationType, Role } from '@prisma/client';
 import { PrismaService } from '@/prisma/prisma.service';
 import { paginate } from '@/common/utils/pagination.util';
 import { SlackService } from '@/slack/slack.service';
