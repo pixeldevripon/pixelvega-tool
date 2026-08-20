@@ -78,12 +78,26 @@ const REQUIRED: Record<string, Validator> = {
     return null;
   },
 
-  // The bootstrap SYSTEM_ADMIN, created on first boot against an empty
-  // database. Without these the very first user cannot exist, and nobody can
-  // reach POST /users/invite.
-  SEED_ADMIN_EMAIL: (value) =>
+  // The one SYSTEM_ADMIN, created on first boot against an empty database and
+  // by `pnpm seed`. Without these the very first user cannot exist, and nobody
+  // can reach POST /users/invite.
+  //
+  // The password is here rather than generated because this account is the root
+  // of the whole permission model: an operator has to be able to sign in as it
+  // without an inbox. Every other account is invited and sets its own.
+  ADMIN_EMAIL: (value) =>
     value.includes('@') ? null : 'must be an email address',
-  SEED_ADMIN_NAME: anyValue,
+  ADMIN_NAME: anyValue,
+  ADMIN_PASSWORD: (value) => {
+    // better-auth's own floor. Its sign up rejects anything shorter, so without
+    // this bound the failure arrives as an opaque library error from inside the
+    // bootstrap, or from the seed after it has already truncated every table,
+    // instead of as a named variable at boot.
+    if (value.length < 8) return 'must be at least 8 characters';
+    if (PLACEHOLDER_MARKERS.some((marker) => value.includes(marker)))
+      return 'placeholder detected, set a real password for the root account';
+    return null;
+  },
 };
 
 /**

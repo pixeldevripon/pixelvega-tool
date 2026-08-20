@@ -8,6 +8,7 @@ import {
   SEED_PASSWORD,
   SEED_TODAY,
   VOLUME,
+  systemAdminFromEnv,
 } from './seed/config';
 import { Rand, addDays } from './seed/random';
 import { COUNTED_TABLES, resetDatabase } from './seed/reset';
@@ -22,8 +23,6 @@ import { seedWorkflow } from './seed/workflow';
 import { seedWorkReports } from './seed/work-reports';
 import { seedAi } from './seed/ai';
 import { seedLogs } from './seed/logs';
-
-const MINIMUM_ROWS = 100;
 
 function log(message: string) {
   process.stdout.write(`${message}\n`);
@@ -51,6 +50,10 @@ async function main() {
   if (!process.env.DATABASE_URL) {
     throw new Error('DATABASE_URL is not set. Check your .env file.');
   }
+  // Read before anything is truncated. The root account is the only login this
+  // seed cannot invent for itself, so a missing ADMIN_* variable has to stop the
+  // run while the database is still whole.
+  const root = systemAdminFromEnv();
 
   const pool = new Pool({ connectionString: process.env.DATABASE_URL });
   const prisma = new PrismaClient({ adapter: new PrismaPg(pool) });
@@ -62,7 +65,7 @@ async function main() {
     await resetDatabase(prisma);
 
     log('Seeding users, profiles, and auth rows.');
-    const users = await seedUsers(prisma, rand);
+    const users = await seedUsers(prisma, rand, root);
 
     log(
       'Seeding reference data: leave types, holidays, blocker reasons, AI templates.',
@@ -188,25 +191,29 @@ async function report(
   log('Row counts');
   log('-'.repeat(widest + 14));
   for (const { table, count } of counts) {
-    const flag = count < MINIMUM_ROWS ? '  under 100' : '';
+    const flag = count === 0 ? '  EMPTY' : '';
     log(`${table.padEnd(widest)}  ${String(count).padStart(6)}${flag}`);
   }
   log('-'.repeat(widest + 14));
 
-  const short = counts.filter((row) => row.count < MINIMUM_ROWS);
-  if (short.length > 0) {
+  // Empty, not "small". The volumes are deliberately low now, so a row count in
+  // single figures is the intent; a count of zero means a seeder ran and wrote
+  // nothing, which is always a bug in the seeder or an unreachable branch.
+  const empty = counts.filter((row) => row.count === 0);
+  if (empty.length > 0) {
     log('');
     log(
-      `Warning: ${short.length} table(s) have fewer than ${MINIMUM_ROWS} rows: ${short
+      `Warning: ${empty.length} table(s) came back empty: ${empty
         .map((row) => row.table)
         .join(', ')}`,
     );
-    log('Raise the matching numbers in prisma/seed/config.ts and seed again.');
+    log('A seeder wrote nothing. That is a defect, not a volume setting.');
   }
 
   // Login credentials, one guaranteed account per role. Every seeded account
-  // shares the same password, these are just the ones that are always ACTIVE
-  // and always have data attached.
+  // except the root one shares SEED_PASSWORD, so these are simply the accounts
+  // that are always ACTIVE and always have data attached. The root account is
+  // the exception in both senses: its credentials come from the environment.
   const order: (keyof TestAccounts)[] = [
     'systemAdmin',
     'admin',
@@ -221,14 +228,21 @@ async function report(
   );
 
   log('');
-  log('Test logins, one per role. Every seeded account shares this password.');
+  log(
+    'Logins, one per role. Every account below the root one shares a password.',
+  );
   log('');
   log(`  ${'Role'.padEnd(16)}${'Email'.padEnd(emailWidth + 2)}Password`);
-  log(`  ${'-'.repeat(16 + emailWidth + 2 + 8)}`);
+  log(`  ${'-'.repeat(16 + emailWidth + 2 + 20)}`);
   for (const key of order) {
     const account = test[key];
+    // The root password is a real environment secret. Naming the variable is
+    // as useful as printing it, and does not leave it in terminal scrollback
+    // or a CI log.
+    const password =
+      key === 'systemAdmin' ? 'from ADMIN_PASSWORD' : SEED_PASSWORD;
     log(
-      `  ${account.role.padEnd(16)}${account.email.padEnd(emailWidth + 2)}${SEED_PASSWORD}`,
+      `  ${account.role.padEnd(16)}${account.email.padEnd(emailWidth + 2)}${password}`,
     );
   }
   log('');

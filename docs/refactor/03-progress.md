@@ -43,8 +43,11 @@ databases are wired:
   are commented out in that file rather than deleted**, so switching back is one edit.
 - `pmt-backend/.env.test` points at `pixelvega_test`. `test/global-setup.js`
   refuses to run if the two match, including when only the credentials differ.
-- `pnpm seed` fills the dev database. Every seeded account signs in with
-  `Password123!`, one per role.
+- `pnpm seed` fills the dev database: 33 users and 20 projects, and it prints a
+  login per role as it finishes. Every seeded account signs in with
+  `Password123!` except the root `SYSTEM_ADMIN`, which comes from `ADMIN_EMAIL`,
+  `ADMIN_NAME` and `ADMIN_PASSWORD` in `.env` and refuses to seed without them.
+  See `pmt-backend/docs/features/seed/DESIGN.md`.
 - `pnpm test:e2e` needs `--experimental-vm-modules` (booting the real `AppModule`
   pulls in ESM-only packages) and `--forceExit` (the scheduler and the lazily
   connected Redis client outlive `app.close()`). Both are already in the script.

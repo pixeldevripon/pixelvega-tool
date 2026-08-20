@@ -2,13 +2,15 @@ import type { PrismaClient } from '@prisma/client';
 import { Role, UserStatus } from '@prisma/client';
 import { hashPassword } from 'better-auth/crypto';
 import {
+  AVATAR,
+  FIXED_ACCOUNTS_PER_ROLE,
   SEED_PASSWORD,
   SEED_TODAY,
   STAFF_EMAIL_DOMAIN,
-  SYSTEM_ADMIN,
   TEST_ACCOUNTS,
   VOLUME,
 } from './config';
+import type { SystemAdminCredentials } from './config';
 import { Rand, addDays } from './random';
 import { splitName } from '../../src/common/utils/name.util';
 import {
@@ -101,8 +103,77 @@ export type SeededUsers = {
   employees: SeededUser[];
 };
 
-const AVATAR_BASE =
-  'https://res.cloudinary.com/demo/image/upload/v1/pmt/avatars';
+/**
+ * Hands out a distinct portrait per account.
+ *
+ * Matched to the row's gender where it has one: a profile that says FEMALE
+ * beside a photo of a man reads as broken data rather than as test data.
+ *
+ * The indices are shuffled once and popped, rather than drawn at random and
+ * retried, so no two accounts share a face and the picker cannot spin while
+ * free portraits remain.
+ */
+function portraitPicker(rand: Rand) {
+  const indices = Array.from({ length: AVATAR.poolSize }, (_, i) => i);
+  const remaining: Record<'men' | 'women', number[]> = {
+    men: rand.shuffle(indices),
+    women: rand.shuffle(indices),
+  };
+
+  return function nextPortrait(gender: string | undefined): string {
+    const folder =
+      gender === 'MALE'
+        ? 'men'
+        : gender === 'FEMALE'
+          ? 'women'
+          : rand.chance(0.5)
+            ? 'men'
+            : 'women';
+
+    const index = remaining[folder].pop();
+    if (index === undefined) {
+      throw new Error(
+        `Ran out of ${folder} portraits. Raise AVATAR.poolSize in config.ts, or lower the user volumes.`,
+      );
+    }
+    return `${AVATAR.baseUrl}/${folder}/${index}.jpg`;
+  };
+}
+
+/** Roles whose seeded accounts may be soft deleted. */
+const SOFT_DELETABLE_ROLES: Role[] = [
+  Role.DEVELOPER,
+  Role.DESIGNER,
+  Role.CLIENT,
+];
+
+/**
+ * Who the seed may soft delete, split into the two pools it draws from.
+ *
+ * Pure and exported so `spec/soft-deletable-users.spec.ts` can pin the rule
+ * that matters: the root account is never returned. Deleting it is refused by
+ * `UsersService.remove` and by `ProfilesService.deleteOwnAccount`, and the seed
+ * must not be the one path that produces the state those two exist to prevent.
+ */
+export function softDeletableUsers(
+  users: readonly SeededUser[],
+  protectedIds: ReadonlySet<string>,
+): { staff: SeededUser[]; clients: SeededUser[] } {
+  const eligible = users.filter(
+    (user) =>
+      // Redundant with the allowlist below, and kept anyway: the allowlist is a
+      // list someone will edit one day, and SYSTEM_ADMIN must never become an
+      // entry in it by accident.
+      user.role !== Role.SYSTEM_ADMIN &&
+      !protectedIds.has(user.id) &&
+      SOFT_DELETABLE_ROLES.includes(user.role),
+  );
+
+  return {
+    staff: eligible.filter((user) => user.role !== Role.CLIENT),
+    clients: eligible.filter((user) => user.role === Role.CLIENT),
+  };
+}
 
 function slug(value: string): string {
   return value
@@ -122,16 +193,44 @@ function slackUserId(rand: Rand): string {
 export async function seedUsers(
   prisma: PrismaClient,
   rand: Rand,
+  root: SystemAdminCredentials,
 ): Promise<SeededUsers> {
   // Everyone shares one password, so hash it a single time. scrypt is slow on
   // purpose, and hashing it once per user would add minutes for no benefit.
   const passwordHash = await hashPassword(SEED_PASSWORD);
 
+  // The root account is the exception. Its email, name and password come from
+  // the environment, so the credentials that reach this database are the same
+  // ones that reach an environment the seed never runs in.
+  const rootPasswordHash = await hashPassword(root.password);
+
+  // Each VOLUME entry is a TOTAL for its role, and that role's fixed test
+  // account is created below before any generated one, so the generated pool is
+  // one short of the total.
+  function generatedCount(role: Role, total: number): number {
+    const count = total - FIXED_ACCOUNTS_PER_ROLE;
+    if (count < 0) {
+      throw new Error(
+        `VOLUME for ${role} is ${total}, below the ${FIXED_ACCOUNTS_PER_ROLE} fixed test account that role always gets.`,
+      );
+    }
+    return count;
+  }
+
   const staffPlan: { role: Role; count: number }[] = [
-    { role: Role.ADMIN, count: VOLUME.admins },
-    { role: Role.PROJECT_MANAGER, count: VOLUME.projectManagers },
-    { role: Role.DEVELOPER, count: VOLUME.developers },
-    { role: Role.DESIGNER, count: VOLUME.designers },
+    { role: Role.ADMIN, count: generatedCount(Role.ADMIN, VOLUME.admins) },
+    {
+      role: Role.PROJECT_MANAGER,
+      count: generatedCount(Role.PROJECT_MANAGER, VOLUME.projectManagers),
+    },
+    {
+      role: Role.DEVELOPER,
+      count: generatedCount(Role.DEVELOPER, VOLUME.developers),
+    },
+    {
+      role: Role.DESIGNER,
+      count: generatedCount(Role.DESIGNER, VOLUME.designers),
+    },
   ];
 
   const users: SeededUser[] = [];
@@ -157,12 +256,17 @@ export async function seedUsers(
   const systemAdminCreatedAt = addDays(SEED_TODAY, -540);
   const systemAdmin: SeededUser = {
     id: rand.authId(),
-    email: SYSTEM_ADMIN.email,
-    name: SYSTEM_ADMIN.name,
+    email: root.email,
+    name: root.name,
     role: Role.SYSTEM_ADMIN,
     status: UserStatus.ACTIVE,
     createdAt: systemAdminCreatedAt,
   };
+  // Claimed before the fixed accounts below, so the root account keeps exactly
+  // the address ADMIN_EMAIL names. ADMIN_EMAIL is very often
+  // admin@pixelvega.com, which is also the fixed test ADMIN's address, and one
+  // of the two has to yield: it is not this one, because this is the address an
+  // operator will actually type.
   takenEmails.add(systemAdmin.email);
   users.push(systemAdmin);
   userRows.push({
@@ -174,8 +278,6 @@ export async function seedUsers(
     status: UserStatus.ACTIVE,
     mustResetPassword: false,
     slackUserId: slackUserId(rand),
-    avatarUrl: `${AVATAR_BASE}/system-admin.jpg`,
-    avatarPublicId: 'pmt/avatars/system-admin',
     createdAt: systemAdminCreatedAt,
     updatedAt: systemAdminCreatedAt,
   });
@@ -206,20 +308,24 @@ export async function seedUsers(
     designation: string,
   ): SeededUser {
     const id = rand.authId();
+    // Almost always spec.email verbatim. It only shifts, by one digit, when
+    // ADMIN_EMAIL is set to this same address, and the report at the end of the
+    // seed prints whatever it resolved to, so the login is never a guess.
+    const [localPart, domain] = spec.email.split('@');
+    const email = uniqueEmail(localPart, domain);
     const user: SeededUser = {
       id,
-      email: spec.email,
+      email,
       name: spec.name,
       role,
       status: UserStatus.ACTIVE,
       createdAt: testCreatedAt,
       companyName: spec.companyName,
     };
-    takenEmails.add(spec.email);
     users.push(user);
     userRows.push({
       id,
-      email: spec.email,
+      email,
       name: spec.name,
       emailVerified: true,
       role,
@@ -227,8 +333,6 @@ export async function seedUsers(
       // Never forced through the reset flow, so signing in just works.
       mustResetPassword: false,
       slackUserId: role === Role.CLIENT ? null : slackUserId(rand),
-      avatarUrl: null,
-      avatarPublicId: null,
       createdById: systemAdmin.id,
       createdAt: testCreatedAt,
       updatedAt: testCreatedAt,
@@ -239,7 +343,7 @@ export async function seedUsers(
         id: rand.uuid(),
         userId: id,
         companyName: spec.companyName ?? spec.name,
-        billingEmail: `billing@${spec.email.split('@')[1]}`,
+        billingEmail: `billing@${domain}`,
         phone: '+8801700000000',
         timezone: 'Asia/Dhaka',
         createdAt: testCreatedAt,
@@ -285,6 +389,17 @@ export async function seedUsers(
   );
   const testClient = addTestAccount(TEST_ACCOUNTS.client, Role.CLIENT, '');
 
+  // The root account and the five fixed logins. These always carry a photo, and
+  // they are never soft deleted: every one of them has to stay usable.
+  const fixedAccountIds: ReadonlySet<string> = new Set([
+    systemAdmin.id,
+    testAdmin.id,
+    testProjectManager.id,
+    testDeveloper.id,
+    testDesigner.id,
+    testClient.id,
+  ]);
+
   // Staff accounts. Invited by the system admin, spread over the past year
   // and a half so createdAt ordering is worth sorting by.
   for (const { role, count } of staffPlan) {
@@ -312,10 +427,6 @@ export async function seedUsers(
             : UserStatus.SUSPENDED;
 
       const id = rand.authId();
-      const hasAvatar = rand.chance(0.55);
-      const avatarPublicId = hasAvatar
-        ? `pmt/avatars/${slug(name)}-${rand.hex(6)}`
-        : null;
 
       users.push({ id, email, name, role, status, createdAt });
       userRows.push({
@@ -327,10 +438,6 @@ export async function seedUsers(
         status,
         mustResetPassword: status === UserStatus.INVITED,
         slackUserId: rand.chance(0.7) ? slackUserId(rand) : null,
-        avatarUrl: avatarPublicId
-          ? `${AVATAR_BASE}/${avatarPublicId.split('/').pop()}.jpg`
-          : null,
-        avatarPublicId,
         createdById: systemAdmin.id,
         createdAt,
         updatedAt: rand.dateBetween(createdAt, SEED_TODAY),
@@ -363,7 +470,8 @@ export async function seedUsers(
   // Client accounts. One per company, so the client list reads like a real
   // customer base and Project.clientId has plenty to point at.
   const takenCompanies = new Set<string>();
-  for (let i = 0; i < VOLUME.clients; i++) {
+  const generatedClients = generatedCount(Role.CLIENT, VOLUME.clients);
+  for (let i = 0; i < generatedClients; i++) {
     let companyName = `${rand.pick(COMPANY_PREFIXES)} ${rand.pick(COMPANY_SUFFIXES)}`;
     let guard = 0;
     while (takenCompanies.has(companyName) && guard < 50) {
@@ -412,8 +520,6 @@ export async function seedUsers(
       status,
       mustResetPassword: status === UserStatus.INVITED,
       slackUserId: null, // clients are never in the internal Slack workspace
-      avatarUrl: null,
-      avatarPublicId: null,
       createdById: systemAdmin.id,
       createdAt,
       updatedAt: rand.dateBetween(createdAt, SEED_TODAY),
@@ -439,7 +545,7 @@ export async function seedUsers(
       accountId: user.id, // better auth uses the user id for credential accounts
       providerId: 'credential',
       userId: user.id,
-      password: passwordHash,
+      password: user.id === systemAdmin.id ? rootPasswordHash : passwordHash,
       createdAt: user.createdAt,
       updatedAt: user.createdAt,
     });
@@ -454,6 +560,7 @@ export async function seedUsers(
   // Not every account gets a country, a gender or a link. A dataset where every
   // optional field is populated tests nothing: the empty state of each control
   // is exactly what a screen gets wrong.
+  const nextPortrait = portraitPicker(rand);
   for (const row of userRows) {
     const { firstName, lastName } = splitName(row.name as string);
     row.firstName = firstName;
@@ -465,6 +572,18 @@ export async function seedUsers(
       row.gender = rand.pick(SEED_GENDERS);
     }
     row.socialUrls = seedSocialUrls(row.email as string, rand);
+
+    // The photo is assigned here, with the fields above, because it depends on
+    // `gender`, which is decided in this pass. Every fixed login gets one so no
+    // test account is stuck on the initials fallback.
+    row.avatarUrl =
+      fixedAccountIds.has(row.id as string) || rand.chance(AVATAR.chance)
+        ? nextPortrait(row.gender as string | undefined)
+        : null;
+    // Never a public id. A seeded photo is not an asset in this workspace's
+    // Cloudinary account, and an id Cloudinary does not hold would make the
+    // replace path in ProfilesService try to destroy something absent.
+    row.avatarPublicId = null;
   }
 
   await prisma.user.createMany({ data: userRows });
@@ -473,29 +592,14 @@ export async function seedUsers(
   await prisma.clientProfile.createMany({ data: clientProfileRows });
 
   // Soft delete a few accounts so the deletedAt filters on GET /users have
-  // something to exclude. These are picked from the tail of each group and
-  // are left out of every pool below, so no project ends up staffed by or
-  // owned by a deleted user.
-  // The fixed test accounts are never soft deleted, they have to stay usable.
-  const protectedIds = new Set([
-    systemAdmin.id,
-    testAdmin.id,
-    testProjectManager.id,
-    testDeveloper.id,
-    testDesigner.id,
-    testClient.id,
-  ]);
-  const deletableStaff = users.filter(
-    (u) =>
-      !protectedIds.has(u.id) &&
-      (u.role === Role.DEVELOPER || u.role === Role.DESIGNER),
-  );
-  const deletableClients = users.filter(
-    (u) => !protectedIds.has(u.id) && u.role === Role.CLIENT,
-  );
+  // something to exclude. They are left out of every pool below, so no project
+  // ends up staffed by or owned by a deleted user.
+  const deletable = softDeletableUsers(users, fixedAccountIds);
   const softDeleted = new Set<string>([
-    ...rand.sample(deletableStaff, 5).map((u) => u.id),
-    ...rand.sample(deletableClients, 6).map((u) => u.id),
+    ...rand.sample(deletable.staff, VOLUME.softDeletedStaff).map((u) => u.id),
+    ...rand
+      .sample(deletable.clients, VOLUME.softDeletedClients)
+      .map((u) => u.id),
   ]);
 
   for (const id of softDeleted) {

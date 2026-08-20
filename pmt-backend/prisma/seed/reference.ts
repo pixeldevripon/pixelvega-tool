@@ -184,7 +184,7 @@ async function seedBlockerReasons(prisma: PrismaClient, rand: Rand) {
   // the picker something to hide while existing blockers still resolve their
   // reason on read.
   const deletable = rows.filter((row) => row.name !== 'Unspecified');
-  for (const row of rand.sample(deletable, 8)) {
+  for (const row of rand.sample(deletable, VOLUME.softDeletedBlockerReasons)) {
     await prisma.blockerReason.update({
       where: { id: row.id },
       data: {

@@ -16,8 +16,9 @@ function validEnv(overrides: NodeJS.ProcessEnv = {}): NodeJS.ProcessEnv {
     NODE_ENV: 'test',
     PORT: '3000',
     CORS_ORIGINS: 'http://localhost:3001',
-    SEED_ADMIN_EMAIL: 'admin@pixelvega.com',
-    SEED_ADMIN_NAME: 'System Admin',
+    ADMIN_EMAIL: 'admin@pixelvega.com',
+    ADMIN_NAME: 'System Admin',
+    ADMIN_PASSWORD: 'a-real-root-password',
     ...overrides,
   };
 }
@@ -122,10 +123,30 @@ describe('validateEnv', () => {
       ).not.toThrow();
     });
 
-    it('rejects a SEED_ADMIN_EMAIL that is not an email', () => {
+    it('rejects an ADMIN_EMAIL that is not an email', () => {
+      expect(() => validateEnv(validEnv({ ADMIN_EMAIL: 'admin' }))).toThrow(
+        /must be an email/,
+      );
+    });
+
+    it("rejects an ADMIN_PASSWORD below better-auth's eight character floor", () => {
+      // Seven characters. A shorter root password creates an account that
+      // cannot sign in, and the failure would only show at the login screen.
       expect(() =>
-        validateEnv(validEnv({ SEED_ADMIN_EMAIL: 'admin' })),
-      ).toThrow(/must be an email/);
+        validateEnv(validEnv({ ADMIN_PASSWORD: 'short12' })),
+      ).toThrow(/at least 8 characters/);
+    });
+
+    it('rejects a placeholder ADMIN_PASSWORD', () => {
+      expect(() =>
+        validateEnv(validEnv({ ADMIN_PASSWORD: 'change-me-please' })),
+      ).toThrow(/placeholder detected/);
+    });
+
+    it('accepts an eight character ADMIN_PASSWORD', () => {
+      expect(() =>
+        validateEnv(validEnv({ ADMIN_PASSWORD: 'eightch8' })),
+      ).not.toThrow();
     });
   });
 
@@ -162,8 +183,9 @@ describe('validateEnv', () => {
           'NODE_ENV',
           'PORT',
           'CORS_ORIGINS',
-          'SEED_ADMIN_EMAIL',
-          'SEED_ADMIN_NAME',
+          'ADMIN_EMAIL',
+          'ADMIN_NAME',
+          'ADMIN_PASSWORD',
         ]),
       );
     });

@@ -59,8 +59,9 @@ openssl rand -base64 32
 | `PORT` | No | HTTP port. Defaults to `3000`. |
 | `NODE_ENV` | No | Set to `production` only in a real deployment. It tightens the auth origin check and blocks the seed. |
 | `CORS_ORIGIN` | No | Frontend origin. Falls back to `*`. Needed with credentials so the session cookie is sent. |
-| `SEED_ADMIN_EMAIL` | Yes | Email of the single root `SYSTEM_ADMIN`. Also used by the seed. |
-| `SEED_ADMIN_NAME` | Yes | Display name for that account. |
+| `ADMIN_EMAIL` | Yes | Email of the single root `SYSTEM_ADMIN`. Used by the seed and by the on-boot bootstrap. |
+| `ADMIN_NAME` | Yes | Display name for that account. |
+| `ADMIN_PASSWORD` | Yes | Password for that account, at least 8 characters. It is the one account not invited by email, because nobody can invite anyone until it can sign in. |
 | `SMTP_HOST`, `SMTP_PORT`, `SMTP_USER`, `SMTP_PASS`, `MAIL_FROM` | No | Outgoing mail for invites and password reset codes. Leave blank to skip sending email. |
 | `CLOUDINARY_CLOUD_NAME`, `CLOUDINARY_API_KEY`, `CLOUDINARY_API_SECRET` | No | Image and document storage. Needed only for real file uploads. |
 | `SLACK_BOT_TOKEN` | No | Slack bot token. Every Slack call fails safely and is logged when this is missing. |
@@ -100,34 +101,39 @@ Three commands reach the same script, so pick whichever fits:
 | `pnpm seed:reset` | `prisma migrate reset --force`. Drops the schema, reapplies all migrations, then seeds. Use this when a migration is wrong. |
 | `npx prisma db seed` | Same script, driven by `migrations.seed` in `prisma.config.ts`. |
 
-It takes about a minute against a hosted Neon database. The script prints its progress, a row count per table, and the credentials table as it finishes.
+It takes under a second against a local Postgres, and a few seconds against a hosted Neon database. The script prints its progress, a row count per table, and the credentials table as it finishes.
 
 `_prisma_migrations` is never touched, so your migration history survives a seed.
 
 ### 4.3 What you get
 
-At least 100 rows in all 30 tables. Counts from a verified run:
+A small dataset on purpose: 33 users and 20 projects, sized so a screen can be read end to end rather than only paginated through. Counts from a verified run:
 
 | Table | Rows | | Table | Rows |
 | --- | --- | --- | --- | --- |
-| `User` | 246 | | `ProjectActivity` | 1894 |
-| `EmployeeProfile` | 133 | | `TimeEntry` | 1840 |
-| `ClientProfile` | 113 | | `MeetingTimeEntry` | 606 |
-| `account` | 246 | | `AdditionalRequirement` | 294 |
-| `session` | 180 | | `DailyWorkReport` | 697 |
-| `verification` | 140 | | `DailyProjectEntry` | 1255 |
-| `PasswordResetCode` | 150 | | `BlockerReason` | 106 |
-| `AuditLog` | 760 | | `Blocker` | 312 |
-| `LeaveType` | 104 | | `ProjectInternalReview` | 160 |
-| `Holiday` | 105 | | `ClientFeedback` | 130 |
-| `LeaveRequest` | 420 | | `AiTemplate` | 110 |
-| `LeaveBalance` | 1587 | | `AiJob` | 231 |
-| `Project` | 120 | | `ProjectStatusReport` | 222 |
-| `ProjectTypeTag` | 228 | | `Notification` | 1400 |
-| `ProjectMember` | 741 | | | |
-| `ProjectDocument` | 701 | | | |
+| `User` | 33 | | `ProjectActivity` | 253 |
+| `EmployeeProfile` | 23 | | `TimeEntry` | 192 |
+| `ClientProfile` | 10 | | `MeetingTimeEntry` | 74 |
+| `account` | 33 | | `AdditionalRequirement` | 28 |
+| `session` | 24 | | `DailyWorkReport` | 78 |
+| `verification` | 12 | | `DailyProjectEntry` | 142 |
+| `AuditLog` | 80 | | `BlockerReason` | 32 |
+| `LeaveType` | 14 | | `Blocker` | 28 |
+| `Holiday` | 35 | | `ProjectInternalReview` | 14 |
+| `LeaveRequest` | 40 | | `ClientFeedback` | 9 |
+| `LeaveBalance` | 127 | | `AiTemplate` | 4 |
+| `Project` | 20 | | `AiJob` | 29 |
+| `ProjectTypeTag` | 38 | | `ProjectStatusReport` | 28 |
+| `ProjectMember` | 83 | | `Notification` | 60 |
+| `ProjectDocument` | 50 | | | |
 
-The 120 projects are spread across all ten statuses on purpose, so every filter, every report, and every stage of the workflow has rows behind it.
+Users are capped per role, and each cap counts that role's fixed test account: 3 `ADMIN`, 4 `PROJECT_MANAGER`, 10 `DEVELOPER`, 5 `DESIGNER`, 10 `CLIENT`, plus the one root account.
+
+The 20 projects are two in each of the ten statuses, so every filter, every report, and every stage of the workflow has rows behind it and none of them is empty.
+
+The seed no longer aims for 100 rows a table. It warns about an EMPTY table instead: a count in single figures is the intent now, while a count of zero means a seeder ran and wrote nothing, which is a defect rather than a setting.
+
+Every seeded person also has a real profile photo, so the dashboard shows faces rather than initials everywhere. The URLs are hotlinked portraits, not Cloudinary assets, so `avatarPublicId` is deliberately null on every seeded row.
 
 Reseeding is repeatable. The same random seed always produces the same rows and the same ids, so a Postman collection can keep real ids as default variable values. Changing any row count in `prisma/seed/config.ts` shifts those ids, so reseed and refresh your saved ids together.
 
@@ -135,36 +141,40 @@ Reseeding is repeatable. The same random seed always produces the same rows and 
 
 ## 5. Test credentials
 
-Six fixed accounts, one per role. They are always `ACTIVE`, always email verified, and never asked to reset their password, so they work the moment the seed finishes.
+Six accounts, one per role. They are always `ACTIVE`, always email verified, and never asked to reset their password, so they work the moment the seed finishes.
 
 | Role | Email | Password |
 | --- | --- | --- |
-| `SYSTEM_ADMIN` | `jabed@pixelvega.com` | `Password123!` |
-| `ADMIN` | `admin@pixelvega.com` | `Password123!` |
+| `SYSTEM_ADMIN` | `ADMIN_EMAIL` from your `.env` | `ADMIN_PASSWORD` from your `.env` |
+| `ADMIN` | `ops-admin@pixelvega.com` | `Password123!` |
 | `PROJECT_MANAGER` | `pm@pixelvega.com` | `Password123!` |
 | `DEVELOPER` | `developer@pixelvega.com` | `Password123!` |
 | `DESIGNER` | `designer@pixelvega.com` | `Password123!` |
 | `CLIENT` | `client@pixelvega.com` | `Password123!` |
 
-> These are test fixtures for a seeded development database. They are deliberately weak and publicly documented. Never create them in a production environment.
+> The five below the root one are test fixtures for a seeded development database. They are deliberately weak and publicly documented. Never create them in a production environment.
 
-The `SYSTEM_ADMIN` email comes from `SEED_ADMIN_EMAIL` in your `.env`. If you change that variable, that row changes with it. The other five are fixed in `prisma/seed/config.ts`.
+The root account is entirely yours: `ADMIN_EMAIL`, `ADMIN_NAME` and `ADMIN_PASSWORD` in `.env` decide it, the seed refuses to start if any of the three is missing, and the report at the end prints the email but never the password. The same three variables drive `SystemAdminBootstrapService`, which creates the identical account on first boot in an environment the seed never runs in.
+
+The other five are fixed in `prisma/seed/config.ts`. The `ADMIN` one is `ops-admin@`, not `admin@`, because `ADMIN_EMAIL` is usually `admin@pixelvega.com` and the root account claims its address first.
+
+Neither delete route will remove the root account: `DELETE /users/:userId` answers 403 with "The system admin account cannot be deleted", and `DELETE /profiles/me` answers 403 with "There must always be a root account". The seed will not soft delete it either.
 
 ### Each account has real data
 
-The first 14 projects are wired to these accounts, so none of them opens onto an empty dashboard:
+The first 6 projects are wired to these accounts, so none of them opens onto an empty dashboard:
 
 | Account | What it can see |
 | --- | --- |
-| `SYSTEM_ADMIN`, `ADMIN` | Everything company wide, plus about 90 notifications each. |
-| `PROJECT_MANAGER` | Runs 14 projects. Has meeting hours, daily reports, and leave requests. |
-| `DEVELOPER` | Staffed on 16 projects, 13 unarchived. Has time entries, daily reports, and a leave balance. |
+| `SYSTEM_ADMIN`, `ADMIN` | Everything company wide, plus its share of the 60 notifications. |
+| `PROJECT_MANAGER` | Runs the 6 test projects. Has meeting hours, daily reports, and leave requests. |
+| `DEVELOPER` | Staffed on the test projects and usually a few more. Has time entries, daily reports, and a leave balance. |
 | `DESIGNER` | Same shape as the developer. |
-| `CLIENT` | Owns 15 projects, and sees only the reduced client view of each. |
+| `CLIENT` | Owns the 6 test projects, and sees only the reduced client view of each. |
 
 ### Every other account works too
 
-All 246 seeded accounts share the same password, so you can sign in as anyone to test a specific case. Two things to know:
+Every seeded account except the root one shares `Password123!`, so you can sign in as anyone to test a specific case. Three things to know:
 
 - Some generated accounts are `INVITED` on purpose. They can sign in, and the first successful login flips them to `ACTIVE`.
 - Some are `SUSPENDED` on purpose. Signing in as one returns `403` with `ACCOUNT_SUSPENDED`, which is the app working correctly, not a broken seed.

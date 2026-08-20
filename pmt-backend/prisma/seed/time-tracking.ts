@@ -69,7 +69,7 @@ export async function seedTimeTracking(
     // Project work. The test developer and designer are always included, so
     // those two logins always have hours to look at.
     const sampledWorkers = withGuaranteed(
-      rand.sample(workerIds, 34),
+      rand.sample(workerIds, VOLUME.workersLoggingTimePerDay),
       [users.test.developer.id, users.test.designer.id],
       workerIds,
     );
@@ -122,7 +122,7 @@ export async function seedTimeTracking(
     // excluded from project time tracking, since sitting in standups and
     // planning is part of their job.
     const sampledAttendees = withGuaranteed(
-      rand.sample(meetingAttendees, 22),
+      rand.sample(meetingAttendees, VOLUME.meetingAttendeesPerDay),
       [
         users.test.projectManager.id,
         users.test.developer.id,

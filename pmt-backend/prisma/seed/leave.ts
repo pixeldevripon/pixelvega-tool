@@ -36,9 +36,13 @@ export async function seedLeave(
   const coreTypes = reference.leaveTypes.filter((type) =>
     coreNames.has(type.name),
   );
-  const otherTypes = reference.leaveTypes.filter(
+  const generatedTypes = reference.leaveTypes.filter(
     (type) => !coreNames.has(type.name),
   );
+  // At the seeded volume there is no long tail: VOLUME.leaveTypes is the core
+  // list exactly, so this falls back to it. Without the fallback the 15% draw
+  // below would pick from an empty array and read `id` off undefined.
+  const otherTypes = generatedTypes.length > 0 ? generatedTypes : coreTypes;
 
   const requestRows: any[] = [];
   // usedDays per (user, leaveType, year), built as approved rows are created
@@ -164,7 +168,10 @@ export async function seedLeave(
   // still has a full balance sheet to look at.
   for (const user of users.workforce) {
     for (const year of VOLUME.leaveBalanceYears) {
-      for (const leaveType of rand.sample(coreTypes, 6)) {
+      for (const leaveType of rand.sample(
+        coreTypes,
+        VOLUME.leaveBalanceTypesPerUser,
+      )) {
         addBalance(user.id, leaveType, year);
       }
     }

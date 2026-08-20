@@ -54,22 +54,38 @@ export type SeededProject = {
   isActive: boolean;
 };
 
-// How the 120 projects are spread across the state machine. Written out by
-// hand rather than picked at random, so every status has enough rows to test
-// its own filters and so the late stage statuses can carry the review and
-// feedback history that has to hang off them.
+// How the projects are spread across the state machine. Written out by hand
+// rather than picked at random, so no status filter comes back empty and so the
+// late stage statuses carry the review and feedback history that hangs off them.
+//
+// Two per status, summing to VOLUME.projects. Flat rather than weighted towards
+// IN_PROGRESS and COMPLETED: at twenty projects a realistic distribution would
+// leave three statuses with a single row and one with none, and an empty status
+// column teaches nothing about the screen that renders it.
 const STATUS_PLAN: [ProjectStatus, number][] = [
-  [ProjectStatus.PLANNING, 8],
-  [ProjectStatus.SCHEDULED, 8],
-  [ProjectStatus.READY_FOR_WORK, 12],
-  [ProjectStatus.IN_PROGRESS, 22],
-  [ProjectStatus.ON_HOLD, 8],
-  [ProjectStatus.INTERNAL_REVIEW, 10],
-  [ProjectStatus.READY_FOR_CLIENT, 10],
-  [ProjectStatus.WAITING_FOR_FEEDBACK, 10],
-  [ProjectStatus.COMPLETED, 24],
-  [ProjectStatus.CANCELLED, 8],
+  [ProjectStatus.PLANNING, 2],
+  [ProjectStatus.SCHEDULED, 2],
+  [ProjectStatus.READY_FOR_WORK, 2],
+  [ProjectStatus.IN_PROGRESS, 2],
+  [ProjectStatus.ON_HOLD, 2],
+  [ProjectStatus.INTERNAL_REVIEW, 2],
+  [ProjectStatus.READY_FOR_CLIENT, 2],
+  [ProjectStatus.WAITING_FOR_FEEDBACK, 2],
+  [ProjectStatus.COMPLETED, 2],
+  [ProjectStatus.CANCELLED, 2],
 ];
+
+// The plan and the volume knob are two hand written numbers that have to agree,
+// and nothing below would complain if they did not: `Math.min` in the loop
+// truncates to whichever is smaller, so a plan that overshoots silently drops
+// its tail, taking the last statuses in the list with it. Fails at import, which
+// is before the seed has touched the database.
+const PLANNED_TOTAL = STATUS_PLAN.reduce((sum, [, count]) => sum + count, 0);
+if (PLANNED_TOTAL !== VOLUME.projects) {
+  throw new Error(
+    `STATUS_PLAN sums to ${PLANNED_TOTAL} but VOLUME.projects is ${VOLUME.projects}. Every project has to have a planned status.`,
+  );
+}
 
 // Statuses a project can still be worked on from. Mirrors the non terminal
 // set the app uses for workload counting.

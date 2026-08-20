@@ -60,7 +60,9 @@ export async function seedWorkReports(
     // The test accounts always report, so those logins always have a plan and
     // a wrap up history to read.
     const eligibleAuthors = new Set(authorIds);
-    const sampledAuthors = new Set(rand.sample(authorIds, 52));
+    const sampledAuthors = new Set(
+      rand.sample(authorIds, VOLUME.reportAuthorsPerDay),
+    );
     for (const id of [
       users.test.projectManager.id,
       users.test.developer.id,
