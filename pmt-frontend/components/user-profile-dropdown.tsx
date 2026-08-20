@@ -1,57 +1,97 @@
 'use client';
 
-import { useRole } from '@/contexts/role-context';
-import { signOut } from '@/lib/auth-client';
-import { cn } from '@/lib/utils';
-import {
-    ArrowDown01Icon,
-    ArrowRight01Icon,
-    Moon02Icon,
-    Sun03Icon,
-} from '@hugeicons/core-free-icons';
+import { Logout01Icon, UserAccountIcon } from '@hugeicons/core-free-icons';
 import { HugeiconsIcon } from '@hugeicons/react';
 import { useQueryClient } from '@tanstack/react-query';
-import { useTheme } from 'next-themes';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
-import { useCallback, useEffect, useState } from 'react';
-import UserAvatarImage from './avatar';
+import { useCallback, useEffect } from 'react';
+
+import { toneToVariant } from '@/components/common/enum-badge';
+import { statusDot } from '@/components/common/status-badge';
+import {
+    Avatar,
+    AvatarBadge,
+    AvatarFallback,
+    AvatarImage,
+} from '@/components/ui/avatar';
 import {
     DropdownMenu,
     DropdownMenuContent,
     DropdownMenuGroup,
     DropdownMenuItem,
     DropdownMenuSeparator,
+    DropdownMenuShortcut,
     DropdownMenuTrigger,
-} from './ui/dropdown-menu';
+} from '@/components/ui/dropdown-menu';
+import type { EnumDisplay } from '@/contexts/role-context';
+import { signOut } from '@/lib/auth-client';
+import { cn } from '@/lib/utils';
 
-interface ProfileDropdownProps {
-    loggedInUser: any;
-    className?: string;
+/** What the shell knows about the signed-in person. All of it comes from the session. */
+export interface HeaderUser {
+    name?: string;
+    email?: string;
+    /** For display only. Gate on permissions, never on this. */
+    role?: EnumDisplay;
+    /** Drives the presence dot's colour, at the tone the API decided. */
+    status?: EnumDisplay;
+    image?: string | null;
 }
 
+/**
+ * The account menu.
+ *
+ * The trigger is the avatar and nothing else: no chevron. In a row of four
+ * controls the chevron was the only glyph that was not an icon, and an avatar is
+ * already the most recognisable "this is me, and it opens something" affordance
+ * on the page.
+ *
+ * ── The presence dot is data, not decoration ──
+ *
+ * It is coloured from the session's `status` tone, so it says something true. A
+ * hardcoded green dot is the same defect as a hardcoded capability flag: it
+ * asserts a state nobody checked. In practice a suspended account never reaches
+ * this component, because `app/(app)/layout.tsx` redirects it, so the dot is
+ * normally the success tone. Normally is not always, and the difference is free.
+ *
+ * ── Why there is one link ──
+ *
+ * `/profile` is the only authenticated route that exists today. The reference
+ * screenshot has four items, and three of them would be links to 404s. They
+ * arrive as their screens do.
+ */
 export default function ProfileDropdown({
     loggedInUser,
     className,
-}: ProfileDropdownProps) {
+}: {
+    loggedInUser: HeaderUser;
+    className?: string;
+}) {
     const router = useRouter();
     const pathname = usePathname();
     const queryClient = useQueryClient();
 
-    // Global keyboard shortcuts (menu open/close + focus is handled by Radix)
+    const name = loggedInUser.name?.trim() || 'Your account';
+    const initial = (loggedInUser.name || loggedInUser.email || '?')
+        .charAt(0)
+        .toUpperCase();
+
+    /**
+     * Cmd+/ jumps to the profile, and the menu advertises it.
+     *
+     * The Cmd+H handler that used to live here is gone: on macOS that is Hide
+     * Window, and preventing it to open the dashboard root in a NEW TAB took a
+     * shortcut the operating system owns and did something else with it.
+     */
     const handleKeyDown = useCallback(
-        (e: KeyboardEvent) => {
-            if (e.metaKey && e.key.toLowerCase() === 'h') {
-                e.preventDefault();
-                window.open('/', '_blank');
-            }
-            if (e.metaKey && e.key === '/') {
-                if (!pathname.includes('/profile')) {
-                    router.push(`/profile`);
-                }
+        (event: KeyboardEvent) => {
+            if (event.metaKey && event.key === '/') {
+                event.preventDefault();
+                if (!pathname.includes('/profile')) router.push('/profile');
             }
         },
-        [pathname, router]
+        [pathname, router],
     );
 
     useEffect(() => {
@@ -83,56 +123,49 @@ export default function ProfileDropdown({
             <DropdownMenuTrigger asChild>
                 <button
                     type='button'
-                    aria-label='Open account menu'
+                    aria-label='Open the account menu'
                     className={cn(
-                        'group flex cursor-pointer items-center rounded-full outline-none',
-                        className
+                        'flex cursor-pointer items-center rounded-full outline-none focus-visible:ring-2 focus-visible:ring-ring',
+                        className,
                     )}>
-                    <UserAvatarImage
-                        user={loggedInUser}
-                        isVerified={loggedInUser?.isVerified}
-                    />
-                    <HugeiconsIcon
-                        size={16}
-                        className='text-content-muted transition-transform duration-200 group-data-[state=open]:rotate-180'
-                        icon={ArrowDown01Icon}
-                    />
+                    <UserAvatar user={loggedInUser} initial={initial} />
                 </button>
             </DropdownMenuTrigger>
 
             <DropdownMenuContent align='end' sideOffset={8} className='w-64'>
-                <DropdownMenuGroup>
-                    <DropdownMenuItem asChild>
-                        <Link href='/profile'>
-                            Your profile
-                            <HugeiconsIcon
-                                icon={ArrowRight01Icon}
-                                className='ml-auto text-muted-foreground'
-                            />
-                        </Link>
-                    </DropdownMenuItem>
-
-                </DropdownMenuGroup>
+                <div className='flex items-center gap-3 px-3 py-2.5'>
+                    <UserAvatar user={loggedInUser} initial={initial} />
+                    <div className='min-w-0 flex-1'>
+                        <p className='truncate text-sm font-medium text-content'>
+                            {name}
+                        </p>
+                        {loggedInUser.email && (
+                            <p className='truncate text-xs text-content-muted'>
+                                {loggedInUser.email}
+                            </p>
+                        )}
+                    </div>
+                </div>
 
                 <DropdownMenuSeparator />
 
-                <div className='flex items-center justify-between px-3 py-1.5'>
-                    <span className='text-xs font-medium text-muted-foreground'>
-                        Theme
-                    </span>
-                    <ThemeSegmentedControl />
-                </div>
+                <DropdownMenuGroup>
+                    <DropdownMenuItem asChild>
+                        <Link href='/profile'>
+                            <HugeiconsIcon icon={UserAccountIcon} />
+                            My account
+                            <DropdownMenuShortcut>⌘ /</DropdownMenuShortcut>
+                        </Link>
+                    </DropdownMenuItem>
+                </DropdownMenuGroup>
 
                 <DropdownMenuSeparator />
 
                 <DropdownMenuItem
                     variant='destructive'
                     onSelect={() => void handleSignOut()}>
-                    Sign Out
-                    <HugeiconsIcon
-                        icon={ArrowRight01Icon}
-                        className='ml-auto'
-                    />
+                    <HugeiconsIcon icon={Logout01Icon} />
+                    Sign out
                 </DropdownMenuItem>
             </DropdownMenuContent>
         </DropdownMenu>
@@ -140,57 +173,33 @@ export default function ProfileDropdown({
 }
 
 /**
- * Light and dark only - there is no "System" option.
- *
- * A first visit still FOLLOWS the operating system (the provider keeps
- * `defaultTheme='system'` + `enableSystem`), so dropping the button costs nothing
- * except the ability to pin yourself back to "whatever the OS says" after
- * choosing explicitly. What it buys is a control with two states instead of a
- * third that most people read as a bug ("why is neither light nor dark on?").
+ * The avatar, with the presence dot. Rendered twice, in the trigger and in the
+ * menu's identity block, which is the whole reason it is a component: the two
+ * have to be the same size and the same dot or the menu looks like it belongs to
+ * someone else.
  */
-const THEME_OPTIONS = [
-    { value: 'light', label: 'Light theme', icon: Sun03Icon },
-    { value: 'dark', label: 'Dark theme', icon: Moon02Icon },
-] as const;
-
-function ThemeSegmentedControl() {
-    // `resolvedTheme`, NOT `theme`. `theme` is the STORED preference, which is
-    // still `'system'` for anyone who picked that before the option went away -
-    // and for everyone on their first visit, since that is the provider default.
-    // Matching on it would leave both pills dark and the control looking broken.
-    // `resolvedTheme` is what is actually painted, which is also the honest thing
-    // to highlight: it answers "which one am I looking at right now".
-    const { resolvedTheme, setTheme } = useTheme();
-    const [mounted, setMounted] = useState(false);
-
-    useEffect(() => {
-        setMounted(true);
-    }, []);
-
+function UserAvatar({
+    user,
+    initial,
+}: {
+    user: HeaderUser;
+    initial: string;
+}) {
     return (
-        <div className='flex items-center gap-0.5 rounded-full bg-muted p-0.5'>
-            {THEME_OPTIONS.map(option => {
-                // Gated on `mounted`: the server cannot know the resolved theme,
-                // so rendering an active pill before hydration would mismatch.
-                const active = mounted && resolvedTheme === option.value;
-                return (
-                    <button
-                        key={option.value}
-                        type='button'
-                        aria-label={option.label}
-                        title={option.label}
-                        onClick={() => setTheme(option.value)}
-                        className={cn(
-                            'flex size-6 cursor-pointer items-center justify-center rounded-full transition-colors',
-                            active
-                                ? 'bg-background text-foreground shadow-sm ring-1 ring-foreground/10'
-                                : 'text-muted-foreground hover:text-foreground'
-                        )}>
-                        <HugeiconsIcon icon={option.icon} size={13} />
-                    </button>
-                );
-            })}
-        </div>
+        <Avatar size='lg' className='shrink-0'>
+            {user.image && (
+                <AvatarImage src={user.image} alt={user.name ?? 'Your avatar'} />
+            )}
+            <AvatarFallback className='bg-primary-subtle font-medium text-primary-subtle-content'>
+                {initial}
+            </AvatarFallback>
+            {user.status && (
+                <AvatarBadge
+                    aria-hidden
+                    title={user.status.label}
+                    className={statusDot[toneToVariant(user.status.tone)]}
+                />
+            )}
+        </Avatar>
     );
 }
-

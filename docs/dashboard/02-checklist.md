@@ -20,11 +20,11 @@ A stale checklist is worse than no checklist, because the next person trusts it.
 | D5    | Projects, list to detail                    | 33      | 0       | not started |
 | D6    | Time tracking and standups                  | 20      | 0       | not started |
 | D7    | Blockers, requirements, reviews, feedback   | 29      | 0       | not started |
-| D8    | People, leave, notifications, audit, client | 29      | 0       | not started |
+| D8    | People, leave, notifications, audit, client | 30      | 4       | in progress |
 | D9    | The AI module                               | 24      | 0       | not started |
 | D10   | The named gaps                              | 30      | 0       | not started |
 | D11   | Hardening and close                         | 16      | 0       | not started |
-|       | **Total**                                   | **386** | **113** |             |     |
+|       | **Total**                                   | **387** | **117** |             |
 
 Regenerate the counts with
 `awk '/^## /{if(s!="")print s": "n; s=$0; n=0} /^- \[ \]|^- \[x\]/{n++} END{print s": "n}' 02-checklist.md`
@@ -667,10 +667,15 @@ Four PRs, strictly ordered. PR 3 is a pure move: if its diff shows logic changes
 
 ### Notifications (O1, O2)
 
-- [ ] `types/notifications.ts` · `lib/api/notifications.ts` · `hooks/notifications/`
-- [ ] A bell with an unread count in the site header
-- [ ] The inbox: mark one read, mark all read
-- [ ] Tests
+Landed early, out of phase order, because the user's header redesign needed real rows behind it. The
+spec and the reasoning are in [`03-header-chrome.md`](./03-header-chrome.md).
+
+- [x] `types/notifications.ts` · `lib/api/notifications.ts` · `hooks/notifications/`
+- [x] A bell with an unread count in the site header
+- [x] The inbox: mark one read, mark all read. In the header's popover and its activity sheet, **not**
+      on a page of its own: a notifications SCREEN is still open
+- [x] Tests: 48 cases across the api client, the hooks, the row, the bell and the sheet
+- [ ] A notifications page, if this product wants one. The two header panels cover O1 and O2 today
 
 ### Audit log (P1)
 

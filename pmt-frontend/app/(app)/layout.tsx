@@ -89,6 +89,7 @@ async function AppContent({ children }: { children: React.ReactNode }) {
             userName={session.name}
             userEmail={session.email}
             userRole={session.role}
+            userStatus={session.status}
             userPermissions={session.permissions}
             userImage={session.avatarUrl}>
             {children}

@@ -1,7 +1,7 @@
 import { CommandPalette } from '@/components/shell/command-palette';
+import { HeaderActions } from '@/components/shell/header-actions';
 import { Separator } from '@/components/ui/separator';
 import { SidebarTrigger } from '@/components/ui/sidebar';
-import ProfileDropdown from '@/components/user-profile-dropdown';
 import type { EnumDisplay } from '@/contexts/role-context';
 import { PRODUCT_NAME } from '@/lib/constants/product';
 
@@ -9,14 +9,24 @@ interface SiteHeaderProps {
     userName?: string;
     userEmail?: string;
     userRole?: EnumDisplay;
+    userStatus?: EnumDisplay;
     userPermissions?: string[];
     userImage?: string | null;
 }
 
+/**
+ * The dashboard header: identity on the left, the search and the action row on
+ * the right.
+ *
+ * Composition only. Every piece of state the header needs lives one level down,
+ * in `CommandPalette` (is the dialog open) and `HeaderActions` (is the activity
+ * sheet open), so this file stays a plain function of its props.
+ */
 export function SiteHeader({
     userName,
     userEmail,
     userRole,
+    userStatus,
     userPermissions,
     userImage,
 }: SiteHeaderProps) {
@@ -39,24 +49,25 @@ export function SiteHeader({
                         {PRODUCT_NAME}
                     </span>
                 </div>
+
+                {/* The search sits apart from the icon row: it is a field-shaped
+                    control among round ones, and tucking it into the same
+                    8px rhythm made the row read as five icons and a mistake. */}
                 <div className='flex items-center gap-2 md:gap-4'>
                     <CommandPalette
                         userRole={userRole}
                         userPermissions={userPermissions}
                     />
 
-                    {/* PMT's notification bell lands here in D8, against
-                        GET /notifications and /notifications/unread-count. The
-                        reference's version is kept as the pattern in
-                        reference-notes/design-source/notification-bell.tsx. */}
-                    <ProfileDropdown
-                        loggedInUser={{
-                            name: userName,
-                            email: userEmail,
-                            role: userRole,
-                            image: userImage,
-                        }}
-                    />
+                    <div className='flex items-center gap-1'>
+                        <HeaderActions
+                            userName={userName}
+                            userEmail={userEmail}
+                            userRole={userRole}
+                            userStatus={userStatus}
+                            userImage={userImage}
+                        />
+                    </div>
                 </div>
             </div>
         </header>
