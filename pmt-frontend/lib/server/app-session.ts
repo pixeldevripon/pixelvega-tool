@@ -79,11 +79,20 @@ export interface AppSession {
  * belongs in that screen's own hook.
  */
 export const getAppSession = cache(
+    /**
+     * `cookie` is still a parameter even though `serverAuthHeaders()` reads the
+     * request itself. It does two jobs here: it is the `cache()` key, so two
+     * sessions in one process cannot share an entry, and it is the cheap early
+     * exit below that avoids three round trips for an anonymous visitor.
+     */
     async (cookie: string): Promise<AppSession | null> => {
         if (!cookie) return null;
 
         try {
-            const headers = serverAuthHeaders(cookie);
+            // Awaited: the builder reads the incoming request for the
+            // visitor's real IP as well as the cookie, so a caller cannot
+            // forget to forward it.
+            const headers = await serverAuthHeaders();
             const [sessionRes, userRes, permissionsRes] = await Promise.all([
                 authClient.getSession({ fetchOptions: { headers } }),
                 fetch(`${BACKEND_URL}/api/users/me`, { headers }),
