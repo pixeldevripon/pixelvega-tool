@@ -29,6 +29,13 @@ export type DashboardSeriesPoint = {
   valueLabel: string;
   /** False on the team's weekly off day, so a zero can be read correctly. */
   isWorkingDay: boolean;
+  /**
+   * The busiest day, for a chart that emphasises it. True on at most one point,
+   * and on none at all when the whole series is zero. Never scan for the
+   * maximum here: two components breaking a tie differently would highlight
+   * different bars on the same data.
+   */
+  isPeak: boolean;
 };
 
 export type DashboardSeries = {
@@ -180,19 +187,44 @@ export type DashboardMyDay = {
   today: DashboardHours;
   thisWeek: DashboardHours;
   weekTargetMinutes: number;
+  weekTargetLabel: string;
+  /**
+   * This week against the target. **Not capped at 1**: over the target is a fact
+   * worth showing. A bar clips it with `overflow-hidden` rather than a `Math.min`.
+   * Null when the target is zero.
+   */
+  weekProgressRate: number | null;
+  weekProgressLabel: string | null;
   myHoursTrend: DashboardSeries;
   todayWorkReportStatus: EnumDisplay | null;
   myOpenBlockerCount: number;
 };
 
+/**
+ * One queue waiting on somebody.
+ *
+ * `key` is stable and never rendered: an icon and a link are keyed off it, the
+ * same way a class is keyed off a tone. Everything a reader sees (the wording,
+ * the number, the urgency) arrives decided.
+ */
+export type DashboardAttentionItem = {
+  key: string;
+  label: string;
+  count: number;
+  tone: EnumDisplay;
+};
+
+/**
+ * The queues, already filtered and ordered.
+ *
+ * Empty queues and queues the caller may not act on are already gone, and the
+ * two are deliberately indistinguishable here. Do not re-order: the fixed order
+ * is what lets a reader learn where to look.
+ */
 export type DashboardAttention = {
-  pendingRequirementCount: number;
-  internalReviewCount: number;
-  awaitingClientFeedbackCount: number;
-  overdueProjectCount: number;
-  notReadyToStartCount: number;
-  /** Null unless the caller may actually review one. */
-  pendingLeaveRequestCount: number | null;
+  total: number;
+  totalLabel: string;
+  items: DashboardAttentionItem[];
 };
 
 export type WorkspaceDashboard = {

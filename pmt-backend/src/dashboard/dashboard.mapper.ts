@@ -33,6 +33,8 @@ import {
 import { DASHBOARD_ACTIVE_STATUSES } from '@/projects/projects.service';
 
 import type {
+  DashboardAttentionDto,
+  DashboardAttentionItemDto,
   DashboardBreakdownDto,
   DashboardClientProjectDto,
   DashboardHoursDto,
@@ -42,6 +44,7 @@ import type {
   DashboardProjectDto,
   DashboardRankedRowDto,
   DashboardSeriesDto,
+  DashboardSeriesPointDto,
   DashboardSliceDto,
 } from './dto/dashboard.dto';
 
@@ -229,7 +232,7 @@ export function toSeries(input: {
   minutesByDay: Map<string, number>;
   dailyTarget: number | null;
 }): DashboardSeriesDto {
-  const points = [];
+  const points: DashboardSeriesPointDto[] = [];
   let totalValue = 0;
 
   const cursor = new Date(
@@ -251,10 +254,14 @@ export function toSeries(input: {
       value,
       valueLabel: formatDuration(value) as string,
       isWorkingDay: cursor.getUTCDay() !== WEEKLY_OFF_DAY,
+      // Decided below, once the whole range is known.
+      isPeak: false,
     });
 
     cursor.setUTCDate(cursor.getUTCDate() + 1);
   }
+
+  markPeak(points);
 
   return {
     label: input.label,
@@ -263,6 +270,26 @@ export function toSeries(input: {
     totalLabel: formatDuration(totalValue) as string,
     dailyTarget: input.dailyTarget,
   };
+}
+
+/**
+ * Flags the busiest day, in place.
+ *
+ * The EARLIEST maximum wins a tie, so a chart's emphasis does not hop between
+ * two equal days depending on which client read the array first. A series where
+ * every value is zero gets no peak at all: a fortnight of nothing has no busiest
+ * day, and colouring the first bar would claim a shape the data does not have.
+ */
+function markPeak(points: DashboardSeriesPointDto[]): void {
+  let peak: DashboardSeriesPointDto | null = null;
+
+  for (const point of points) {
+    if (point.value > 0 && (peak === null || point.value > peak.value)) {
+      peak = point;
+    }
+  }
+
+  if (peak) peak.isPeak = true;
 }
 
 // ── Breakdowns ────────────────────────────────────────────────────────────
@@ -308,6 +335,110 @@ export function toBreakdown<E extends string>(input: {
     totalLabel: `${total} ${input.unit}`,
     slices,
   };
+}
+
+// ── Needs attention ───────────────────────────────────────────────────────
+
+/**
+ * The raw queue sizes, before anything is decided about them.
+ *
+ * `pendingLeaveRequests` is null when the caller holds no
+ * `REVIEW_LEAVE_REQUEST`, which is not the same as it being empty: only an
+ * Admin can approve or reject one, so a project manager must not be shown a
+ * number they cannot act on.
+ */
+export type DashboardAttentionCounts = {
+  overdueProjects: number;
+  pendingRequirements: number;
+  pendingLeaveRequests: number | null;
+  notReadyToStart: number;
+  internalReview: number;
+  awaitingClientFeedback: number;
+};
+
+/**
+ * How urgently a queue reads.
+ *
+ * Its own vocabulary rather than a reuse of a domain enum's, for the same
+ * reason `METRIC_TONE_DISPLAY` is: "somebody is waiting on this" has no `value`
+ * a client would branch on, and borrowing `BlockerSeverity`'s tones would tie
+ * two unrelated judgments together.
+ */
+type AttentionUrgency = 'routine' | 'waiting' | 'overdue';
+
+const ATTENTION_URGENCY_DISPLAY: Record<AttentionUrgency, EnumDisplayEntry> = {
+  routine: { label: 'Moving normally', tone: 'default' },
+  waiting: { label: 'Waiting on a decision', tone: 'warning' },
+  overdue: { label: 'Past due', tone: 'danger' },
+};
+
+/**
+ * Every queue, in the order it should render, with its wording and its urgency.
+ *
+ * Keyed on `DashboardAttentionCounts`, so a queue added to the counts without a
+ * row here (or the reverse) fails the build rather than silently disappearing
+ * from the card.
+ *
+ * The order is fixed rather than by size: sorting by count moves a row every
+ * time a project changes, and a reader never learns where to look. Overdue
+ * leads because it is the only one already late. Internal review and awaiting
+ * client feedback come last because neither is anybody's fault yet: they are
+ * the lifecycle working.
+ */
+const ATTENTION_ROWS: {
+  key: keyof DashboardAttentionCounts;
+  label: string;
+  urgency: AttentionUrgency;
+}[] = [
+  { key: 'overdueProjects', label: 'Overdue projects', urgency: 'overdue' },
+  {
+    key: 'pendingRequirements',
+    label: 'Requirements to review',
+    urgency: 'waiting',
+  },
+  {
+    key: 'pendingLeaveRequests',
+    label: 'Leave to approve',
+    urgency: 'waiting',
+  },
+  { key: 'notReadyToStart', label: 'Not ready to start', urgency: 'waiting' },
+  { key: 'internalReview', label: 'In internal review', urgency: 'routine' },
+  {
+    key: 'awaitingClientFeedback',
+    label: 'Awaiting client feedback',
+    urgency: 'routine',
+  },
+];
+
+/**
+ * The queues, filtered and ordered, as the card should render them.
+ *
+ * A count of zero is dropped, because a list of noughts is noise on a card whose
+ * job is to say what needs doing. A null count is dropped too, and the two are
+ * deliberately indistinguishable in the response: a client that could tell them
+ * apart would learn that pending leave requests exist and that it is not allowed
+ * to see them.
+ */
+export function toAttention(
+  counts: DashboardAttentionCounts,
+): DashboardAttentionDto {
+  const items: DashboardAttentionItemDto[] = [];
+  let total = 0;
+
+  for (const row of ATTENTION_ROWS) {
+    const count = counts[row.key];
+    if (count === null || count <= 0) continue;
+
+    total += count;
+    items.push({
+      key: row.key,
+      label: row.label,
+      count,
+      tone: toEnumDisplay(ATTENTION_URGENCY_DISPLAY, row.urgency),
+    });
+  }
+
+  return { total, totalLabel: `${total} waiting`, items };
 }
 
 // ── Ranked rows ───────────────────────────────────────────────────────────

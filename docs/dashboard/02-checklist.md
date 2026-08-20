@@ -14,8 +14,8 @@ A stale checklist is worse than no checklist, because the next person trusts it.
 | ~     | Decisions to make first                     | 9       | 0       | not started |
 | D0    | Mirror, then prune                          | 99      | 68      | in progress |
 | D1    | The module kit                              | 29      | 0       | not started |
-| D2    | Backend, the dashboards                     | 55      | 51      | in progress |
-| D3    | Frontend, the overview                      | 11      | 8       | in progress |
+| D2    | Backend, the dashboards                     | 50      | 45      | in progress |
+| D3    | Frontend, the overview                      | 15      | 14      | in progress |
 | D4    | Backend, the contract gaps                  | 7       | 0       | not started |
 | D5    | Projects, list to detail                    | 48      | 30      | in progress |
 | D6    | Time tracking and standups                  | 20      | 0       | not started |
@@ -24,7 +24,7 @@ A stale checklist is worse than no checklist, because the next person trusts it.
 | D9    | The AI module                               | 24      | 0       | not started |
 | D10   | The named gaps                              | 30      | 1       | in progress |
 | D11   | Hardening and close                         | 16      | 0       | not started |
-|       | **Total**                                   | **387** | **117** |             |
+|       | **Total**                                   | **391** | **131** |             |
 
 Regenerate the counts with
 `awk '/^## /{if(s!="")print s": "n; s=$0; n=0} /^- \[ \]|^- \[x\]/{n++} END{print s": "n}' 02-checklist.md`
@@ -422,10 +422,12 @@ real accounts rather than by reading the code.
 
 - [x] `GET /api/dashboard` returns 200 with the caller's block
 - [x] Registered in `src/app.controllers.ts`, and both route specs updated: 29 controllers, 109 routes
-- [x] `spec/dashboard.mapper.spec.ts` at **88 cases**
+- [x] `spec/dashboard.mapper.spec.ts` at **100 cases** (was 88; the overview redesign added the peak,
+      attention and week-progress rules)
 - [x] Frontend: `types/dashboard.ts`, `lib/api/dashboard.ts`, `hooks/dashboard/use-dashboard.ts`
-- [x] `components/common/stats/`: stat card, mini bars, ranked list, breakdown card, hours chart
-- [x] `components/home/`: project card, my day, attention, workspace view, client view, home view
+- [x] `components/common/stats/`: stat card, mini bars, ranked list, breakdown card, hours chart, and
+      from the redesign `icon-tile`, `delta-pill`, `donut-chart`, `section-heading`, `tone-palette`
+- [x] `components/home/`: project card, my day, attention, standup, workspace view, client view, home view
 - [x] All four view states handled. An empty dashboard is the common case on a fresh install, and an
       error on the landing screen is the first thing a new user would see
 
@@ -474,17 +476,41 @@ active developers and designers, so a client or a suspended account cannot drag 
 
 ## Phase D3: frontend, the four dashboards (Q1 to Q9)
 
-- [ ] `types/dashboard.ts` and `lib/api/dashboard.ts` verified against the live shape
-- [ ] `hooks/dashboard/use-dashboard.ts`
-- [ ] `components/home/home-view.tsx`, reading `audience` and rendering one block
-- [ ] `components/home/admin-dashboard.tsx`
-- [ ] `components/home/manager-dashboard.tsx`
-- [ ] `components/home/staff-dashboard.tsx`
-- [ ] `components/home/client-dashboard.tsx`
-- [ ] `app/(dashboard)/dashboard/page.tsx` stays a Server Component: title plus the view
-- [ ] **Delete `dashboard-overview.tsx`**, and grep the whole frontend for a remaining hardcoded figure
-- [ ] Loading, empty and error states on every card. An empty dashboard is the common case on a fresh install
-- [ ] Tests for the four view states per block, and one asserting the list renders in the order it arrived
+> **This section was written before D2 landed and it names four dashboards.** There are two, because
+> the API answers with two blocks: `WorkspaceDashboardDto` for every internal audience and
+> `ClientDashboardDto` for a client. Three internal views would be three layouts of the same shape,
+> and the scope difference is already applied by the query. The three items below that name a file per
+> role are struck rather than ticked, so nobody goes looking for a file that was decided against.
+
+- [x] `types/dashboard.ts` and `lib/api/dashboard.ts` verified against the live shape
+- [x] `hooks/dashboard/use-dashboard.ts`
+- [x] `components/home/home-view.tsx`, reading `audience` and rendering one block
+- [x] ~~`admin-dashboard.tsx`~~ / ~~`manager-dashboard.tsx`~~ / ~~`staff-dashboard.tsx`~~, all three
+      served by `components/home/workspace-dashboard.tsx`
+- [x] `components/home/client-dashboard.tsx`
+- [x] The landing route is `app/(app)/page.tsx`, not `app/(dashboard)/dashboard/`, and it is a Server
+      Component: it checks the session and renders `<HomeView/>`
+- [x] **`dashboard-overview.tsx` is gone**, and a grep for a hardcoded figure under `components/home/`
+      and `components/common/stats/` finds none: every number on the screen comes off the response
+- [x] Loading, empty and error states on every card. An empty dashboard is the common case on a fresh install
+- [x] Tests for the view states per block, and one asserting the list renders in the order it arrived:
+      64 Vitest cases across `stats/` and `home/`
+
+### The redesign, from the two UI references
+
+Design taken from the references; the information architecture and the reading order are unchanged.
+
+- [x] One shared kit, so no card declares its own tinted surface: `IconTile`, `DeltaPill`,
+      `SectionHeading`, `DonutChart`, and `tone-palette.ts` as the single tone-to-chart-colour map
+- [x] The hours chart writes `valueLabel` above each bar and fills the peak solid against a pale tint
+- [x] Projects by status is a ring with the total in its centre; blockers by severity keeps the bar
+- [x] Standup compliance is a gauge, and draws nothing at all when `rate` is null
+- [x] Three derivations left the browser, each replaced by a field: `MiniBars`' `Math.max` (now
+      `isPeak`), `MyDayCard`'s week-share division (now `weekProgressRate` and `weekTargetLabel`), and
+      `AttentionCard`'s row list, label map and urgency judgment (now `attention.items`)
+- [ ] **A status board for the projects section is NOT built.** Ten project statuses do not make four
+      columns, so it needs a coarser lifecycle stage, and inventing one is a product decision rather
+      than a design one. The reference's card and column-heading language is adopted; the split is not
 
 ---
 

@@ -1,30 +1,43 @@
 'use client';
 
-import { HugeiconsIcon } from '@hugeicons/react';
 import {
-    ArrowDown01Icon,
-    ArrowUp01Icon,
+    AlertCircleIcon,
+    AlertDiamondIcon,
+    Building03Icon,
+    ChartLineData01Icon,
+    Clock01Icon,
 } from '@hugeicons/core-free-icons';
+import type { IconSvgElement } from '@hugeicons/react';
 
+import { DeltaPill } from '@/components/common/stats/delta-pill';
+import { IconTile } from '@/components/common/stats/icon-tile';
 import { Card } from '@/components/ui/card';
 import { cn } from '@/lib/utils';
 import type { DashboardMetric } from '@/types/dashboard';
 
 /**
- * A headline tile: a label, a figure, and how it moved.
+ * A headline tile: an icon, a label, the figure, and how it moved.
  *
  * Every part of it arrives decided. The delta, its sign, and whether the
- * movement reads as good or bad are all fields on the response, because
- * "is up good" is a judgment about the business rather than a styling choice.
- * This component's whole job is turning a tone name into a class.
+ * movement reads as good or bad are all fields on the response, because "is up
+ * good" is a judgment about the business rather than a styling choice. This
+ * component's whole job is turning a tone name into a class and a key into an
+ * icon.
+ *
+ * ── Why an icon map is allowed here ──
+ *
+ * It is keyed on `metric.key`, which the API documents as a stable identifier
+ * for exactly this ("a client that wants to place a specific tile"). It is not a
+ * label map and not a tone map: it invents no wording and makes no severity
+ * judgment, and a key this file has not seen gets a neutral chart glyph rather
+ * than a blank. The same reasoning as mapping a tone onto a class.
  */
 
-const TONE_CLASS: Record<string, string> = {
-    default: 'bg-surface-inset text-content-muted',
-    primary: 'bg-primary-subtle text-primary-subtle-content',
-    success: 'bg-success-subtle text-success-fg',
-    warning: 'bg-warning-subtle text-warning-fg',
-    danger: 'bg-danger-subtle text-danger-fg',
+const METRIC_ICON: Record<string, IconSvgElement> = {
+    activeProjects: Building03Icon,
+    hoursLogged: Clock01Icon,
+    openBlockers: AlertDiamondIcon,
+    atRisk: AlertCircleIcon,
 };
 
 export function StatCard({
@@ -35,46 +48,39 @@ export function StatCard({
     /** An optional sparkline or bar strip, rendered under the figure. */
     children?: React.ReactNode;
 }) {
-    const rose = (metric.changeRate ?? 0) > 0;
-
     return (
-        <Card className='flex flex-col gap-3 p-4'>
-            <div className='flex items-start justify-between gap-2'>
-                <div className='min-w-0'>
-                    <p className='truncate text-sm font-medium text-content'>
-                        {metric.label}
-                    </p>
-                    {metric.caption && (
-                        <p className='mt-0.5 truncate text-xs text-content-subtle'>
-                            {metric.caption}
-                        </p>
-                    )}
-                </div>
+        <Card
+            size='sm'
+            className='justify-between gap-4 transition-shadow hover:shadow-sm'>
+            <div className='flex items-start justify-between gap-3 px-4'>
+                <IconTile
+                    icon={METRIC_ICON[metric.key] ?? ChartLineData01Icon}
+                    tone={metric.tone.tone}
+                />
+                <DeltaPill
+                    changeLabel={metric.changeLabel}
+                    changeRate={metric.changeRate}
+                    tone={metric.tone}
+                />
+            </div>
 
-                {metric.changeLabel && (
-                    <span
-                        className={cn(
-                            'flex shrink-0 items-center gap-0.5 rounded-full px-2 py-0.5 text-xs font-medium',
-                            TONE_CLASS[metric.tone.tone] ?? TONE_CLASS.default,
-                        )}
-                        // The tone carries meaning colour alone cannot, so the
-                        // server's word for it is the accessible name.
-                        title={metric.tone.label}>
-                        <HugeiconsIcon
-                            icon={rose ? ArrowUp01Icon : ArrowDown01Icon}
-                            className='size-3'
-                            strokeWidth={2}
-                        />
-                        {metric.changeLabel}
-                    </span>
+            <div className='px-4'>
+                <p className='truncate text-sm font-medium text-content-muted'>
+                    {metric.label}
+                </p>
+                <p className='mt-1 font-heading text-2xl font-medium tracking-tight tabular-nums text-content'>
+                    {metric.valueLabel}
+                </p>
+                {metric.caption && (
+                    <p className='mt-0.5 truncate text-2xs text-content-subtle'>
+                        {metric.caption}
+                    </p>
                 )}
             </div>
 
-            <p className='text-2xl font-medium tabular-nums text-content'>
-                {metric.valueLabel}
-            </p>
-
-            {children}
+            {/* Bleeds to the card's edges: a strip that stops short of them
+                reads as a chart in a box rather than as the tile's own floor. */}
+            {children && <div className={cn('px-1 pb-1')}>{children}</div>}
         </Card>
     );
 }

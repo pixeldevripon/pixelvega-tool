@@ -43,15 +43,17 @@ export function HomeView() {
     }
 
     return (
-        <div className='flex flex-col gap-4'>
-            <div className='flex flex-wrap items-baseline justify-between gap-2'>
+        <div className='flex flex-col gap-6'>
+            <header className='flex flex-wrap items-end justify-between gap-3'>
                 <div>
-                    <h1 className='text-2xl font-medium'>Overview</h1>
+                    <h1 className='font-heading text-2xl font-medium tracking-tight'>
+                        Overview
+                    </h1>
                     <p className='mt-1 text-sm text-content-muted'>
                         {data.range.label} · {data.audience.label} view
                     </p>
                 </div>
-            </div>
+            </header>
 
             {data.workspace ? (
                 <WorkspaceDashboardView workspace={data.workspace} />
@@ -70,24 +72,36 @@ export function HomeView() {
 
 /**
  * Mirrors the real layout's shape rather than being a generic spinner, so the
- * page does not jump when the data lands.
+ * page does not jump when the data lands. Four tiles, a wide chart beside a
+ * ring, then two rows of three.
  */
 function DashboardSkeleton() {
     return (
-        <div className='flex flex-col gap-4'>
-            <Skeleton className='h-9 w-40' />
+        <div className='flex flex-col gap-6'>
+            <Skeleton className='h-14 w-48' />
+
             <div className='grid gap-4 sm:grid-cols-2 xl:grid-cols-4'>
                 {[0, 1, 2, 3].map((index) => (
-                    <Skeleton key={index} className='h-32 rounded-lg' />
+                    <Skeleton key={index} className='h-40 rounded-lg' />
                 ))}
             </div>
+
             <div className='grid gap-4 lg:grid-cols-3'>
-                <Skeleton className='h-72 rounded-lg lg:col-span-2' />
-                <Skeleton className='h-72 rounded-lg' />
+                <Skeleton className='h-80 rounded-lg lg:col-span-2' />
+                <Skeleton className='h-80 rounded-lg' />
             </div>
+
+            {[0, 1].map((row) => (
+                <div key={row} className='grid gap-4 lg:grid-cols-3'>
+                    {[0, 1, 2].map((index) => (
+                        <Skeleton key={index} className='h-64 rounded-lg' />
+                    ))}
+                </div>
+            ))}
+
             <div className='grid gap-4 md:grid-cols-2 xl:grid-cols-3'>
                 {[0, 1, 2, 3, 4, 5].map((index) => (
-                    <Skeleton key={index} className='h-44 rounded-lg' />
+                    <Skeleton key={index} className='h-52 rounded-lg' />
                 ))}
             </div>
         </div>
