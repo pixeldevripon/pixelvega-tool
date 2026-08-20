@@ -35,6 +35,16 @@ export const TERMINAL_STATUSES: ProjectStatus[] = [
 export type ProjectContext = {
   permissions: Permission[];
   managesProject: boolean;
+  /**
+   * From `ProjectScopeService.mayChangeProjectStatus`, not re-derived here.
+   *
+   * The status rule is not the same shape as the others: a PROJECT_MANAGER must
+   * manage the project, while a DEVELOPER or DESIGNER only has to be staffed on
+   * it. Reproducing that in the mapper is how the flag and the enforcement come
+   * apart, which they had: this flag was `has(permission) && !isArchived`, so a
+   * PM saw a status control on every project they could read.
+   */
+  mayChangeStatus: boolean;
 };
 
 type ProjectShape = {
@@ -78,7 +88,10 @@ export function buildProjectCapabilities(
   return {
     canEdit:
       has(Permission.EDIT_PROJECT) && context.managesProject && !isArchived,
-    canChangeStatus: has(Permission.CHANGE_PROJECT_STATUS) && !isArchived,
+    canChangeStatus:
+      has(Permission.CHANGE_PROJECT_STATUS) &&
+      context.mayChangeStatus &&
+      !isArchived,
     canChangePriority:
       has(Permission.CHANGE_PROJECT_PRIORITY) &&
       context.managesProject &&

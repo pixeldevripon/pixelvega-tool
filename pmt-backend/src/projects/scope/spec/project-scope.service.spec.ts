@@ -195,5 +195,81 @@ describe('ProjectScopeService', () => {
         else await expect(assertion).rejects.toThrow(ForbiddenException);
       },
     );
+
+    it.each([
+      // A PROJECT_MANAGER must actually manage the project.
+      [Role.PROJECT_MANAGER, null, false],
+      [Role.PROJECT_MANAGER, { id: 'm1' }, true],
+      // DEVELOPER and DESIGNER only have to be staffed on it, in any role.
+      [Role.DEVELOPER, null, false],
+      [Role.DEVELOPER, { id: 'm1' }, true],
+      [Role.DESIGNER, null, false],
+      [Role.DESIGNER, { id: 'm1' }, true],
+      // Not scoped by membership at all.
+      [Role.ADMIN, null, true],
+      [Role.SYSTEM_ADMIN, null, true],
+    ])(
+      'mayChangeProjectStatus(%s) agreeing with assertMayChangeProjectStatus',
+      async (role, membership, expected) => {
+        // The status rule is the one whose shape differs from its siblings, and
+        // the flag it feeds (`canChangeStatus`) used to re-derive it and get it
+        // wrong: it was `has(permission) && !isArchived`, so a PM was offered a
+        // status control on every project they could read and 403'd on the one
+        // they did not manage.
+        prisma.projectMember.findFirst.mockResolvedValue(membership);
+        expect(await service.mayChangeProjectStatus('p1', 'u1', role)).toBe(
+          expected,
+        );
+
+        prisma.projectMember.findFirst.mockResolvedValue(membership);
+        const assertion = service.assertMayChangeProjectStatus(
+          'p1',
+          'u1',
+          role,
+        );
+        if (expected) await expect(assertion).resolves.toBeUndefined();
+        else await expect(assertion).rejects.toThrow(ForbiddenException);
+      },
+    );
+
+    it('asks about the MANAGER role for a PM and about any role for a developer', () => {
+      // The two branches query differently, and swapping them would let a
+      // DEVELOPER staffed as a developer pass the manager test. Asserting the
+      // `where` is the only way to see which branch ran.
+      prisma.projectMember.findFirst.mockResolvedValue({ id: 'm1' });
+      return service
+        .mayChangeProjectStatus('p1', 'u1', Role.PROJECT_MANAGER)
+        .then(() => {
+          expect(
+            prisma.projectMember.findFirst.mock.calls[0][0].where,
+          ).toMatchObject({
+            projectId: 'p1',
+            userId: 'u1',
+            role: ProjectRole.PROJECT_MANAGER,
+            leftAt: null,
+          });
+
+          prisma.projectMember.findFirst.mockClear();
+          return service.mayChangeProjectStatus('p1', 'u1', Role.DEVELOPER);
+        })
+        .then(() => {
+          const where = prisma.projectMember.findFirst.mock.calls[0][0]
+            .where as Record<string, unknown>;
+          expect(where).toMatchObject({
+            projectId: 'p1',
+            userId: 'u1',
+            leftAt: null,
+          });
+          expect(where).not.toHaveProperty('role');
+        });
+    });
+
+    it('never touches the database for a role that is not scoped', async () => {
+      // ADMIN and SYSTEM_ADMIN are a superset by definition. Querying would be
+      // a round trip whose answer is already known.
+      prisma.projectMember.findFirst.mockResolvedValue(null);
+      await service.mayChangeProjectStatus('p1', 'admin-1', Role.ADMIN);
+      expect(prisma.projectMember.findFirst).not.toHaveBeenCalled();
+    });
   });
 });

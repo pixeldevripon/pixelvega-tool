@@ -197,11 +197,43 @@ describe('toDailyWorkReportResponse', () => {
       expect(result.entries[0].capabilities.canReview).toBe(false);
     });
 
-    it('lets someone else review it', () => {
+    it("lets someone who manages the entry's project review it", () => {
+      const result = toDailyWorkReportResponse(withEntry, {
+        callerId: SOMEONE_ELSE,
+        managedProjectIds: new Set(['p1']),
+      });
+      expect(result.entries[0].capabilities.canReview).toBe(true);
+    });
+
+    it('refuses someone who does not manage that project', () => {
+      // Reviewing is a manager's act: DailyProjectEntryService.review admits
+      // the project's PROJECT_MANAGER, ADMIN and SYSTEM_ADMIN, nobody else.
+      // This flag used to be only `callerId !== authorId`, so a DEVELOPER
+      // reading a colleague's report was offered a review that 403s, and a
+      // DEVELOPER does not even hold REVIEW_WORK_REPORT.
+      const result = toDailyWorkReportResponse(withEntry, {
+        callerId: SOMEONE_ELSE,
+        managedProjectIds: new Set(['a-different-project']),
+      });
+      expect(result.entries[0].capabilities.canReview).toBe(false);
+    });
+
+    it("refuses when the caller's managed projects were not computed", () => {
+      // Absent has to mean "no", not "yes". The own-report paths in the service
+      // deliberately omit it, and an omission must never widen a capability.
       const result = toDailyWorkReportResponse(withEntry, {
         callerId: SOMEONE_ELSE,
       });
-      expect(result.entries[0].capabilities.canReview).toBe(true);
+      expect(result.entries[0].capabilities.canReview).toBe(false);
+    });
+
+    it('still refuses the author, even where they manage the project', () => {
+      // Reviewing your own work is not a review, whatever else is true.
+      const result = toDailyWorkReportResponse(withEntry, {
+        callerId: AUTHOR,
+        managedProjectIds: new Set(['p1']),
+      });
+      expect(result.entries[0].capabilities.canReview).toBe(false);
     });
 
     it('answers hasPlan and hasWrapUp so a client never tests a string', () => {

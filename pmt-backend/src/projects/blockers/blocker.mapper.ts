@@ -25,6 +25,8 @@ export type BlockerWithRelations = Prisma.BlockerGetPayload<{
 }>;
 
 export type BlockerContext = {
+  /** Who is reading. Needed because the reporter has rights nobody else does. */
+  callerId: string;
   /** Does the caller manage this project? From `ProjectScopeService`. */
   managesProject: boolean;
   /** Is the caller staffed on this project, whatever their role? */
@@ -92,12 +94,22 @@ export function toBlockerResponse(
  * anything as still possible would be offering a button that 409s.
  */
 function capabilitiesFor(
-  blocker: { status: BlockerStatus },
+  blocker: { status: BlockerStatus; reportedById: string },
   context: BlockerContext,
 ): BlockerCapabilitiesDto {
   const isLocked = blocker.status === BlockerStatus.RESOLVED;
+
+  // Mirrors `BlockerService.assertCanUpdate` exactly: the project's manager
+  // (and, through `managesProject`, ADMIN and SYSTEM_ADMIN), or the person who
+  // reported it while they are still staffed on the project.
+  //
+  // It used to be `managesProject || isProjectMember`, which handed every flag
+  // to any member reading a blocker somebody else had filed. All four read
+  // true, and the update then answered 403.
+  const isReporterStillOnProject =
+    blocker.reportedById === context.callerId && context.isProjectMember;
   const canAct =
-    !isLocked && (context.managesProject || context.isProjectMember);
+    !isLocked && (context.managesProject || isReporterStillOnProject);
 
   return {
     canEdit: canAct,

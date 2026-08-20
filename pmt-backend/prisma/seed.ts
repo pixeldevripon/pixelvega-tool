@@ -10,7 +10,7 @@ import {
   VOLUME,
 } from './seed/config';
 import { Rand, addDays } from './seed/random';
-import { resetDatabase } from './seed/reset';
+import { COUNTED_TABLES, resetDatabase } from './seed/reset';
 import { seedUsers } from './seed/users';
 import type { TestAccounts } from './seed/users';
 import { seedReference } from './seed/reference';
@@ -22,40 +22,6 @@ import { seedWorkflow } from './seed/workflow';
 import { seedWorkReports } from './seed/work-reports';
 import { seedAi } from './seed/ai';
 import { seedLogs } from './seed/logs';
-
-// Every table the seed fills, in the order they are reported at the end.
-const COUNTED_TABLES = [
-  'User',
-  'EmployeeProfile',
-  'ClientProfile',
-  'account',
-  'session',
-  'verification',
-  'PasswordResetCode',
-  'AuditLog',
-  'LeaveType',
-  'Holiday',
-  'LeaveRequest',
-  'LeaveBalance',
-  'Project',
-  'ProjectTypeTag',
-  'ProjectMember',
-  'ProjectDocument',
-  'ProjectActivity',
-  'TimeEntry',
-  'MeetingTimeEntry',
-  'AdditionalRequirement',
-  'DailyWorkReport',
-  'DailyProjectEntry',
-  'BlockerReason',
-  'Blocker',
-  'ProjectInternalReview',
-  'ClientFeedback',
-  'AiTemplate',
-  'AiJob',
-  'ProjectStatusReport',
-  'Notification',
-];
 
 const MINIMUM_ROWS = 100;
 
