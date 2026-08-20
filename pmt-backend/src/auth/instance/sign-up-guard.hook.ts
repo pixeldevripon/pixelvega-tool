@@ -28,6 +28,32 @@ import { APIError } from 'better-auth';
 export class SignUpGuardHook {
   private readonly logger = new Logger(SignUpGuardHook.name);
 
+  /**
+   * Password changes go through `PATCH /api/users/me/password`, not here.
+   *
+   * better-auth's own `/change-password` is mounted as middleware, so it never
+   * reaches Nest's guard pipeline: it is NOT gated by
+   * `@RequirePermissions(CHANGE_OWN_PASSWORD)` and it writes NO audit log
+   * entry. `UsersService.changePassword` does both, and clears
+   * `mustResetPassword`. Two doors to the same action with different security
+   * properties is worse than one, so the weaker one is closed.
+   *
+   * Blocked for HTTP callers only, by the same test as sign-up, because
+   * `UsersService.changePassword` reaches this endpoint through
+   * `auth.api.changePassword()` and must keep working.
+   */
+  @BeforeHook('/change-password')
+  blockDirectPasswordChange(ctx: AuthHookContext) {
+    if (!(ctx as { request?: unknown }).request) {
+      return;
+    }
+    throw new APIError('FORBIDDEN', {
+      message:
+        'Use PATCH /api/users/me/password to change your password. That route is permission gated and audited; this one is not.',
+      code: 'USE_USERS_ME_PASSWORD',
+    });
+  }
+
   @BeforeHook('/sign-up/email')
   blockPublicSignUp(ctx: AuthHookContext) {
     // Present for an HTTP request, absent for a server side api call. That is

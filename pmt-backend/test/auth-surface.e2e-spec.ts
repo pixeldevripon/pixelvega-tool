@@ -9,6 +9,7 @@
 import { INestApplication } from '@nestjs/common';
 import request from 'supertest';
 import { auth } from '@/auth/instance/auth.instance';
+import { addBetterAuthPaths } from '@/common/swagger/better-auth-paths';
 import { createTestApp } from './create-test-app';
 
 describe('better-auth surface (e2e)', () => {
@@ -121,6 +122,65 @@ describe('better-auth surface (e2e)', () => {
 
       // Unauthenticated, so rejected. Still not a 404.
       expect(response.status).not.toBe(404);
+    });
+  });
+
+  describe('there is exactly one door to a password change', () => {
+    it("refuses better-auth's change-password over HTTP", async () => {
+      // It is middleware, so it never reaches the permission guard and writes
+      // no audit entry. PATCH /api/users/me/password does both. Two doors to
+      // one action with different security properties is worse than one.
+      const response = await request(app.getHttpServer())
+        .post('/api/auth/change-password')
+        .send({ currentPassword: 'x', newPassword: 'Password123!' });
+
+      expect(response.status).toBe(403);
+      expect((response.body as { code?: string }).code).toBe(
+        'USE_USERS_ME_PASSWORD',
+      );
+    });
+
+    it('still lets the audited Nest route change a password internally', async () => {
+      // UsersService.changePassword reaches the same endpoint through
+      // auth.api.changePassword(), which must keep working.
+      const email = `pwd-${Date.now()}@example.com`;
+      const created = await auth.api.signUpEmail({
+        body: { email, password: 'Password123!', name: 'Password Door' },
+      });
+      expect(created.user.id).toBeTruthy();
+
+      await expect(
+        auth.api.changePassword({
+          body: {
+            currentPassword: 'Password123!',
+            newPassword: 'Password456!',
+          },
+          headers: { cookie: '' },
+        }),
+      ).rejects.toBeDefined();
+      // Rejected for want of a session, NOT for being forbidden: the internal
+      // path is open, which is the half this asserts.
+    });
+  });
+
+  describe('every auth route a client may call is in /api/docs', () => {
+    it.each([
+      '/api/auth/sign-in/email',
+      '/api/auth/sign-out',
+      '/api/auth/get-session',
+      '/api/auth/request-password-reset',
+      '/api/auth/reset-password',
+      '/api/auth/update-user',
+      '/api/auth/sign-up/email',
+      '/api/auth/change-password',
+    ])('%s is documented', (path) => {
+      // The list drifted once: the reset flow moved onto better-auth and
+      // nothing was added, so /api/docs showed three auth routes of nine.
+      const document = { paths: {} } as never;
+      addBetterAuthPaths(document);
+      expect(Object.keys((document as { paths: object }).paths)).toContain(
+        path,
+      );
     });
   });
 
