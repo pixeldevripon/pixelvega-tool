@@ -4,6 +4,7 @@ import {
   ProjectPriority,
   ProjectRole,
   ProjectStatus,
+  ProjectType,
 } from '@prisma/client';
 
 import {
@@ -12,21 +13,32 @@ import {
 } from '@/common/utils/enum-display.util';
 import { ROLE_PERMISSIONS } from '@/config/roles.config';
 import {
+  buildDashboardProjectCapabilities,
+  formatChangeLabel,
+  formatDeadlineLabel,
+  hasMyDay,
   resolveDashboardAudience,
-  toCounts,
+  tallyOpenBlockers,
+  toBreakdown,
   toDashboardClientProject,
   toDashboardHours,
   toDashboardProject,
-  tallyOpenBlockers,
+  toMetric,
+  toRankedRow,
   toRate,
+  toSeries,
   type DashboardProjectRow,
 } from '@/dashboard/dashboard.mapper';
 
+// ══════════════════════════════════════════════════════════════════════════
+// Who gets which dashboard
+// ══════════════════════════════════════════════════════════════════════════
+
 describe('resolveDashboardAudience', () => {
   /**
-   * Driven from `ROLE_PERMISSIONS` rather than from hand written permission
-   * lists, because the thing that can break this is a role's grants changing.
-   * A literal list here would keep passing while the real answer moved.
+   * Driven from the real `ROLE_PERMISSIONS` rather than from hand written
+   * permission lists, because the thing that can break this is a role's grants
+   * changing. A literal list here would keep passing while the real answer moved.
    */
   it.each([
     ['SYSTEM_ADMIN', 'ADMIN'],
@@ -40,9 +52,9 @@ describe('resolveDashboardAudience', () => {
   });
 
   it('prefers ADMIN over the wider grants an admin also holds', () => {
-    // The ordering bug this guards against: an ADMIN holds VIEW_ALL_PROJECTS
-    // and TRACK_PROJECT_TIME too, so testing for either first hands an
-    // administrator the manager or the staff dashboard.
+    // The ordering bug this guards against: an ADMIN holds VIEW_ALL_PROJECTS and
+    // TRACK_PROJECT_TIME too, so testing for either first hands an administrator
+    // the manager or the staff dashboard.
     expect(
       resolveDashboardAudience([
         Permission.TRACK_PROJECT_TIME,
@@ -52,7 +64,7 @@ describe('resolveDashboardAudience', () => {
     ).toBe('ADMIN');
   });
 
-  it('prefers MANAGER over STAFF when a role holds both', () => {
+  it('prefers MANAGER over STAFF when a caller holds both markers', () => {
     expect(
       resolveDashboardAudience([
         Permission.TRACK_PROJECT_TIME,
@@ -74,8 +86,145 @@ describe('resolveDashboardAudience', () => {
   });
 });
 
+describe('hasMyDay', () => {
+  it.each(['DEVELOPER', 'DESIGNER'] as const)(
+    '%s gets a My day block',
+    (role) => {
+      expect(hasMyDay(ROLE_PERMISSIONS[role])).toBe(true);
+    },
+  );
+
+  it('a PROJECT_MANAGER does not, because they track no time', () => {
+    // Same reason they have no "My day" in the navigation. An empty timer card
+    // would imply a control they do not have.
+    expect(hasMyDay(ROLE_PERMISSIONS.PROJECT_MANAGER)).toBe(false);
+  });
+
+  it('a CLIENT does not', () => {
+    expect(hasMyDay(ROLE_PERMISSIONS.CLIENT)).toBe(false);
+  });
+});
+
+// ══════════════════════════════════════════════════════════════════════════
+// Seeing versus managing
+// ══════════════════════════════════════════════════════════════════════════
+
+describe('buildDashboardProjectCapabilities', () => {
+  const admin = ROLE_PERMISSIONS.ADMIN;
+  const manager = ROLE_PERMISSIONS.PROJECT_MANAGER;
+  const developer = ROLE_PERMISSIONS.DEVELOPER;
+
+  it('lets an ADMIN manage a project they are not staffed on', () => {
+    // "Admin and system admin can do everything, see every project."
+    expect(
+      buildDashboardProjectCapabilities({
+        permissions: admin,
+        isMember: false,
+        isProjectManagerOfThis: false,
+      }).canManage,
+    ).toBe(true);
+  });
+
+  it('lets a PROJECT_MANAGER manage a project they manage', () => {
+    expect(
+      buildDashboardProjectCapabilities({
+        permissions: manager,
+        isMember: true,
+        isProjectManagerOfThis: true,
+      }).canManage,
+    ).toBe(true);
+  });
+
+  it('does NOT let a PROJECT_MANAGER manage a project they only see', () => {
+    // The whole point of the split: "projects manager can see every project but
+    // can be manage only his project". Seeing it is not managing it.
+    expect(
+      buildDashboardProjectCapabilities({
+        permissions: manager,
+        isMember: false,
+        isProjectManagerOfThis: false,
+      }).canManage,
+    ).toBe(false);
+  });
+
+  it('does NOT let a PROJECT_MANAGER manage a project they are merely a member of', () => {
+    // Staffed as something other than the project manager. Membership alone is
+    // not authority.
+    expect(
+      buildDashboardProjectCapabilities({
+        permissions: manager,
+        isMember: true,
+        isProjectManagerOfThis: false,
+      }).canManage,
+    ).toBe(false);
+  });
+
+  it('never lets a DEVELOPER manage anything, even a project they are on', () => {
+    expect(
+      buildDashboardProjectCapabilities({
+        permissions: developer,
+        isMember: true,
+        isProjectManagerOfThis: false,
+      }).canManage,
+    ).toBe(false);
+  });
+
+  it('lets a DEVELOPER track time only on a project they are staffed on', () => {
+    // Holding the permission is not enough. This mirrors features.md: "Only
+    // developers and designers who are assigned to a project can track time on it."
+    expect(
+      buildDashboardProjectCapabilities({
+        permissions: developer,
+        isMember: true,
+        isProjectManagerOfThis: false,
+      }).canTrackTime,
+    ).toBe(true);
+
+    expect(
+      buildDashboardProjectCapabilities({
+        permissions: developer,
+        isMember: false,
+        isProjectManagerOfThis: false,
+      }).canTrackTime,
+    ).toBe(false);
+  });
+
+  it('never lets a PROJECT_MANAGER track time, even where they may manage', () => {
+    // A PM holds no tracking permission at all: features.md says PMs and Admins
+    // cannot track project time.
+    const result = buildDashboardProjectCapabilities({
+      permissions: manager,
+      isMember: true,
+      isProjectManagerOfThis: true,
+    });
+    expect(result.canManage).toBe(true);
+    expect(result.canTrackTime).toBe(false);
+  });
+
+  it('reports membership honestly, whatever the other flags say', () => {
+    expect(
+      buildDashboardProjectCapabilities({
+        permissions: admin,
+        isMember: false,
+        isProjectManagerOfThis: false,
+      }).isMember,
+    ).toBe(false);
+  });
+});
+
+// ══════════════════════════════════════════════════════════════════════════
+// The project card
+// ══════════════════════════════════════════════════════════════════════════
+
 describe('toDashboardProject', () => {
   const now = new Date('2026-08-20T12:00:00.000Z');
+  const noBlockers = { openCount: 0, highSeverityCount: 0 };
+  const capabilities = {
+    canManage: false,
+    canTrackTime: true,
+    isMember: true,
+  };
+  const context = { blockers: noBlockers, minutesInRange: 450, capabilities };
 
   const base: DashboardProjectRow = {
     id: 'p1',
@@ -84,9 +233,14 @@ describe('toDashboardProject', () => {
     priority: ProjectPriority.HIGH,
     deadline: new Date('2026-08-25T00:00:00.000Z'),
     plannedStartDate: new Date('2026-08-01T00:00:00.000Z'),
+    lastWorkedAt: new Date('2026-08-19T15:00:00.000Z'),
     progressPercentage: 40,
     estimatedHours: 120,
     actualHours: 47.5,
+    projectTypeTags: [
+      { type: ProjectType.WORDPRESS },
+      { type: ProjectType.SEO },
+    ],
     members: [
       {
         role: ProjectRole.DEVELOPER,
@@ -106,10 +260,8 @@ describe('toDashboardProject', () => {
     ],
   };
 
-  const noBlockers = { openCount: 0, highSeverityCount: 0 };
-
   it('sends every enum as a display object, never a bare value', () => {
-    const result = toDashboardProject(base, noBlockers, now);
+    const result = toDashboardProject(base, context, now);
 
     expect(result.status).toEqual({
       value: 'IN_PROGRESS',
@@ -117,55 +269,83 @@ describe('toDashboardProject', () => {
       tone: 'primary',
     });
     expect(result.priority.value).toBe('HIGH');
-    expect(result.priority.label).toBe('High');
+    expect(result.types.map((type) => type.value)).toEqual([
+      'WORDPRESS',
+      'SEO',
+    ]);
   });
 
-  it('computes remaining hours from the estimate', () => {
-    expect(toDashboardProject(base, noBlockers, now).remainingHours).toBe(72.5);
+  it('computes remaining hours and the used rate from the estimate', () => {
+    const result = toDashboardProject(base, context, now);
+    expect(result.remainingHours).toBe(72.5);
+    expect(result.hoursUsedRate).toBeCloseTo(0.3958, 4);
   });
 
-  it('leaves remaining hours null when there is no estimate', () => {
+  it('leaves both null when there is no estimate', () => {
     // Null, not 0: "remaining" has nothing to be remaining against, and 0 would
     // read as "no work left".
     const result = toDashboardProject(
       { ...base, estimatedHours: null },
-      noBlockers,
+      context,
       now,
     );
     expect(result.remainingHours).toBeNull();
+    expect(result.hoursUsedRate).toBeNull();
   });
 
-  it('marks a live project past its deadline as overdue', () => {
+  it('reports a used rate above 1 when the estimate is exceeded', () => {
     const result = toDashboardProject(
-      { ...base, deadline: new Date('2026-08-18T00:00:00.000Z') },
-      noBlockers,
+      { ...base, estimatedHours: 40, actualHours: 60 },
+      context,
       now,
     );
-    expect(result.daysUntilDeadline).toBeLessThan(0);
+    expect(result.hoursUsedRate).toBe(1.5);
+  });
+
+  it('marks a live project past its deadline as overdue and at risk', () => {
+    const result = toDashboardProject(
+      { ...base, deadline: new Date('2026-08-18T00:00:00.000Z') },
+      context,
+      now,
+    );
     expect(result.isOverdue).toBe(true);
+    expect(result.isAtRisk).toBe(true);
+    expect(result.deadlineLabel).toBe('2 days overdue');
+  });
+
+  it('marks a blocked project at risk even when its deadline is fine', () => {
+    const result = toDashboardProject(
+      base,
+      { ...context, blockers: { openCount: 1, highSeverityCount: 1 } },
+      now,
+    );
+    expect(result.isOverdue).toBe(false);
+    expect(result.isAtRisk).toBe(true);
   });
 
   it.each([ProjectStatus.COMPLETED, ProjectStatus.CANCELLED])(
-    'never marks a %s project overdue, however late its deadline',
+    'never marks a %s project overdue or at risk, however late or blocked',
     (status) => {
       // A finished project is finished. Showing it in red forever would make the
-      // overdue count useless as a call to action.
+      // at-risk count useless as a call to action.
       const result = toDashboardProject(
         { ...base, status, deadline: new Date('2020-01-01T00:00:00.000Z') },
-        noBlockers,
+        { ...context, blockers: { openCount: 4, highSeverityCount: 2 } },
         now,
       );
       expect(result.isOverdue).toBe(false);
+      expect(result.isAtRisk).toBe(false);
     },
   );
 
   it('reports no deadline as null rather than as a distant date', () => {
     const result = toDashboardProject(
       { ...base, deadline: null },
-      noBlockers,
+      context,
       now,
     );
     expect(result.daysUntilDeadline).toBeNull();
+    expect(result.deadlineLabel).toBeNull();
     expect(result.isOverdue).toBe(false);
   });
 
@@ -179,45 +359,49 @@ describe('toDashboardProject', () => {
   ] as const)('marks %s as active=%s', (status, isActive) => {
     // Drives the "active before inactive" ordering requirement, so it is pinned
     // per status rather than assumed.
-    expect(
-      toDashboardProject({ ...base, status }, noBlockers, now).isActive,
-    ).toBe(isActive);
+    expect(toDashboardProject({ ...base, status }, context, now).isActive).toBe(
+      isActive,
+    );
   });
 
-  it('passes the blocker tally through rather than recounting it', () => {
+  it('passes the blocker tally and range minutes through rather than recounting', () => {
     const result = toDashboardProject(
       base,
-      { openCount: 3, highSeverityCount: 1 },
+      {
+        ...context,
+        blockers: { openCount: 3, highSeverityCount: 1 },
+        minutesInRange: 930,
+      },
       now,
     );
     expect(result.openBlockerCount).toBe(3);
     expect(result.highSeverityBlockerCount).toBe(1);
+    expect(result.minutesInRange).toBe(930);
+    expect(result.minutesInRangeLabel).toBe('15h 30m');
   });
 
   it('puts the project manager first, then sorts by name', () => {
-    // The card renders avatars in this order, so the first one should be the
-    // person who owns the project.
+    // The card renders avatars in this order, so the first should be the person
+    // who owns the project.
     expect(
-      toDashboardProject(base, noBlockers, now).members.map((m) => m.name),
+      toDashboardProject(base, context, now).members.map((m) => m.name),
     ).toEqual(['Ada Manager', 'Bea Dev']);
   });
 
   it('leaves former members off the card', () => {
     // Someone who left is part of the project's history, which the activity
     // timeline carries. Putting them on the card claims they are working on it.
-    const names = toDashboardProject(base, noBlockers, now).members.map(
-      (m) => m.name,
-    );
-    expect(names).not.toContain('Gone Designer');
+    expect(
+      toDashboardProject(base, context, now).members.map((m) => m.name),
+    ).not.toContain('Gone Designer');
   });
 
-  it('sends each member’s project role as a display object', () => {
-    const [first] = toDashboardProject(base, noBlockers, now).members;
-    expect(first.projectRole).toEqual({
-      value: 'PROJECT_MANAGER',
-      label: expect.any(String),
-      tone: expect.any(String),
-    });
+  it('carries the capabilities it was given, unchanged', () => {
+    // The mapper must never re-derive a capability: the service resolves it once
+    // from the same predicate its own assertion uses.
+    expect(toDashboardProject(base, context, now).capabilities).toEqual(
+      capabilities,
+    );
   });
 });
 
@@ -231,10 +415,12 @@ describe('toDashboardClientProject', () => {
         deadline: new Date('2026-09-01T00:00:00.000Z'),
       },
       true,
+      new Date('2026-08-20T12:00:00.000Z'),
     );
 
     expect(Object.keys(result).sort()).toEqual([
       'deadline',
+      'deadlineLabel',
       'id',
       'isAwaitingMyFeedback',
       'name',
@@ -245,7 +431,39 @@ describe('toDashboardClientProject', () => {
     expect(result).not.toHaveProperty('actualHours');
     expect(result).not.toHaveProperty('estimatedHours');
     expect(result).not.toHaveProperty('openBlockerCount');
+    expect(result).not.toHaveProperty('members');
+    expect(result).not.toHaveProperty('capabilities');
     expect(result).not.toHaveProperty('priority');
+  });
+});
+
+// ══════════════════════════════════════════════════════════════════════════
+// Formatting and figures
+// ══════════════════════════════════════════════════════════════════════════
+
+describe('formatDeadlineLabel', () => {
+  it.each([
+    [null, null],
+    [0, 'due today'],
+    [1, 'due tomorrow'],
+    [12, 'in 12 days'],
+    [-1, '1 day overdue'],
+    [-5, '5 days overdue'],
+  ])('%s days reads as %s', (days, expected) => {
+    // On the server because it is measured against the clock the number came
+    // from. A browser three hours off would disagree with the figure beside it.
+    expect(formatDeadlineLabel(days)).toBe(expected);
+  });
+});
+
+describe('formatChangeLabel', () => {
+  it.each([
+    [null, null],
+    [0, '0%'],
+    [0.2727, '+27%'],
+    [-0.162, '-16%'],
+  ])('%s reads as %s', (rate, expected) => {
+    expect(formatChangeLabel(rate)).toBe(expected);
   });
 });
 
@@ -268,56 +486,250 @@ describe('toRate', () => {
   });
 
   it('returns null, NOT zero, when nobody was expected', () => {
-    // The distinction that matters: on a day when the whole team is on leave,
-    // "nobody submitted" and "nobody was expected to" are different answers,
-    // and a client receiving 0 for both cannot tell them apart.
+    // On a day the whole team is on leave, "nobody submitted" and "nobody was
+    // expected to" are different answers, and a client receiving 0 for both
+    // cannot tell them apart.
     expect(toRate(0, 0)).toEqual({ rate: null, rateLabel: null });
   });
 
   it('returns zero when people were expected and none submitted', () => {
     expect(toRate(0, 5)).toEqual({ rate: 0, rateLabel: '0%' });
   });
+});
 
-  it('treats a negative denominator as no denominator', () => {
-    expect(toRate(1, -1).rate).toBeNull();
+describe('toMetric', () => {
+  const shared = { key: 'k', label: 'L', valueLabel: '10' };
+
+  it('computes the change against the previous window', () => {
+    const result = toMetric({
+      ...shared,
+      value: 14,
+      previousValue: 11,
+      direction: 'neutral',
+    });
+    expect(result.changeRate).toBeCloseTo(0.2727, 4);
+    expect(result.changeLabel).toBe('+27%');
+  });
+
+  it('leaves the change null when the baseline was zero', () => {
+    // A change from nothing has no percentage, and "+Infinity%" is not a fact
+    // about the business.
+    const result = toMetric({
+      ...shared,
+      value: 5,
+      previousValue: 0,
+      direction: 'up-is-good',
+    });
+    expect(result.changeRate).toBeNull();
+    expect(result.changeLabel).toBeNull();
+    expect(result.tone.tone).toBe('default');
+  });
+
+  it('leaves the change null when there is no history at all', () => {
+    const result = toMetric({
+      ...shared,
+      value: 5,
+      previousValue: null,
+      direction: 'up-is-bad',
+    });
+    expect(result.changeRate).toBeNull();
+  });
+
+  it.each([
+    ['up-is-good', 12, 10, 'success'],
+    ['up-is-good', 8, 10, 'warning'],
+    ['up-is-bad', 12, 10, 'danger'],
+    ['up-is-bad', 8, 10, 'success'],
+    ['neutral', 12, 10, 'default'],
+    ['neutral', 8, 10, 'default'],
+  ] as const)(
+    'a %s metric moving %d from %d reads as %s',
+    (direction, value, previousValue, tone) => {
+      // Whether up is good is a judgment about the business, not a styling
+      // choice, which is why the server decides it (ADR 0001).
+      expect(
+        toMetric({ ...shared, value, previousValue, direction }).tone.tone,
+      ).toBe(tone);
+    },
+  );
+
+  it('reads as steady when nothing moved', () => {
+    expect(
+      toMetric({
+        ...shared,
+        value: 10,
+        previousValue: 10,
+        direction: 'up-is-bad',
+      }).tone.tone,
+    ).toBe('default');
   });
 });
 
-describe('toCounts', () => {
-  it('returns the enum’s declared order, not descending by count', () => {
+describe('toSeries', () => {
+  const from = new Date('2026-08-17T00:00:00.000Z'); // a Monday
+
+  it('emits one point per day, filling gaps with zero', () => {
+    // A chart that skips a day with no hours draws a continuous line over the
+    // gap and implies work happened across it.
+    const series = toSeries({
+      label: 'Hours logged',
+      from,
+      days: 4,
+      minutesByDay: new Map([
+        ['2026-08-17', 480],
+        ['2026-08-19', 120],
+      ]),
+      dailyTarget: 480,
+    });
+
+    expect(series.points.map((p) => p.date)).toEqual([
+      '2026-08-17',
+      '2026-08-18',
+      '2026-08-19',
+      '2026-08-20',
+    ]);
+    expect(series.points.map((p) => p.value)).toEqual([480, 0, 120, 0]);
+  });
+
+  it('totals the range and labels it', () => {
+    const series = toSeries({
+      label: 'Hours logged',
+      from,
+      days: 3,
+      minutesByDay: new Map([
+        ['2026-08-17', 480],
+        ['2026-08-18', 30],
+      ]),
+      dailyTarget: null,
+    });
+
+    expect(series.totalValue).toBe(510);
+    expect(series.totalLabel).toBe('8h 30m');
+  });
+
+  it('flags the weekly off day, so a zero can be read correctly', () => {
+    // Without this a reader cannot tell the team's day off from a day nobody
+    // worked. Friday is the off day for this team.
+    const series = toSeries({
+      label: 'Hours logged',
+      from: new Date('2026-08-21T00:00:00.000Z'), // a Friday
+      days: 2,
+      minutesByDay: new Map(),
+      dailyTarget: null,
+    });
+
+    expect(series.points[0].isWorkingDay).toBe(false);
+    expect(series.points[1].isWorkingDay).toBe(true);
+  });
+});
+
+describe('toBreakdown', () => {
+  it('returns the enum declared order, not descending by count', () => {
     // Sorting by count reorders the board every time a project moves, so a
     // reader can never learn where to look.
-    const counts = new Map<ProjectStatus, number>([
-      [ProjectStatus.COMPLETED, 9],
-      [ProjectStatus.PLANNING, 1],
-      [ProjectStatus.IN_PROGRESS, 4],
-    ]);
+    const result = toBreakdown({
+      label: 'Projects by status',
+      unit: 'projects',
+      display: PROJECT_STATUS_DISPLAY,
+      counts: new Map([
+        [ProjectStatus.COMPLETED, 9],
+        [ProjectStatus.PLANNING, 1],
+        [ProjectStatus.IN_PROGRESS, 4],
+      ]),
+    });
 
-    expect(
-      toCounts(PROJECT_STATUS_DISPLAY, counts).map((row) => row.key.value),
-    ).toEqual(['PLANNING', 'IN_PROGRESS', 'COMPLETED']);
+    expect(result.slices.map((s) => s.key.value)).toEqual([
+      'PLANNING',
+      'IN_PROGRESS',
+      'COMPLETED',
+    ]);
+  });
+
+  it('computes shares that sum to the whole', () => {
+    // Computed once here, so slices always sum to the same 100%. A client
+    // dividing by a total it also received would round differently from every
+    // other client.
+    const result = toBreakdown({
+      label: 'Blockers by severity',
+      unit: 'blockers',
+      display: BLOCKER_SEVERITY_DISPLAY,
+      counts: new Map([
+        [BlockerSeverity.HIGH, 1],
+        [BlockerSeverity.LOW, 3],
+      ]),
+    });
+
+    expect(result.total).toBe(4);
+    expect(result.totalLabel).toBe('4 blockers');
+    expect(result.slices.map((s) => s.share).reduce((a, b) => a + b, 0)).toBe(
+      1,
+    );
   });
 
   it('omits keys with no rows', () => {
-    const counts = new Map<ProjectStatus, number>([
-      [ProjectStatus.PLANNING, 2],
-    ]);
+    const result = toBreakdown({
+      label: 'Projects by status',
+      unit: 'projects',
+      display: PROJECT_STATUS_DISPLAY,
+      counts: new Map([[ProjectStatus.PLANNING, 2]]),
+    });
 
-    expect(toCounts(PROJECT_STATUS_DISPLAY, counts)).toEqual([
-      { key: expect.objectContaining({ value: 'PLANNING' }), count: 2 },
-    ]);
+    expect(result.slices).toHaveLength(1);
+    expect(result.slices[0].shareLabel).toBe('100%');
   });
 
-  it('returns an empty list when nothing is counted', () => {
-    expect(toCounts(PROJECT_STATUS_DISPLAY, new Map())).toEqual([]);
+  it('returns an empty breakdown when nothing is counted', () => {
+    const result = toBreakdown({
+      label: 'Projects by status',
+      unit: 'projects',
+      display: PROJECT_STATUS_DISPLAY,
+      counts: new Map(),
+    });
+
+    expect(result.total).toBe(0);
+    expect(result.slices).toEqual([]);
+  });
+});
+
+describe('toRankedRow', () => {
+  it('computes the row share of the list total, for its bar', () => {
+    const row = toRankedRow({
+      id: 'p1',
+      name: 'Acme',
+      minutes: 300,
+      previousMinutes: 200,
+      listTotal: 1000,
+    });
+
+    expect(row.share).toBe(0.3);
+    expect(row.valueLabel).toBe('5h');
+    expect(row.changeLabel).toBe('+50%');
   });
 
-  it('works for any display map, not just project status', () => {
-    const counts = new Map([['HIGH', 2] as const]);
-    const result = toCounts(BLOCKER_SEVERITY_DISPLAY, counts as never);
+  it('never divides by a zero list total', () => {
+    expect(
+      toRankedRow({
+        id: 'p1',
+        name: 'Acme',
+        minutes: 0,
+        previousMinutes: null,
+        listTotal: 0,
+      }).share,
+    ).toBe(0);
+  });
 
-    expect(result).toHaveLength(1);
-    expect(result[0].key.value).toBe('HIGH');
+  it('reads as steady whichever way the hours moved', () => {
+    // More hours on a project is neither good nor bad on its own, so a rise is
+    // never coloured as a problem here.
+    expect(
+      toRankedRow({
+        id: 'p1',
+        name: 'Acme',
+        minutes: 600,
+        previousMinutes: 100,
+        listTotal: 600,
+      }).tone.tone,
+    ).toBe('default');
   });
 });
 

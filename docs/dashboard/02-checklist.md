@@ -14,7 +14,7 @@ A stale checklist is worse than no checklist, because the next person trusts it.
 | ~     | Decisions to make first                     | 9       | 0      | not started |
 | D0    | Mirror, then prune                          | 99      | 68     | in progress |
 | D1    | The module kit                              | 29      | 0      | not started |
-| D2    | Backend, the dashboards                     | 26      | 12     | in progress |
+| D2    | Backend, the dashboards                     | 42      | 30     | in progress |
 | D3    | Frontend, the four dashboards               | 11      | 0      | not started |
 | D4    | Backend, the contract gaps                  | 7       | 0      | not started |
 | D5    | Projects, list to detail                    | 33      | 0      | not started |
@@ -24,7 +24,7 @@ A stale checklist is worse than no checklist, because the next person trusts it.
 | D9    | The AI module                               | 24      | 0      | not started |
 | D10   | The named gaps                              | 30      | 0      | not started |
 | D11   | Hardening and close                         | 16      | 0      | not started |
-|       | **Total**                                   | **362** | **80** |             |     |
+|       | **Total**                                   | **379** | **98** |             |
 
 Regenerate the counts with
 `awk '/^## /{if(s!="")print s": "n; s=$0; n=0} /^- \[ \]|^- \[x\]/{n++} END{print s": "n}' 02-checklist.md`
@@ -311,80 +311,122 @@ sidebar. **PixelVega is the company; Vega is the tool.** Renaming it is one edit
 
 ## Phase D2: backend, the dashboards (Q1 to Q9)
 
-### The shape, decided
+### Seeing and managing are different questions
 
-`GET /dashboard` returns an `audience` discriminator plus four nullable blocks, **exactly one
-populated**. The alternative was four routes and a client that works out which one it may call, which
-is derivation, and deriving it in a browser means a second copy of the rule that decides it (D4, D2).
+The permission model, as stated by the user and now enforced per project card:
 
-`audience` is resolved from the caller's **permission set, never from their role** (D2), most
-privileged first, because an ADMIN also holds the markers for MANAGER and STAFF:
+| Role                | Sees                                        | Manages                                     |
+| ------------------- | ------------------------------------------- | ------------------------------------------- |
+| SYSTEM_ADMIN, ADMIN | every project                               | every project                               |
+| PROJECT_MANAGER     | **every project**                           | **only projects they are staffed on as PM** |
+| DEVELOPER, DESIGNER | only projects they are staffed on           | none                                        |
+| CLIENT              | only their own projects, reduced projection | none                                        |
 
-| Marker held          | Audience  | Why that marker                                                                                          |
-| -------------------- | --------- | -------------------------------------------------------------------------------------------------------- |
-| `VIEW_AUDIT_LOG`     | `ADMIN`   | Admin only                                                                                               |
-| `VIEW_ALL_PROJECTS`  | `MANAGER` | Project manager and above                                                                                |
-| `TRACK_PROJECT_TIME` | `STAFF`   | Developer and designer only. A PM does not hold it, which is also why they get no "My day"               |
-| none of the above    | `CLIENT`  | A **fallback**, because a client's grants are a subset of everyone's and no capability is unique to them |
+This resolves the question flagged earlier: a PM's **visibility** is unrestricted, and the narrowing
+is on **authority**. So the query scope and the capability flags are two separate mechanisms, and
+conflating them was the mistake the first draft nearly made.
 
-### Every project is private. The scope is enforced in the QUERY
+- [x] `DashboardProjectCapabilitiesDto` on every card: `canManage`, `canTrackTime`, `isMember`
+- [x] `canManage` = holds `EDIT_PROJECT` **and** (is unrestricted **or** is PM of this project)
+- [x] `canTrackTime` = holds `TRACK_PROJECT_TIME` **and** is staffed on this project. Holding the
+      permission is not enough: `features.md` says only assigned developers and designers may track
+      time on a project
+- [x] A PM's `canTrackTime` is false even where `canManage` is true, because a PM holds no tracking
+      permission at all
+- [x] "Unrestricted" is identified by a capability only an admin holds (`ARCHIVE_PROJECT`), never by
+      a role string (D2)
+- [ ] **The service's own assertion must call the same predicate.** Two copies is the defect
+      `pmt-backend/CLAUDE.md` names as the most repeated one here: five flags once shipped wider than
+      their enforcement, each offering a button that then answered 403
 
-**This is the part to get right, and it is not the permission.** A permission answers "may this role
-ever see a project". Whether this caller may see THIS project is a separate question, and an
-unassigned developer must not see a project they are not staffed on.
+### The query scope, enforced in the `where`
 
-| Audience  | Projects it may see                                                      | Enforced by                                                                   |
-| --------- | ------------------------------------------------------------------------ | ----------------------------------------------------------------------------- |
-| `ADMIN`   | Every non-archived project                                               | No filter. `features1.md`: "Full unrestricted access to all data and modules" |
-| `MANAGER` | Projects where they are an **active member with role `PROJECT_MANAGER`** | `members: { some: { userId, role: PROJECT_MANAGER, leftAt: null } }`          |
-| `STAFF`   | Projects where they are an **active member in any role**                 | `members: { some: { userId, leftAt: null } }`                                 |
-| `CLIENT`  | Projects where `clientId` is them                                        | `where: { clientId: userId }`                                                 |
+| Audience  | Projects it may see                                  | Filter                                                   |
+| --------- | ---------------------------------------------------- | -------------------------------------------------------- |
+| `ADMIN`   | every non-archived project                           | none                                                     |
+| `MANAGER` | every non-archived project                           | none. The narrowing is on `canManage`, not on visibility |
+| `STAFF`   | projects where they are an active member in any role | `members: { some: { userId, leftAt: null } }`            |
+| `CLIENT`  | projects where `clientId` is them                    | `where: { clientId: userId }`                            |
 
 - [ ] **The filter is in the `where`, never in the mapper.** A mapper that drops rows is a leak the
       first time someone edits it, and the response would look correct while carrying data the caller
-      may not have. This is the defect `pmt-backend/CLAUDE.md` calls the most repeated one in the
-      codebase, in its other direction
-- [ ] **A MANAGER sees projects they MANAGE, not all of them.** They hold `VIEW_ALL_PROJECTS`, so
-      `GET /projects` correctly lists everything for them; a dashboard of 40 projects they are not
-      responsible for is not a dashboard. That narrowing is a deliberate product decision and needs
-      confirming
-- [ ] **Former members are off the card.** Only `leftAt: null` rows count as who is working on it.
-      Someone who left is part of the project's history, which the activity timeline carries
+      may not have
 - [ ] Archived projects are excluded from every block
 - [ ] Every list is bounded by the service, never by a client-supplied page size
-- [ ] A spec per audience asserting a project the caller is NOT staffed on is absent from the response
+- [ ] A spec per audience asserting a project outside the caller's scope is absent from the response
 
-### The card is the content
+### Data heavy, because a brief overview is the point
 
-Each project renders as **one card** carrying its status, who is working on it, its blockers and its
-progress. So the card is the primary payload rather than a row in a table, and everything it shows is
-a field:
+Whoever signs in should be able to answer "what is the state of my work" without opening anything
+else. So one shape serves all three internal audiences and differs only in scope, which also means
+the frontend builds one layout instead of three. A section that does not apply is **null rather than
+empty**: null says "this does not concern you", empty says "there is nothing here", and a developer's
+`topContributors` must not claim the team logged no hours.
 
-- [x] `DashboardProjectDto`: status and priority as display objects, deadline with `daysUntilDeadline` and `isOverdue`, progress, estimated/actual/remaining hours, `isActive`
-- [x] `openBlockerCount` and `highSeverityBlockerCount`, so a card can say "1 high" without receiving every blocker row to count them
-- [x] `members`, project managers first then by name, avatars included so a card does not fetch its own team (one request per card on a screen whose job is to load at once)
-- [x] `DashboardClientProjectDto` is a **separate class**, not a subset. Omitting fields at runtime from the wider one is how an internal number reaches a client the first time someone edits the mapper
+- [x] `headline`: metric tiles, each with its value, its previous-window value, a delta and a tone
+- [x] `hoursTrend`: one point per day, **gaps filled with zero**, because a chart that skips an empty
+      day draws a line over the gap and implies work happened across it
+- [x] `isWorkingDay` on every point, so a reader can tell the team's day off from a day nobody worked
+- [x] `statusBreakdown` and `blockerBreakdown`: slices in the enum's declared order with shares
+      computed **once** on the server, or clients rounding their own would stop summing to 100%
+- [x] `topProjectsByHours` and `topContributors`: ranked rows with a share for the bar behind them
+- [x] `projects`: the cards, ordered by `compareForDashboard`
+- [x] `attention`: the queues, with `pendingLeaveRequestCount` **null unless the caller may review
+      one**, because only an Admin can approve or reject and showing the number to a PM offers work
+      they cannot do
+- [x] `myDay`: timer, today, this week, own trend, standup state. **Null for a PM or admin**, who
+      track no time, so an empty timer card never implies a control they lack
+- [x] `QueryDashboardDto.days`, bounded 7 to 90, because the delta reads a second window of equal
+      length and an unbounded range would read years of time entries to draw one chart
+
+### The card carries what the design asks for
+
+Status, who is working on it, blockers, and progress, all on one card:
+
+- [x] Status, priority and types as display objects
+- [x] `deadlineLabel` in words, resolved on the **server** clock, which is the clock
+      `daysUntilDeadline` was computed on. A browser three hours off would disagree with the number
+      beside it
+- [x] `isAtRisk`: one definition of overdue-or-blocked, so a card, a count and a filter cannot
+      disagree. A finished project is never at risk even with a stale blocker
+- [x] `openBlockerCount` and `highSeverityBlockerCount`, so a card says "1 high" without receiving
+      every blocker row to count them
+- [x] `hoursUsedRate`, above 1 when the estimate is exceeded, null without an estimate
+- [x] `minutesInRange` and `lastWorkedAt`
+- [x] `members`, project managers first then by name, avatars included so a card does not fetch its
+      own team: one request per card, on a screen whose whole job is to load at once
+- [x] `DashboardClientProjectDto` is a **separate class**, not a subset. Omitting fields at runtime
+      from the wider one is how an internal number reaches a client the first time someone edits it
 
 ### Done
 
 - [x] `VIEW_DASHBOARD` in `prisma/enums.prisma`, granted to `EVERYONE` in `ROLE_PERMISSIONS`
 - [x] Migration hand written and applied with `prisma migrate deploy`, because `migrate dev` needs a TTY
-- [x] `DASHBOARD_AUDIENCE_DISPLAY` in `enum-display.util.ts`. Every tone is `default`: an audience is not a severity
-- [x] `EnumDisplayEntry` exported from that file, so a consumer can accept "any display map" without widening `tone` to `string` and losing the closed five-tone union
-- [x] `dto/dashboard.dto.ts`, Response then Query then Request, with an example on every field. Query and Request are empty and say why
-- [x] `dashboard.mapper.ts`, pure. Reuses `daysUntilDeadline`, `TERMINAL_STATUSES`, `withRemainingHours` and `DASHBOARD_ACTIVE_STATUSES` rather than reimplementing them: a second copy of "is this overdue" disagreeing by one day is invisible from either file alone
-- [x] `spec/dashboard.mapper.spec.ts`, 42 cases. Audience resolution is driven from the real `ROLE_PERMISSIONS` rather than hand-written lists, because a role's grants changing is the thing that can break it
-- [x] Backend gate green with it in the tree: lint clean, typecheck 0, 1,142 tests
+- [x] `DASHBOARD_AUDIENCE_DISPLAY` in `enum-display.util.ts`. Every tone is `default`: an audience is
+      not a severity
+- [x] `EnumDisplayEntry` exported, so a consumer can accept "any display map" without widening `tone`
+      to `string` and losing the closed five-tone union
+- [x] `dto/dashboard.dto.ts`, Response then Query then Request, with an example on every field
+- [x] `dashboard.mapper.ts`, pure. Reuses `daysUntilDeadline`, `TERMINAL_STATUSES`,
+      `withRemainingHours`, `DASHBOARD_ACTIVE_STATUSES` and `WEEKLY_OFF_DAY` rather than
+      reimplementing them
+- [x] `spec/dashboard.mapper.spec.ts`, **81 cases**. Audience resolution and the capability rules are
+      driven from the real `ROLE_PERMISSIONS`, because a role's grants changing is the thing that can
+      break them, and a literal list would keep passing while the real answer moved
+- [x] Backend gate green: lint clean, typecheck 0, **1,181 tests**, build succeeds
 
 ### Still to build
 
-- [ ] `dashboard.service.ts`, with the four scoped queries above
+- [ ] `dashboard.service.ts`, with the scoped queries and the aggregation
 - [ ] `dashboard.controller.ts`, one `GET /` gated on `VIEW_DASHBOARD`
 - [ ] `dashboard.swagger.ts`, one `applyDecorators()` function
 - [ ] `dashboard.module.ts`, registered in `AppModule.imports`
-- [ ] **Registered in `src/app.controllers.ts`**, or neither route spec sees it and both silently cover less. Both assert the controller count for this reason
-- [ ] `spec/dashboard.service.spec.ts`, Prisma fully mocked, one case per audience plus the scoping assertions above
-- [ ] Ordering asserted on a fixture that would fail under any other order (Q6, Q7), reusing `compareForDashboard` rather than a second comparator
+- [ ] **Registered in `src/app.controllers.ts`**, or neither route spec sees it and both silently
+      cover less. Both assert the controller count for this reason
+- [ ] `spec/dashboard.service.spec.ts`, Prisma fully mocked, one case per audience plus the scoping
+      assertions above
+- [ ] Ordering asserted on a fixture that would fail under any other order (Q6, Q7), reusing
+      `compareForDashboard` rather than a second comparator
 - [ ] `test/openapi.e2e-spec.ts` still green: every 2xx needs a schema
 
 ## Phase D3: frontend, the four dashboards (Q1 to Q9)
