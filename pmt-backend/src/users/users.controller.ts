@@ -97,16 +97,16 @@ export class UsersController {
 
   @ApiGetUserDocs()
   @RequirePermissions(Permission.VIEW_USERS)
-  @Get(':id')
-  findOne(@Param('id') id: string) {
+  @Get(':userId')
+  findOne(@Param('userId') id: string) {
     return this.usersService.findOne(id);
   }
 
   @ApiUpdateUserDocs()
   @RequirePermissions(Permission.UPDATE_USER)
-  @Patch(':id')
+  @Patch(':userId')
   update(
-    @Param('id') id: string,
+    @Param('userId') id: string,
     @Body() dto: UpdateUserRequestDto,
     @CurrentUser() user: { id: string; role: Role },
   ) {
@@ -115,9 +115,9 @@ export class UsersController {
 
   @ApiDeleteUserDocs()
   @RequirePermissions(Permission.DELETE_USER)
-  @Delete(':id')
+  @Delete(':userId')
   remove(
-    @Param('id') id: string,
+    @Param('userId') id: string,
     @CurrentUser() user: { id: string; role: Role },
   ) {
     return this.usersService.remove(id, user.id, user.role);

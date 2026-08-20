@@ -5,7 +5,7 @@ import { PrismaModule } from '@/prisma/prisma.module';
 import { UsersModule } from '@/users/users.module';
 import { AuthModule } from '@/auth/auth.module';
 import { ProfilesModule } from '@/profiles/profiles.module';
-import { AuditLogModule } from '@/audit-log/audit-log.module';
+import { AuditLogModule } from '@/audit-logs/audit-log.module';
 import { LeaveModule } from '@/leave/leave.module';
 import { ProjectActivityModule } from '@/projects/activity/project-activity.module';
 import { ProjectScopeModule } from '@/projects/scope/project-scope.module';
@@ -17,6 +17,7 @@ import { DailyWorkReportsModule } from '@/projects/daily-work-reports/daily-work
 import { BlockersModule } from '@/projects/blockers/blockers.module';
 import { InternalReviewsModule } from '@/projects/reviews/internal/internal-reviews.module';
 import { ProjectReportsModule } from '@/projects/reports/project-reports.module';
+import { ReportsModule } from '@/reports/reports.module';
 import { SlackModule } from '@/slack/slack.module';
 import { NotificationsModule } from '@/notifications/notifications.module';
 import { PermissionsModule } from '@/auth/permissions/permissions.module';
@@ -50,6 +51,7 @@ import { PermissionsModule } from '@/auth/permissions/permissions.module';
     BlockersModule,
     InternalReviewsModule,
     ProjectReportsModule,
+    ReportsModule,
     SlackModule,
   ],
   // No providers. The global guard chain is registered in AuthModule, in one

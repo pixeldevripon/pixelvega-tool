@@ -1,4 +1,5 @@
 import { Module } from '@nestjs/common';
+import { LeaveBalancesController } from '@/leave/balances/leave-balances.controller';
 import { LeaveRequestsController } from '@/leave/requests/leave-requests.controller';
 import { LeaveRequestsService } from '@/leave/requests/leave-requests.service';
 import { LeaveBalancesService } from '@/leave/requests/leave-balances.service';
@@ -10,6 +11,7 @@ import { HolidaysService } from '@/leave/holidays/holidays.service';
 @Module({
   controllers: [
     LeaveRequestsController,
+    LeaveBalancesController,
     LeaveTypesController,
     HolidaysController,
   ],

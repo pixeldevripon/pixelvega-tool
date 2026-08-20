@@ -9,7 +9,7 @@ import { QueryProjectAiSummaryDto } from '@/ai/summary/dto/project-ai-summary.dt
 
 @ApiTags('AI Project Summary')
 @ApiCookieAuth('better-auth.session_token')
-@Controller('projects/:projectId/ai')
+@Controller('projects/:projectId/ai/summary')
 export class ProjectAiSummaryController {
   constructor(
     private readonly projectAiSummaryService: ProjectAiSummaryService,
@@ -17,7 +17,7 @@ export class ProjectAiSummaryController {
 
   @ApiGetProjectAiSummaryDocs()
   @RequirePermissions(Permission.REQUEST_AI_SUMMARY)
-  @Get('summary')
+  @Get()
   getSummary(
     @Param('projectId') projectId: string,
     @Query() query: QueryProjectAiSummaryDto,

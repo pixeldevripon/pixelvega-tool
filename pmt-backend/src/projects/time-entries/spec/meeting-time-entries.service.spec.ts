@@ -14,7 +14,7 @@ import { Test, TestingModule } from '@nestjs/testing';
 import { TimeEntryStatus } from '@prisma/client';
 import { PrismaService } from '@/prisma/prisma.service';
 import { ProjectTimeEntriesService } from '@/projects/time-entries/project/project-time-entries.service';
-import { MeetingTimeEntriesService } from '@/projects/time-entries/meeting/meeting-time-entries.service';
+import { MeetingTimeEntriesService } from '@/projects/time-entries/meetings/meeting-time-entries.service';
 
 const USER_ID = 'dev-1';
 

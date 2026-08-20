@@ -101,9 +101,9 @@ export class ProjectsController {
     Permission.VIEW_ALL_PROJECTS,
     Permission.VIEW_OWN_PROJECTS,
   )
-  @Get(':id')
+  @Get(':projectId')
   findOne(
-    @Param('id') id: string,
+    @Param('projectId') id: string,
     @CurrentUser() user: { id: string; role: Role },
   ) {
     return this.projectsService.findOne(id, user.id, user.role);
@@ -111,9 +111,9 @@ export class ProjectsController {
 
   @ApiGetProjectActivityDocs()
   @RequirePermissions(Permission.VIEW_PROJECT_ACTIVITY)
-  @Get(':id/activities')
+  @Get(':projectId/activities')
   findActivities(
-    @Param('id') id: string,
+    @Param('projectId') id: string,
     @Query() query: PaginationQueryDto,
     @CurrentUser() user: { id: string; role: Role },
   ) {
@@ -122,9 +122,9 @@ export class ProjectsController {
 
   @ApiUpdateProjectDocs()
   @RequirePermissions(Permission.EDIT_PROJECT)
-  @Patch(':id')
+  @Patch(':projectId')
   update(
-    @Param('id') id: string,
+    @Param('projectId') id: string,
     @Body() dto: UpdateProjectDto,
     @CurrentUser() user: { id: string; role: Role },
   ) {
@@ -133,9 +133,9 @@ export class ProjectsController {
 
   @ApiUpdateProjectPriorityDocs()
   @RequirePermissions(Permission.CHANGE_PROJECT_PRIORITY)
-  @Patch(':id/priority')
+  @Patch(':projectId/priority')
   updatePriority(
-    @Param('id') id: string,
+    @Param('projectId') id: string,
     @Body() dto: UpdateProjectPriorityDto,
     @CurrentUser() user: { id: string; role: Role },
   ) {
@@ -144,9 +144,9 @@ export class ProjectsController {
 
   @ApiUpdateEstimatedHoursDocs()
   @RequirePermissions(Permission.MANAGE_ESTIMATED_HOURS)
-  @Patch(':id/estimated-hours')
+  @Patch(':projectId/estimated-hours')
   updateEstimatedHours(
-    @Param('id') id: string,
+    @Param('projectId') id: string,
     @Body() dto: UpdateEstimatedHoursDto,
     @CurrentUser() user: { id: string; role: Role },
   ) {
@@ -160,9 +160,9 @@ export class ProjectsController {
 
   @ApiConnectProjectSlackDocs()
   @RequirePermissions(Permission.CONNECT_PROJECT_SLACK)
-  @Patch(':id/slack-channel')
+  @Patch(':projectId/slack-channel')
   connectSlackChannel(
-    @Param('id') id: string,
+    @Param('projectId') id: string,
     @Body() dto: ConnectSlackChannelDto,
     @CurrentUser() user: { id: string; role: Role },
   ) {
@@ -176,9 +176,9 @@ export class ProjectsController {
 
   @ApiUpdateProjectTypesDocs()
   @RequirePermissions(Permission.MANAGE_PROJECT_TYPES)
-  @Patch(':id/types')
+  @Patch(':projectId/types')
   updateTypes(
-    @Param('id') id: string,
+    @Param('projectId') id: string,
     @Body() dto: UpdateProjectTypesDto,
     @CurrentUser() user: { id: string; role: Role },
   ) {
@@ -187,9 +187,9 @@ export class ProjectsController {
 
   @ApiUpdateProjectStatusDocs()
   @RequirePermissions(Permission.CHANGE_PROJECT_STATUS)
-  @Patch(':id/status')
+  @Patch(':projectId/status')
   updateStatus(
-    @Param('id') id: string,
+    @Param('projectId') id: string,
     @Body() dto: UpdateProjectStatusDto,
     @CurrentUser() user: { id: string; role: Role },
   ) {
@@ -198,9 +198,9 @@ export class ProjectsController {
 
   @ApiArchiveProjectDocs()
   @RequirePermissions(Permission.ARCHIVE_PROJECT)
-  @Patch(':id/archive')
+  @Patch(':projectId/archive')
   archive(
-    @Param('id') id: string,
+    @Param('projectId') id: string,
     @CurrentUser() user: { id: string; role: Role },
   ) {
     return this.projectsService.archive(id, user.id, user.role);
@@ -208,9 +208,9 @@ export class ProjectsController {
 
   @ApiRestoreProjectDocs()
   @RequirePermissions(Permission.ARCHIVE_PROJECT)
-  @Patch(':id/restore')
+  @Patch(':projectId/restore')
   restore(
-    @Param('id') id: string,
+    @Param('projectId') id: string,
     @CurrentUser() user: { id: string; role: Role },
   ) {
     return this.projectsService.restore(id, user.id, user.role);

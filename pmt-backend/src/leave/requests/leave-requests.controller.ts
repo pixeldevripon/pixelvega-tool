@@ -17,8 +17,6 @@ import { RequirePermissions } from '@/auth/permissions/require-permissions.decor
 import {
   ApiApproveLeaveDocs,
   ApiCancelOwnLeaveDocs,
-  ApiGetOwnLeaveBalanceDocs,
-  ApiGetUserLeaveBalanceDocs,
   ApiLeaveSummaryCsvDocs,
   ApiLeaveSummaryDocs,
   ApiListLeaveRequestsDocs,
@@ -35,7 +33,7 @@ import {
 
 @ApiTags('Leave Requests')
 @ApiCookieAuth('better-auth.session_token')
-@Controller('leave-requests')
+@Controller('leave/requests')
 export class LeaveRequestsController {
   constructor(private readonly leaveRequestsService: LeaveRequestsService) {}
 
@@ -56,24 +54,13 @@ export class LeaveRequestsController {
     return this.leaveRequestsService.findOwn(user.id);
   }
 
-  @ApiGetOwnLeaveBalanceDocs()
-  @RequirePermissions(Permission.REQUEST_LEAVE)
-  @Get('me/balance')
-  ownBalance(@CurrentUser() user: { id: string }) {
-    return this.leaveRequestsService.ownBalance(user.id);
-  }
-
-  @ApiGetUserLeaveBalanceDocs()
-  @RequirePermissions(Permission.VIEW_LEAVE_REQUESTS)
-  @Get(':userId/balance')
-  balanceForUser(@Param('userId') userId: string) {
-    return this.leaveRequestsService.balanceForUser(userId);
-  }
-
   @ApiCancelOwnLeaveDocs()
   @RequirePermissions(Permission.REQUEST_LEAVE)
-  @Patch(':id/cancel')
-  cancel(@Param('id') id: string, @CurrentUser() user: { id: string }) {
+  @Patch(':leaveRequestId/cancel')
+  cancel(
+    @Param('leaveRequestId') id: string,
+    @CurrentUser() user: { id: string },
+  ) {
     return this.leaveRequestsService.cancel(id, user.id);
   }
 
@@ -110,16 +97,19 @@ export class LeaveRequestsController {
 
   @ApiApproveLeaveDocs()
   @RequirePermissions(Permission.REVIEW_LEAVE_REQUEST)
-  @Patch(':id/approve')
-  approve(@Param('id') id: string, @CurrentUser() user: { id: string }) {
+  @Patch(':leaveRequestId/approve')
+  approve(
+    @Param('leaveRequestId') id: string,
+    @CurrentUser() user: { id: string },
+  ) {
     return this.leaveRequestsService.approve(id, user.id);
   }
 
   @ApiRejectLeaveDocs()
   @RequirePermissions(Permission.REVIEW_LEAVE_REQUEST)
-  @Patch(':id/reject')
+  @Patch(':leaveRequestId/reject')
   reject(
-    @Param('id') id: string,
+    @Param('leaveRequestId') id: string,
     @Body() dto: RejectLeaveRequestDto,
     @CurrentUser() user: { id: string },
   ) {

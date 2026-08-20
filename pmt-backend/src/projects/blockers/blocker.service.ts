@@ -73,14 +73,19 @@ export class BlockerService {
     private readonly notificationsService: NotificationsService,
   ) {}
 
-  async addBlocker(dto: AddBlockerDto, actorId: string, actorRole: Role) {
-    await this.getProjectOrThrow(dto.projectId);
-    await this.assertCanReport(dto.projectId, actorId, actorRole);
+  async addBlocker(
+    projectId: string,
+    dto: AddBlockerDto,
+    actorId: string,
+    actorRole: Role,
+  ) {
+    await this.getProjectOrThrow(projectId);
+    await this.assertCanReport(projectId, actorId, actorRole);
     const reasonId = await this.resolveReasonId(dto.reasonId);
 
     const blocker = await this.prisma.blocker.create({
       data: {
-        projectId: dto.projectId,
+        projectId,
         description: dto.description,
         severity: dto.severity,
         reportedById: actorId,
@@ -89,7 +94,7 @@ export class BlockerService {
       include: BLOCKER_INCLUDE,
     });
 
-    await this.projectActivity.log(dto.projectId, actorId, 'BLOCKER_ADDED', {
+    await this.projectActivity.log(projectId, actorId, 'BLOCKER_ADDED', {
       message: `Blocker reported: "${blocker.description}"`,
       metadata: { blockerId: blocker.id, severity: blocker.severity },
     });
@@ -107,12 +112,13 @@ export class BlockerService {
   }
 
   async updateBlocker(
+    projectId: string,
     blockerId: string,
     dto: UpdateBlockerDto,
     actorId: string,
     actorRole: Role,
   ) {
-    const blocker = await this.getBlockerOrThrow(blockerId);
+    const blocker = await this.getBlockerOrThrow(projectId, blockerId);
 
     if (blocker.status === BlockerStatus.RESOLVED) {
       throw new ConflictException(
@@ -503,9 +509,18 @@ export class BlockerService {
     return project;
   }
 
-  private async getBlockerOrThrow(blockerId: string) {
-    const blocker = await this.prisma.blocker.findUnique({
-      where: { id: blockerId },
+  /**
+   * Scoped by BOTH ids, not just the blocker's.
+   *
+   * The route is `/projects/:projectId/blockers/:blockerId`, so a blocker that
+   * belongs to a different project is a 404 rather than a silent success. A
+   * lookup on the blocker id alone would make the project segment decorative:
+   * any project id in the path would edit any blocker, and a client that mixed
+   * two ids up would never find out.
+   */
+  private async getBlockerOrThrow(projectId: string, blockerId: string) {
+    const blocker = await this.prisma.blocker.findFirst({
+      where: { id: blockerId, projectId },
       include: BLOCKER_INCLUDE,
     });
     if (!blocker) {

@@ -1,7 +1,7 @@
 import { applyDecorators } from '@nestjs/common';
 import { ApiOperation, ApiResponse } from '@nestjs/swagger';
 import { gatedErrors } from '@/common/swagger/error-sets';
-import { PaginatedAuditLogResponseDto } from '@/audit-log/dto/audit-log.dto';
+import { PaginatedAuditLogResponseDto } from '@/audit-logs/dto/audit-log.dto';
 
 export const ApiListAuditLogDocs = () =>
   applyDecorators(

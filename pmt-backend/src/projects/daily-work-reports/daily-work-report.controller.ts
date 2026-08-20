@@ -53,9 +53,9 @@ export class DailyWorkReportController {
 
   @ApiUpdatePlanDocs()
   @RequirePermissions(Permission.SUBMIT_WORK_REPORT)
-  @Patch(':id/plan')
+  @Patch(':reportId/plan')
   updatePlan(
-    @Param('id') id: string,
+    @Param('reportId') id: string,
     @Body() dto: UpdatePlanDto,
     @CurrentUser() user: { id: string },
   ) {
@@ -85,9 +85,9 @@ export class DailyWorkReportController {
 
   @ApiSubmitWrapUpDocs()
   @RequirePermissions(Permission.SUBMIT_WORK_REPORT)
-  @Post(':id/wrap-up')
+  @Post(':reportId/wrap-up')
   submitWrapUp(
-    @Param('id') id: string,
+    @Param('reportId') id: string,
     @Body() dto: SubmitWrapUpDto,
     @CurrentUser() user: { id: string },
   ) {
@@ -96,9 +96,9 @@ export class DailyWorkReportController {
 
   @ApiUpdateWrapUpDocs()
   @RequirePermissions(Permission.SUBMIT_WORK_REPORT)
-  @Patch(':id/wrap-up')
+  @Patch(':reportId/wrap-up')
   updateWrapUp(
-    @Param('id') id: string,
+    @Param('reportId') id: string,
     @Body() dto: UpdateWrapUpDto,
     @CurrentUser() user: { id: string },
   ) {

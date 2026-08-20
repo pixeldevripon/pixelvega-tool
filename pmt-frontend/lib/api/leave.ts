@@ -123,74 +123,74 @@ function buildSummaryQuery(query: LeaveSummaryQuery = {}) {
 
 export const leaveApi = {
   listTypes() {
-    return apiRequest<LeaveType[]>("/api/leave-types");
+    return apiRequest<LeaveType[]>("/api/leave/types");
   },
 
   createType(input: UpsertLeaveTypeInput) {
-    return apiRequest<LeaveType>("/api/leave-types", {
+    return apiRequest<LeaveType>("/api/leave/types", {
       method: "POST",
       body: input,
     });
   },
 
   updateType(leaveTypeId: string, input: Partial<UpsertLeaveTypeInput>) {
-    return apiRequest<LeaveType>(`/api/leave-types/${leaveTypeId}`, {
+    return apiRequest<LeaveType>(`/api/leave/types/${leaveTypeId}`, {
       method: "PATCH",
       body: input,
     });
   },
 
   deleteType(leaveTypeId: string) {
-    return apiRequest<{ message: string }>(`/api/leave-types/${leaveTypeId}`, {
+    return apiRequest<{ message: string }>(`/api/leave/types/${leaveTypeId}`, {
       method: "DELETE",
     });
   },
 
   listHolidays() {
-    return apiRequest<Holiday[]>("/api/holidays");
+    return apiRequest<Holiday[]>("/api/leave/holidays");
   },
 
   createHoliday(input: UpsertHolidayInput) {
-    return apiRequest<Holiday>("/api/holidays", {
+    return apiRequest<Holiday>("/api/leave/holidays", {
       method: "POST",
       body: input,
     });
   },
 
   updateHoliday(holidayId: string, input: Partial<UpsertHolidayInput>) {
-    return apiRequest<Holiday>(`/api/holidays/${holidayId}`, {
+    return apiRequest<Holiday>(`/api/leave/holidays/${holidayId}`, {
       method: "PATCH",
       body: input,
     });
   },
 
   deleteHoliday(holidayId: string) {
-    return apiRequest<{ message: string }>(`/api/holidays/${holidayId}`, {
+    return apiRequest<{ message: string }>(`/api/leave/holidays/${holidayId}`, {
       method: "DELETE",
     });
   },
 
   createRequest(input: CreateLeaveRequestInput) {
-    return apiRequest<LeaveRequest>("/api/leave-requests", {
+    return apiRequest<LeaveRequest>("/api/leave/requests", {
       method: "POST",
       body: input,
     });
   },
 
   listOwnRequests() {
-    return apiRequest<LeaveRequest[]>("/api/leave-requests/me");
+    return apiRequest<LeaveRequest[]>("/api/leave/requests/me");
   },
 
   listOwnBalance() {
-    return apiRequest<LeaveBalance[]>("/api/leave-requests/me/balance");
+    return apiRequest<LeaveBalance[]>("/api/leave/balances/me");
   },
 
   listBalanceForUser(userId: string) {
-    return apiRequest<LeaveBalance[]>(`/api/leave-requests/${userId}/balance`);
+    return apiRequest<LeaveBalance[]>(`/api/leave/requests/${userId}/balance`);
   },
 
   cancelRequest(requestId: string) {
-    return apiRequest<LeaveRequest>(`/api/leave-requests/${requestId}/cancel`, {
+    return apiRequest<LeaveRequest>(`/api/leave/requests/${requestId}/cancel`, {
       method: "PATCH",
     });
   },
@@ -200,18 +200,18 @@ export const leaveApi = {
     if (userId) params.set("userId", userId);
     const result = await apiRequest<
       LeaveRequest[] | PaginatedResponse<LeaveRequest>
-    >(`/api/leave-requests?${params.toString()}`);
+    >(`/api/leave/requests?${params.toString()}`);
     return unwrapList(result);
   },
 
   approveRequest(requestId: string) {
-    return apiRequest<LeaveRequest>(`/api/leave-requests/${requestId}/approve`, {
+    return apiRequest<LeaveRequest>(`/api/leave/requests/${requestId}/approve`, {
       method: "PATCH",
     });
   },
 
   rejectRequest(requestId: string, reason?: string) {
-    return apiRequest<LeaveRequest>(`/api/leave-requests/${requestId}/reject`, {
+    return apiRequest<LeaveRequest>(`/api/leave/requests/${requestId}/reject`, {
       method: "PATCH",
       body: { reason },
     });
@@ -219,13 +219,13 @@ export const leaveApi = {
 
   summary(query?: LeaveSummaryQuery) {
     return apiRequest<LeaveSummaryResponse>(
-      `/api/leave-requests/summary${buildSummaryQuery(query)}`,
+      `/api/leave/requests/summary${buildSummaryQuery(query)}`,
     );
   },
 
   exportSummary(query?: LeaveSummaryQuery) {
     return apiDownload(
-      `/api/leave-requests/summary/export${buildSummaryQuery(query)}`,
+      `/api/leave/requests/summary/export${buildSummaryQuery(query)}`,
     );
   },
 };

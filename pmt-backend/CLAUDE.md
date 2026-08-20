@@ -12,14 +12,37 @@ The five directives (`../docs/architecture/02-directives.md`) sit above everythi
 
 ## 1. Where a file goes
 
-**The folder path mirrors the route path.** Someone reading the tree sees the API without opening a
-controller.
+**The route path IS the folder path.** `src/<a>/<b>/` serves `/<a>/<b>`, always, so someone reading
+the tree sees the API without opening a controller. `../docs/decisions/0004-the-route-path-is-the-folder-path.md`
+is the decision; these are its four corollaries, and each one is a consequence rather than a separate rule.
 
 ```
-projects/:projectId/documents             ->  src/projects/documents/
-projects/:projectId/internal-reviews      ->  src/projects/reviews/internal/
-projects/:projectId/additional-requirements -> src/projects/requirements/additional/
+src/projects/documents/              ->  /projects/:projectId/documents
+src/projects/reviews/internal/       ->  /projects/:projectId/reviews/internal
+src/projects/requirements/additional/ -> /projects/:projectId/requirements/additional
+src/leave/requests/                  ->  /leave/requests
+src/reports/developers/              ->  /reports/developers
 ```
+
+One exception, and it is corollary 2 rather than a hole in the rule: a project scoped resource that
+also has a cross project view keeps ONE folder under `projects/`, and that folder serves both forms.
+`src/projects/blockers/` holds `project-blockers.controller.ts` (`/projects/:projectId/blockers`) and
+`blockers.controller.ts` (`/blockers`), and its `reasons/` child serves `/blockers/reasons`, because a
+reason is not owned by a project.
+
+1. **A resource's folder names it.** No route segment exists that is not a folder, and no folder
+   serves a route it is not named for. Adding a sub-resource decides its URL.
+2. **Nested is project scoped and owns every mutation; top level is cross project and read only.**
+   `POST` and `PATCH /projects/:projectId/blockers` create and change; `GET /blockers` answers across
+   projects and takes `projectId` as a query filter, never as a path segment. A resource that does not
+   require a project (a daily work report belongs to a person, a meeting time entry may have no
+   project) is top level and mutates there.
+3. **Every path parameter is named for the entity it identifies**: `:projectId`, `:blockerId`,
+   `:leaveRequestId`. Never `:id`. A parameter's name is not part of the URL, so this breaks no client,
+   and it stops Swagger describing one entity under three names.
+4. **One entity type per slot.** A segment holding a LeaveRequest id never holds a User id. Where a
+   second entity is genuinely the subject it gets its own resource: `/leave/requests/:leaveRequestId`
+   and `/leave/balances/:userId` are two resources, not one path with two meanings.
 
 A module is:
 
@@ -37,7 +60,7 @@ src/<module>/
 - Subdirectories are fine, and expected once a module outgrows a scannable file list. Group by
   feature (`jobs/`, `templates/`), never a dumping ground.
 - **`@/` alias for every internal import.** A new `../../` chain is a defect.
-- Static routes before dynamic ones: `@Get('mine')` above `@Get(':id')`, or Nest matches `mine` as an id.
+- Static routes before dynamic ones: `@Get('me')` above `@Get(':userId')`, or Nest matches `me` as an id.
 
 ## 2. The backend serves everything (D4)
 
@@ -49,6 +72,15 @@ The frontend renders what it is given. If two clients would compute it identical
   Adding a Prisma enum member fails the build until it has a label and tone. That is deliberate.
 - **Every resource carries `capabilities`**: one flag per action a screen actually gates, built from
   the caller's permissions AND the project scope rule. Advisory; the service still enforces.
+- **A flag and its enforcement must read the SAME predicate.** Never re-derive the rule in a mapper.
+  Put the predicate in `ProjectScopeService` (or beside the service's assertion), have the assertion
+  call it, and pass its boolean into the mapper through the context. This is the most repeated defect
+  in this codebase: five flags shipped wider than their enforcement, each offering a button that then
+  answered 403, and every one of them was a mapper re-deriving a rule it did not fully know.
+  `mayChangeProjectStatus` / `assertMayChangeProjectStatus` is the shape to copy.
+  A hardcoded `true` in a context object is the same bug with no rule at all: `canReviewLeave: true`
+  showed a PROJECT_MANAGER an Approve button on every leave request, and the comment above it had
+  already noted the exception.
 - **Derived values are response fields.** `remainingHours`, `isOverdue`, `daysUntilDeadline`,
   `ageMinutes`, `durationLabel`, `fileSizeLabel`, `entryCount`. No `.sort()`, `.reduce()` or
   `.filter()` in a browser.

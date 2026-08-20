@@ -248,7 +248,7 @@ export function BlockersSection({
     setFormError("");
     try {
       if (editing) {
-        await blockersApi.update(editing.id, {
+        await blockersApi.update(project.id, editing.id, {
           description: trimmedDescription,
           severity,
           reasonId: reasonId || undefined,
@@ -261,8 +261,7 @@ export function BlockersSection({
         });
         toast.success(nextStatus === "RESOLVED" ? "Blocker resolved" : "Blocker updated");
       } else {
-        await blockersApi.create({
-          projectId: project.id,
+        await blockersApi.create(project.id, {
           description: trimmedDescription,
           severity,
           reasonId: reasonId || undefined,

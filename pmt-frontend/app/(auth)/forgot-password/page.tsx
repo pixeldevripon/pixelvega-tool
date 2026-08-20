@@ -23,11 +23,13 @@ export default function ForgotPasswordPage() {
     setError("");
 
     try {
-      await authApi.requestPasswordOtp(email);
-      toast.success("OTP sent", {
-        description: "Check your email for the 6-digit verification code.",
+      // The API emails a single use LINK, not a code. It always answers 200,
+      // whether or not the address exists, so nothing here reveals which.
+      await authApi.requestPasswordReset(email);
+      toast.success("Check your email", {
+        description:
+          "If that address has an account, a link to set a new password is on its way. It expires in an hour.",
       });
-      router.push(`/enter-otp?email=${encodeURIComponent(email)}`);
     } catch (error) {
       setError(
         error instanceof Error ? error.message : "Unable to send the OTP.",

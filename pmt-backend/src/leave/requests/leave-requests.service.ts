@@ -8,7 +8,7 @@ import {
 import { NotificationType, Permission, Role } from '@prisma/client';
 import { PermissionsService } from '@/auth/permissions/permissions.service';
 import { PrismaService } from '@/prisma/prisma.service';
-import { AuditLogService } from '@/audit-log/audit-log.service';
+import { AuditLogService } from '@/audit-logs/audit-log.service';
 import { LeaveBalancesService } from '@/leave/requests/leave-balances.service';
 import { NotificationsService } from '@/notifications/notifications.service';
 import { daysBetweenInclusive } from '@/common/utils/date.util';

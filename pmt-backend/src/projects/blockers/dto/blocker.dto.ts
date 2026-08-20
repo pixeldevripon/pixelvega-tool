@@ -302,10 +302,11 @@ export class QueryProjectBlockersDto extends PaginationQueryDto {
 // Can be reported anytime, by anyone active on the project. It is completely
 // independent of that day's DailyWorkReport.
 export class AddBlockerDto {
-  @ApiProperty({ example: 'a1b2c3d4-e5f6-7890-abcd-ef1234567890' })
-  @IsUUID()
-  projectId!: string;
-
+  // No `projectId`. It comes from the path (`POST /projects/:projectId/blockers`),
+  // which is the only place it belongs: a blocker cannot exist without a
+  // project, so the project is part of the address, not part of the payload.
+  // `forbidNonWhitelisted` means sending it now answers 400 rather than being
+  // silently ignored.
   @ApiProperty({
     example: 'DB schema not approved, blocking all API work',
   })

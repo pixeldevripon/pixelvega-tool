@@ -6,7 +6,7 @@ import {
 import { DailyWorkReportStatus, LeaveStatus, Role } from '@prisma/client';
 import { PrismaService } from '@/prisma/prisma.service';
 import { ProjectTimeEntriesService } from '@/projects/time-entries/project/project-time-entries.service';
-import { MeetingTimeEntriesService } from '@/projects/time-entries/meeting/meeting-time-entries.service';
+import { MeetingTimeEntriesService } from '@/projects/time-entries/meetings/meeting-time-entries.service';
 import { TARGET_HOURS_PER_DAY } from '@/projects/reports/working-day/working-day.constants';
 import {
   countWorkingDaysInRange,

@@ -32,7 +32,7 @@ import {
 
 @ApiTags('Additional Requirements')
 @ApiCookieAuth('better-auth.session_token')
-@Controller('projects/:projectId/additional-requirements')
+@Controller('projects/:projectId/requirements/additional')
 export class AdditionalRequirementsController {
   constructor(
     private readonly additionalRequirementsService: AdditionalRequirementsService,
@@ -56,10 +56,10 @@ export class AdditionalRequirementsController {
 
   @ApiGetAdditionalRequirementDocs()
   @RequirePermissions(Permission.VIEW_ADDITIONAL_REQUIREMENTS)
-  @Get(':id')
+  @Get(':requirementId')
   findOne(
     @Param('projectId') projectId: string,
-    @Param('id') id: string,
+    @Param('requirementId') id: string,
     @CurrentUser() user: { id: string; role: Role },
   ) {
     return this.additionalRequirementsService.findOne(
@@ -88,10 +88,10 @@ export class AdditionalRequirementsController {
 
   @ApiReviewAdditionalRequirementDocs()
   @RequirePermissions(Permission.REVIEW_ADDITIONAL_REQUIREMENT)
-  @Patch(':id/review')
+  @Patch(':requirementId/review')
   review(
     @Param('projectId') projectId: string,
-    @Param('id') id: string,
+    @Param('requirementId') id: string,
     @Body() dto: ReviewAdditionalRequirementDto,
     @CurrentUser() user: { id: string; role: Role },
   ) {
@@ -107,10 +107,10 @@ export class AdditionalRequirementsController {
   @ApiCheckRequirementScopeDocs()
   @RequirePermissions(Permission.RUN_SCOPE_CHECK)
   @HttpCode(202)
-  @Post(':id/check-scope')
+  @Post(':requirementId/check-scope')
   checkScope(
     @Param('projectId') projectId: string,
-    @Param('id') id: string,
+    @Param('requirementId') id: string,
     @CurrentUser() user: { id: string; role: Role },
   ) {
     return this.additionalRequirementsService.checkScope(

@@ -31,27 +31,24 @@ export const authApi = {
     return result.user;
   },
 
-  async requestPasswordOtp(email: string) {
-    return apiRequest<{ message: string }>("/api/auth-flows/forgot-password", {
-      method: "POST",
-      body: { email },
-    });
-  },
-
-  async verifyOtp(email: string, code: string) {
-    return apiRequest<{ resetToken: string }>(
-      "/api/auth-flows/verify-reset-code",
-      {
-        method: "POST",
-        body: { email, code },
-      },
+  // better-auth's own route. The /auth-flows controller this used to call was
+  // deleted along with its bespoke PasswordResetCode table.
+  async requestPasswordReset(email: string) {
+    return apiRequest<{ status: boolean; message: string }>(
+      "/api/auth/request-password-reset",
+      { method: "POST", body: { email } },
     );
   },
 
-  async resetPassword(resetToken: string, newPassword: string) {
-    return apiRequest<{ message: string }>("/api/auth-flows/reset-password", {
+  // NOTE: there is no verify-code step any more. The API emails a single use
+  // LINK carrying a token, so the flow is: request a reset, follow the link to
+  // /reset-password?token=..., submit the new password with that token. The
+  // /enter-otp screen and the code entry it drives are dead, and a
+  // /reset-password page does not exist yet. Both are frontend work.
+  async resetPassword(token: string, newPassword: string) {
+    return apiRequest<{ status: boolean }>("/api/auth/reset-password", {
       method: "POST",
-      body: { resetToken, newPassword },
+      body: { token, newPassword },
     });
   },
 };

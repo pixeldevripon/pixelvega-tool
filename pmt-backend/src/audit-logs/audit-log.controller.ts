@@ -2,7 +2,7 @@ import { Controller, Get, Query } from '@nestjs/common';
 import { ApiCookieAuth, ApiTags } from '@nestjs/swagger';
 import { Permission } from '@prisma/client';
 import { RequirePermissions } from '@/auth/permissions/require-permissions.decorator';
-import { QueryAuditLogDto } from '@/audit-log/dto/audit-log.dto';
+import { QueryAuditLogDto } from '@/audit-logs/dto/audit-log.dto';
 import { ApiListAuditLogDocs } from './audit-log.swagger';
 import { AuditLogService } from './audit-log.service';
 

@@ -2,7 +2,7 @@ import { Injectable, Logger, NotFoundException } from '@nestjs/common';
 import { Role } from '@prisma/client';
 import { PrismaService } from '@/prisma/prisma.service';
 import { CloudinaryService } from '@/uploads/cloudinary.service';
-import { AuditLogService } from '@/audit-log/audit-log.service';
+import { AuditLogService } from '@/audit-logs/audit-log.service';
 import { UpdateProfileRequestDto } from '@/profiles/dto/profile.dto';
 import { toProfileResponse } from '@/profiles/profile.mapper';
 

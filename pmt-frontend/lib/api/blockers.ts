@@ -53,8 +53,10 @@ export type BlockerQuery = {
   assignedToId?: string;
 };
 
+// No `projectId`: it is in the path now. The API moved the blocker mutations
+// under `/projects/:projectId/blockers` (ADR 0004), and `forbidNonWhitelisted`
+// means sending it in the body is a 400 rather than a value quietly ignored.
 export type CreateBlockerInput = {
-  projectId: string;
   description: string;
   severity?: BlockerSeverity;
   reasonId?: string;
@@ -104,40 +106,44 @@ export const blockersApi = {
     }>(`/api/projects/${projectId}/blockers/deadline-impact`);
   },
 
-  async create(input: CreateBlockerInput) {
-    return apiRequest<Blocker>("/api/blockers", {
+  async create(projectId: string, input: CreateBlockerInput) {
+    return apiRequest<Blocker>(`/api/projects/${projectId}/blockers`, {
       method: "POST",
       body: input,
     });
   },
 
-  async update(blockerId: string, input: UpdateBlockerInput) {
-    return apiRequest<Blocker>(`/api/blockers/${blockerId}`, {
-      method: "PATCH",
-      body: input,
-    });
+  async update(
+    projectId: string,
+    blockerId: string,
+    input: UpdateBlockerInput,
+  ) {
+    return apiRequest<Blocker>(
+      `/api/projects/${projectId}/blockers/${blockerId}`,
+      { method: "PATCH", body: input },
+    );
   },
 
   async reasons() {
-    return apiRequest<BlockerReason[]>("/api/blocker-reasons");
+    return apiRequest<BlockerReason[]>("/api/blockers/reasons");
   },
 
   async createReason(name: string) {
-    return apiRequest<BlockerReason>("/api/blocker-reasons", {
+    return apiRequest<BlockerReason>("/api/blockers/reasons", {
       method: "POST",
       body: { name },
     });
   },
 
   async updateReason(reasonId: string, name: string) {
-    return apiRequest<BlockerReason>(`/api/blocker-reasons/${reasonId}`, {
+    return apiRequest<BlockerReason>(`/api/blockers/reasons/${reasonId}`, {
       method: "PATCH",
       body: { name },
     });
   },
 
   async removeReason(reasonId: string) {
-    return apiRequest<{ message: string }>(`/api/blocker-reasons/${reasonId}`, {
+    return apiRequest<{ message: string }>(`/api/blockers/reasons/${reasonId}`, {
       method: "DELETE",
     });
   },

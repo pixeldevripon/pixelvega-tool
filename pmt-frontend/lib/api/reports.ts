@@ -110,7 +110,7 @@ function buildQuery(query: Record<string, string | undefined>) {
 export const reportsApi = {
   developer(query: DeveloperReportQuery) {
     return apiRequest<DeveloperReport>(
-      `/api/reports/developer${buildQuery(query)}`,
+      `/api/reports/developers${buildQuery(query)}`,
     );
   },
 

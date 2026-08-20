@@ -182,7 +182,7 @@ export const ApiCheckRequirementScopeDocs = () =>
     ApiOperation({
       summary: 'Ask the model whether a requirement is in the original scope',
       description:
-        'Queued: returns a jobId to poll at GET /ai/jobs/:id. Compares the requirement ' +
+        'Queued: returns a jobId to poll at GET /ai/jobs/:jobId. Compares the requirement ' +
         "against the project's PRD and REQUIREMENT documents. Advisory only, and it " +
         'never gates approval: approvedAdditionalHours is still only ever set by a PM. ' +
         'A project with neither document still gets a result explaining why, rather ' +

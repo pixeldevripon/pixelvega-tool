@@ -2,7 +2,7 @@ import { Injectable } from '@nestjs/common';
 import type { Prisma } from '@prisma/client';
 import { PrismaService } from '@/prisma/prisma.service';
 import { paginate } from '@/common/utils/pagination.util';
-import { QueryAuditLogDto } from '@/audit-log/dto/audit-log.dto';
+import { QueryAuditLogDto } from '@/audit-logs/dto/audit-log.dto';
 
 export interface LogEntry {
   userId?: string;

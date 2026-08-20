@@ -24,7 +24,7 @@ export type InternalReviewsResponse = {
 export const internalReviewsApi = {
   list(projectId: string, page = 1, pageSize = 20) {
     return apiRequest<InternalReviewsResponse>(
-      `/api/projects/${projectId}/internal-reviews?page=${page}&pageSize=${pageSize}`,
+      `/api/projects/${projectId}/reviews/internal?page=${page}&pageSize=${pageSize}`,
     );
   },
 
@@ -33,7 +33,7 @@ export const internalReviewsApi = {
     input: { decision: InternalReviewDecision; comments?: string },
   ) {
     return apiRequest<InternalReview>(
-      `/api/projects/${projectId}/internal-reviews`,
+      `/api/projects/${projectId}/reviews/internal`,
       { method: "POST", body: input },
     );
   },

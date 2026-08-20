@@ -25,7 +25,7 @@ import {
 } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
 import { Role } from '@prisma/client';
-import { AuditLogService } from '@/audit-log/audit-log.service';
+import { AuditLogService } from '@/audit-logs/audit-log.service';
 import { MailService } from '@/mail/mail.service';
 import { PrismaService } from '@/prisma/prisma.service';
 import { ProfilesService } from '@/profiles/profiles.service';

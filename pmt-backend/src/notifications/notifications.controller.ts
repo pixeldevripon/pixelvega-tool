@@ -53,8 +53,11 @@ export class NotificationsController {
 
   @ApiMarkNotificationReadDocs()
   @RequirePermissions(Permission.MANAGE_OWN_NOTIFICATIONS)
-  @Patch(':id/read')
-  markRead(@Param('id') id: string, @CurrentUser() user: { id: string }) {
+  @Patch(':notificationId/read')
+  markRead(
+    @Param('notificationId') id: string,
+    @CurrentUser() user: { id: string },
+  ) {
     return this.notificationsService.markRead(id, user.id);
   }
 }

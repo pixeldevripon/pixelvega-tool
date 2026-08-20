@@ -4,7 +4,7 @@ import { AvailabilityStatus, EmployeeWorkStatus, Role } from '@prisma/client';
 
 import { PrismaService } from '@/prisma/prisma.service';
 import { CloudinaryService } from '@/uploads/cloudinary.service';
-import { AuditLogService } from '@/audit-log/audit-log.service';
+import { AuditLogService } from '@/audit-logs/audit-log.service';
 
 import { ProfilesService } from '../profiles.service';
 

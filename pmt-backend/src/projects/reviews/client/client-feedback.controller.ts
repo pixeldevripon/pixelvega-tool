@@ -16,7 +16,7 @@ import { CreateClientFeedbackDto } from '@/projects/reviews/client/dto/client-fe
 
 @ApiTags('Client Feedback')
 @ApiCookieAuth('better-auth.session_token')
-@Controller('projects/:projectId/client-feedback')
+@Controller('projects/:projectId/reviews/client')
 export class ClientFeedbackController {
   constructor(private readonly clientFeedbackService: ClientFeedbackService) {}
 

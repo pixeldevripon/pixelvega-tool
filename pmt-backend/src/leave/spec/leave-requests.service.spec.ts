@@ -12,7 +12,7 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { Role } from '@prisma/client';
 import { PrismaService } from '@/prisma/prisma.service';
-import { AuditLogService } from '@/audit-log/audit-log.service';
+import { AuditLogService } from '@/audit-logs/audit-log.service';
 import { NotificationsService } from '@/notifications/notifications.service';
 import { PermissionsService } from '@/auth/permissions/permissions.service';
 import { LeaveBalancesService } from '@/leave/requests/leave-balances.service';

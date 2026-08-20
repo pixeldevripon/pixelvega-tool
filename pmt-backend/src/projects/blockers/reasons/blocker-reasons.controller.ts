@@ -31,7 +31,7 @@ import {
 
 @ApiTags('Blocker Reasons')
 @ApiCookieAuth('better-auth.session_token')
-@Controller('blocker-reasons')
+@Controller('blockers/reasons')
 export class BlockerReasonsController {
   constructor(private readonly blockerReasonsService: BlockerReasonsService) {}
 
@@ -54,9 +54,9 @@ export class BlockerReasonsController {
 
   @ApiUpdateBlockerReasonDocs()
   @RequirePermissions(Permission.MANAGE_BLOCKER_REASONS)
-  @Patch(':id')
+  @Patch(':reasonId')
   update(
-    @Param('id') id: string,
+    @Param('reasonId') id: string,
     @Body() dto: UpdateBlockerReasonDto,
     @CurrentUser() user: { id: string },
   ) {
@@ -65,8 +65,8 @@ export class BlockerReasonsController {
 
   @ApiDeleteBlockerReasonDocs()
   @RequirePermissions(Permission.MANAGE_BLOCKER_REASONS)
-  @Delete(':id')
-  remove(@Param('id') id: string, @CurrentUser() user: { id: string }) {
+  @Delete(':reasonId')
+  remove(@Param('reasonId') id: string, @CurrentUser() user: { id: string }) {
     return this.blockerReasonsService.remove(id, user.id);
   }
 }

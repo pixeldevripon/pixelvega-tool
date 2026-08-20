@@ -67,10 +67,10 @@ export class ProjectDocumentsController {
 
   @ApiGetProjectDocumentDocs()
   @RequirePermissions(Permission.VIEW_PROJECT_DOCUMENTS)
-  @Get(':id')
+  @Get(':documentId')
   findOne(
     @Param('projectId') projectId: string,
-    @Param('id') id: string,
+    @Param('documentId') id: string,
     @CurrentUser() user: { id: string; role: Role },
   ) {
     return this.projectDocumentsService.findOne(
@@ -123,10 +123,10 @@ export class ProjectDocumentsController {
 
   @ApiUpdateProjectDocumentDocs()
   @RequirePermissions(Permission.MANAGE_PROJECT_DOCUMENTS)
-  @Patch(':id')
+  @Patch(':documentId')
   update(
     @Param('projectId') projectId: string,
-    @Param('id') id: string,
+    @Param('documentId') id: string,
     @Body() dto: UpdateProjectDocumentDto,
     @CurrentUser() user: { id: string; role: Role },
   ) {
@@ -141,10 +141,10 @@ export class ProjectDocumentsController {
 
   @ApiDeleteProjectDocumentDocs()
   @RequirePermissions(Permission.MANAGE_PROJECT_DOCUMENTS)
-  @Delete(':id')
+  @Delete(':documentId')
   remove(
     @Param('projectId') projectId: string,
-    @Param('id') id: string,
+    @Param('documentId') id: string,
     @CurrentUser() user: { id: string; role: Role },
   ) {
     return this.projectDocumentsService.remove(
