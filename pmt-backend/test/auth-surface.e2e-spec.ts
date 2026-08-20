@@ -8,6 +8,7 @@
  */
 import { INestApplication } from '@nestjs/common';
 import request from 'supertest';
+import { auth } from '@/auth/instance/auth.instance';
 import { createTestApp } from './create-test-app';
 
 describe('better-auth surface (e2e)', () => {
@@ -51,6 +52,34 @@ describe('better-auth surface (e2e)', () => {
       // And nothing that looks like a created user comes back.
       const body = response.body as { user?: { role?: string } };
       expect(body?.user?.role).toBeUndefined();
+    });
+  });
+
+  describe('sign-up is closed to HTTP but OPEN to the invite flow', () => {
+    it('still lets a server side call create an account', async () => {
+      // The regression this exists for. `emailAndPassword.disableSignUp` closes
+      // the public route AND every internal `auth.api.signUpEmail()` call,
+      // because better-auth enforces it inside the handler with no exemption.
+      // Both legitimate creation paths go through that endpoint, so the flag
+      // broke every invite and a fresh deployment's ability to bootstrap its
+      // first admin. It threw "Email and password sign up is not enabled".
+      //
+      // SignUpGuardHook closes the HTTP route instead. This asserts the other
+      // half: the internal path must still work.
+      const created = await auth.api.signUpEmail({
+        body: {
+          email: `internal-${Date.now()}@example.com`,
+          password: 'Password123!',
+          name: 'Internal Creation',
+        },
+      });
+
+      expect(created.user.id).toBeTruthy();
+      // And the caller could not choose a role: `input: false` on every
+      // additional field means the default applies whatever the body said.
+      expect((created.user as unknown as { role: string }).role).toBe(
+        'DEVELOPER',
+      );
     });
   });
 

@@ -70,12 +70,20 @@ export const auth = betterAuth({
     enabled: true,
 
     // ── There is no public sign-up ──────────────────────────────────────────
-    // Every account is created by an admin through the invite flow
-    // (UsersService.invite). Leaving this open let an anonymous caller POST to
-    // /api/auth/sign-up/email and create a user, choosing their own role in
-    // the request body: a stranger could mint themselves a SYSTEM_ADMIN row.
-    // Verified against the running app before this line existed.
-    disableSignUp: true,
+    // An anonymous caller must not be able to POST /api/auth/sign-up/email and
+    // create a user choosing their own role in the request body: a stranger
+    // could otherwise mint themselves a SYSTEM_ADMIN row.
+    //
+    // It is deliberately NOT closed with `disableSignUp: true`. better-auth
+    // enforces that flag inside its sign-up handler with NO exemption for
+    // server side `auth.api.signUpEmail()` calls, and both legitimate creation
+    // paths go through exactly that endpoint: `UsersService.invite()` and
+    // `SystemAdminBootstrapService`. Setting it broke account creation
+    // entirely, including a fresh deployment's ability to create its first
+    // admin, with "Email and password sign up is not enabled".
+    //
+    // `SignUpGuardHook` closes the HTTP route instead, refusing only requests
+    // that arrived over HTTP. Do not reintroduce `disableSignUp` here.
 
     minPasswordLength: 8,
     // Never mint a session for a server-initiated sign-up (the invite flow).
