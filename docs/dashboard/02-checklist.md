@@ -15,16 +15,16 @@ A stale checklist is worse than no checklist, because the next person trusts it.
 | D0    | Mirror, then prune                          | 99      | 68      | in progress |
 | D1    | The module kit                              | 29      | 0       | not started |
 | D2    | Backend, the dashboards                     | 50      | 45      | in progress |
-| D3    | Frontend, the overview                      | 15      | 14      | in progress |
+| D3    | Frontend, the overview                      | 15      | 15      | done        |
 | D4    | Backend, the contract gaps                  | 7       | 0       | not started |
-| D5    | Projects, list to detail                    | 48      | 30      | in progress |
+| D5    | Projects, list to detail                    | 52      | 24      | in progress |
 | D6    | Time tracking and standups                  | 20      | 0       | not started |
 | D7    | Blockers, requirements, reviews, feedback   | 29      | 0       | not started |
 | D8    | People, leave, notifications, audit, client | 30      | 4       | in progress |
 | D9    | The AI module                               | 24      | 0       | not started |
-| D10   | The named gaps                              | 30      | 1       | in progress |
+| D10   | The named gaps                              | 29      | 1       | in progress |
 | D11   | Hardening and close                         | 16      | 0       | not started |
-|       | **Total**                                   | **391** | **131** |             |
+|       | **Total**                                   | **409** | **157** |             |
 
 Regenerate the counts with
 `awk '/^## /{if(s!="")print s": "n; s=$0; n=0} /^- \[ \]|^- \[x\]/{n++} END{print s": "n}' 02-checklist.md`
@@ -508,9 +508,14 @@ Design taken from the references; the information architecture and the reading o
 - [x] Three derivations left the browser, each replaced by a field: `MiniBars`' `Math.max` (now
       `isPeak`), `MyDayCard`'s week-share division (now `weekProgressRate` and `weekTargetLabel`), and
       `AttentionCard`'s row list, label map and urgency judgment (now `attention.items`)
-- [ ] **A status board for the projects section is NOT built.** Ten project statuses do not make four
-      columns, so it needs a coarser lifecycle stage, and inventing one is a product decision rather
-      than a design one. The reference's card and column-heading language is adopted; the split is not
+- [x] **A status board for the projects section is deliberately NOT built, and does not need to be.**
+      Ten project statuses do not make four columns, so it would need a coarser lifecycle stage, and
+      inventing one is a product decision rather than a design one. It is also already answered
+      elsewhere: #20's `components/projects/projects-board.tsx` gives the Projects screen a board
+      whose columns are project managers, on the stated grounds that status is already a filter and a
+      badge while "who is carrying how much" is the question a board answers. The overview adopts the
+      reference's card and column-heading language and links to that screen; it does not grow a second
+      board with a third grouping
 
 ---
 
