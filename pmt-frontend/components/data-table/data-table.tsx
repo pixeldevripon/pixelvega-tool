@@ -1,213 +1,237 @@
-"use client";
+'use client';
 
+import * as React from 'react';
 import {
-  rowSelectionFeature,
-  tableFeatures,
-  useTable,
-  type ColumnDef,
-  type RowData,
-  type RowSelectionState,
-} from "@tanstack/react-table";
-import { ArrowDown, ArrowUp, ChevronsUpDown } from "lucide-react";
+    useReactTable,
+    getCoreRowModel,
+    getSortedRowModel,
+    getFilteredRowModel,
+    getPaginationRowModel,
+    flexRender,
+    type ColumnDef,
+    type Row,
+    type RowSelectionState,
+    type SortingState,
+    type Table as TanstackTable,
+    type VisibilityState,
+} from '@tanstack/react-table';
 import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table";
-import { cn } from "@/lib/utils";
-import type { SortOrder } from "@/components/data-table/use-table-state";
+    Table,
+    TableBody,
+    TableCell,
+    TableHead,
+    TableHeader,
+    TableRow,
+} from '@/components/ui/table';
+import { DataTableBulkBar } from './data-table-bulk-bar';
+import { DataTableEmpty, type DataTableEmptyProps } from './data-table-empty';
+import { DataTablePagination } from './data-table-pagination';
+import { contentSettle } from '@/lib/motion';
+import { motion, useReducedMotion } from 'framer-motion';
+import { DataTableSkeleton } from './data-table-skeleton';
 
 /**
- * The table every list screen renders.
+ * THE table (05 §7, G-3). Every list screen renders this - a module brings
+ * its columns, its toolbar content, its empty state and (optionally) its bulk
+ * actions, and nothing else. Do not hand-roll useReactTable + flexRender +
+ * pagination in a module again; that is how the codebase grew eleven forks of
+ * the same 300 lines.
  *
- * Server driven, completely. It receives one page of rows, already ordered and
- * already filtered, and renders them in the order given. There is no
- * `getSortedRowModel`, no `getFilteredRowModel` and no `getPaginationRowModel`,
- * and their absence is the design rather than an omission:
- *
- * - Sorting a page in the browser sorts the twenty rows you were sent, not the
- *   four hundred that matched. The answer looks right and is wrong, which is
- *   the worst kind of wrong.
- * - The same goes for filtering and for a total in a footer.
- *
- * So a header click calls `onSortChange`, which puts `sortBy` and `sortOrder`
- * in the URL, which changes the query key, which fetches the correct page (D4).
- *
- * Row selection IS local, and is the one exception: a checkbox is interaction
- * state, not data, and the server has no opinion about it.
+ * Pagination is SERVER-driven when `total`+`page`+`onPageChange` are given
+ * (the normal case), and client-side otherwise - three list endpoints
+ * (collections by destination, attributes, spotlight queue) return unpaged
+ * arrays, and the backend contract is out of scope by hard constraint.
  */
 
-/**
- * v9 requires the feature set to be declared up front rather than inferred
- * from which row model factories were passed. Selection is all this table
- * needs; everything else is the server's job.
- */
-const features = tableFeatures({ rowSelectionFeature });
-
-export type DataTableColumn<TRow extends RowData> = ColumnDef<typeof features, TRow> & {
-  /**
-   * The API's name for this column, when it can be ordered.
-   *
-   * Present means the header is clickable, and the value is sent as `sortBy`.
-   * It is the API's field name rather than the column id so that a column
-   * showing a derived label can still sort by the underlying field.
-   */
-  sortKey?: string;
-  /** Right-align a numeric column, so digits line up down the page. */
-  numeric?: boolean;
-};
-
-export interface DataTableProps<TRow extends RowData> {
-  columns: Array<DataTableColumn<TRow>>;
-  rows: TRow[];
-  /** Stable id per row. Required: selection and React keys both depend on it. */
-  getRowId: (row: TRow) => string;
-
-  sortBy?: string;
-  sortOrder?: SortOrder;
-  onSortChange?: (sortKey: string) => void;
-
-  selection?: RowSelectionState;
-  onSelectionChange?: (selection: RowSelectionState) => void;
-
-  onRowClick?: (row: TRow) => void;
-  /** Rendered in place of the body when there are no rows. */
-  empty?: React.ReactNode;
-  className?: string;
+interface ServerPagination {
+    total: number;
+    page: number;
+    limit: number;
+    onPageChange: (page: number) => void;
+    onLimitChange: (limit: number) => void;
 }
 
-function SortIcon({ active, order }: { active: boolean; order?: SortOrder }) {
-  if (!active) {
-    return <ChevronsUpDown className="size-3.5 opacity-50" aria-hidden />;
-  }
-  return order === "asc" ? (
-    <ArrowUp className="size-3.5" aria-hidden />
-  ) : (
-    <ArrowDown className="size-3.5" aria-hidden />
-  );
+export interface DataTableProps<TData> {
+    columns: ColumnDef<TData, any>[];
+    data: TData[];
+    isLoading?: boolean;
+    /** Server pagination; omit entirely for client-side paging. */
+    pagination?: ServerPagination;
+    empty: DataTableEmptyProps;
+    /** Toolbar row above the table (search, filters, actions). */
+    toolbar?: (table: TanstackTable<TData>) => React.ReactNode;
+    /** Bulk actions; rendering is handled - return only the buttons. */
+    bulkActions?: (
+        rows: Row<TData>[],
+        clearSelection: () => void,
+    ) => React.ReactNode;
+    getRowId?: (row: TData) => string;
+    onRowClick?: (row: TData) => void;
+    /** Rows rendered by the loading skeleton (match expected page size). */
+    skeletonRows?: number;
 }
 
-export function DataTable<TRow extends RowData>({
-  columns,
-  rows,
-  getRowId,
-  sortBy,
-  sortOrder,
-  onSortChange,
-  selection,
-  onSelectionChange,
-  onRowClick,
-  empty,
-  className,
-}: DataTableProps<TRow>) {
-  const table = useTable({
-    features,
+export function DataTable<TData>({
     columns,
-    data: rows,
+    data,
+    isLoading = false,
+    pagination,
+    empty,
+    toolbar,
+    bulkActions,
     getRowId,
-    state: selection ? { rowSelection: selection } : undefined,
-    onRowSelectionChange: onSelectionChange
-      ? (updater) =>
-          onSelectionChange(
-            typeof updater === "function" ? updater(selection ?? {}) : updater,
-          )
-      : undefined,
-    enableRowSelection: Boolean(onSelectionChange),
-  });
+    onRowClick,
+    skeletonRows = 8,
+}: DataTableProps<TData>) {
+    const reduceMotion = useReducedMotion();
+    const [sorting, setSorting] = React.useState<SortingState>([]);
+    const [columnVisibility, setColumnVisibility] =
+        React.useState<VisibilityState>({});
+    const [rowSelection, setRowSelection] = React.useState<RowSelectionState>(
+        {},
+    );
 
-  const headerGroups = table.getHeaderGroups();
-  const bodyRows = table.getRowModel().rows;
+    const server = pagination != null;
 
-  return (
-    <div
-      className={cn(
-        // The table scrolls inside its own box. Without this a wide table makes
-        // the whole page scroll sideways, taking the navigation with it.
-        "w-full overflow-x-auto rounded-lg border border-border bg-card",
-        className,
-      )}
-    >
-      <Table>
-        <TableHeader>
-          {headerGroups.map((headerGroup) => (
-            <TableRow key={headerGroup.id}>
-              {headerGroup.headers.map((header) => {
-                const column = header.column.columnDef as DataTableColumn<TRow>;
-                const sortKey = column.sortKey;
-                const isSorted = Boolean(sortKey) && sortKey === sortBy;
+    const table = useReactTable({
+        data,
+        columns,
+        state: { sorting, columnVisibility, rowSelection },
+        onSortingChange: setSorting,
+        onColumnVisibilityChange: setColumnVisibility,
+        onRowSelectionChange: setRowSelection,
+        getCoreRowModel: getCoreRowModel(),
+        getSortedRowModel: getSortedRowModel(),
+        getFilteredRowModel: getFilteredRowModel(),
+        ...(server
+            ? {
+                  manualPagination: true,
+                  pageCount: Math.max(
+                      1,
+                      Math.ceil(pagination.total / pagination.limit),
+                  ),
+              }
+            : {
+                  getPaginationRowModel: getPaginationRowModel(),
+                  initialState: { pagination: { pageSize: 20 } },
+              }),
+        ...(getRowId ? { getRowId } : {}),
+    });
 
-                return (
-                  <TableHead
-                    key={header.id}
-                    className={cn(column.numeric && "text-right")}
-                    aria-sort={
-                      isSorted
-                        ? sortOrder === "asc"
-                          ? "ascending"
-                          : "descending"
-                        : undefined
-                    }
-                  >
-                    {header.isPlaceholder ? null : sortKey && onSortChange ? (
-                      <button
-                        type="button"
-                        onClick={() => onSortChange(sortKey)}
-                        className={cn(
-                          "inline-flex items-center gap-1.5 rounded-sm font-semibold transition-colors hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
-                          column.numeric && "flex-row-reverse",
-                          isSorted && "text-foreground",
-                        )}
-                      >
-                        <table.FlexRender header={header} />
-                        <SortIcon active={isSorted} order={sortOrder} />
-                      </button>
-                    ) : (
-                      <table.FlexRender header={header} />
-                    )}
-                  </TableHead>
-                );
-              })}
-            </TableRow>
-          ))}
-        </TableHeader>
+    const selectedRows = table.getFilteredSelectedRowModel().rows;
+    const clearSelection = React.useCallback(
+        () => setRowSelection({}),
+        [setRowSelection],
+    );
 
-        <TableBody>
-          {bodyRows.length === 0 ? (
-            <TableRow className="hover:bg-transparent">
-              <TableCell colSpan={columns.length} className="p-0">
-                {empty}
-              </TableCell>
-            </TableRow>
-          ) : (
-            bodyRows.map((row) => (
-              <TableRow
-                key={row.id}
-                data-state={row.getIsSelected() ? "selected" : undefined}
-                // A whole-row link is convenient but must not swallow the
-                // keyboard: the primary cell carries a real link or button, and
-                // this is an addition for pointer users only.
-                onClick={onRowClick ? () => onRowClick(row.original) : undefined}
-                className={cn(onRowClick && "cursor-pointer")}
-              >
-                {row.getAllCells().map((cell) => {
-                  const column = cell.column.columnDef as DataTableColumn<TRow>;
-                  return (
-                    <TableCell
-                      key={cell.id}
-                      className={cn(column.numeric && "text-right tabular-nums")}
-                    >
-                      <table.FlexRender cell={cell} />
-                    </TableCell>
-                  );
-                })}
-              </TableRow>
-            ))
-          )}
-        </TableBody>
-      </Table>
-    </div>
-  );
+    return (
+        <div className='space-y-4'>
+            {toolbar && (
+                <div className='flex flex-wrap items-center gap-2'>
+                    {toolbar(table)}
+                </div>
+            )}
+
+            {bulkActions && selectedRows.length > 0 && (
+                <DataTableBulkBar count={selectedRows.length}>
+                    {bulkActions(selectedRows, clearSelection)}
+                </DataTableBulkBar>
+            )}
+
+            {isLoading ? (
+                <DataTableSkeleton
+                    columns={columns.length}
+                    rows={skeletonRows}
+                />
+            ) : (
+                /* Fades in rather than replacing the skeleton outright. This
+                   swap fires on EVERY list page the moment its query resolves,
+                   and as a bare ternary it was the most-seen hard cut in the
+                   dashboard. Fade-only and short on purpose: `DataTableSkeleton`
+                   already mirrors the real row height, so the rows land where
+                   the placeholder sat and there is nothing to slide into place
+                   - adding y travel here would read as a jump, not a settle.
+                   `initial={false}` under reduced motion so it appears at once. */
+                <motion.div
+                    initial={reduceMotion ? false : { opacity: 0 }}
+                    animate={{ opacity: 1 }}
+                    transition={contentSettle}
+                    className='overflow-hidden rounded-lg border border-line bg-surface-raised'>
+                    <Table>
+                        <TableHeader>
+                            {table.getHeaderGroups().map((headerGroup) => (
+                                <TableRow key={headerGroup.id}>
+                                    {headerGroup.headers.map((header) => (
+                                        <TableHead
+                                            key={header.id}
+                                            style={{
+                                                width:
+                                                    header.getSize() !== 150
+                                                        ? header.getSize()
+                                                        : undefined,
+                                            }}>
+                                            {header.isPlaceholder
+                                                ? null
+                                                : flexRender(
+                                                      header.column.columnDef
+                                                          .header,
+                                                      header.getContext(),
+                                                  )}
+                                        </TableHead>
+                                    ))}
+                                </TableRow>
+                            ))}
+                        </TableHeader>
+                        <TableBody>
+                            {table.getRowModel().rows.length === 0 ? (
+                                <TableRow>
+                                    <TableCell
+                                        colSpan={columns.length}
+                                        className='h-40 text-center'>
+                                        <DataTableEmpty {...empty} />
+                                    </TableCell>
+                                </TableRow>
+                            ) : (
+                                table.getRowModel().rows.map((row) => (
+                                    <TableRow
+                                        key={row.id}
+                                        data-state={
+                                            row.getIsSelected()
+                                                ? 'selected'
+                                                : undefined
+                                        }
+                                        onClick={
+                                            onRowClick
+                                                ? () =>
+                                                      onRowClick(row.original)
+                                                : undefined
+                                        }
+                                        className={
+                                            onRowClick
+                                                ? 'cursor-pointer'
+                                                : undefined
+                                        }>
+                                        {row.getVisibleCells().map((cell) => (
+                                            <TableCell key={cell.id}>
+                                                {flexRender(
+                                                    cell.column.columnDef.cell,
+                                                    cell.getContext(),
+                                                )}
+                                            </TableCell>
+                                        ))}
+                                    </TableRow>
+                                ))
+                            )}
+                        </TableBody>
+                    </Table>
+                </motion.div>
+            )}
+
+            <DataTablePagination
+                table={table}
+                pagination={pagination}
+                isLoading={isLoading}
+            />
+        </div>
+    );
 }

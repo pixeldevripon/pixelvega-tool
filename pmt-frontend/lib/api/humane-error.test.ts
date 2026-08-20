@@ -1,106 +1,76 @@
-import { describe, expect, it } from "vitest";
-import { extractApiMessage, humaneError } from "@/lib/api/humane-error";
+import { describe, expect, it } from 'vitest';
+import {
+    ApiError,
+    humaneMessage,
+    SERVER_MESSAGE,
+    SESSION_MESSAGE,
+    THROTTLE_MESSAGE,
+} from './humane-error';
 
-describe("extractApiMessage", () => {
-  it("reads a single string message", () => {
-    expect(extractApiMessage({ message: "Project not found" })).toBe(
-      "Project not found",
-    );
-  });
+describe('humaneMessage', () => {
+    it('rewrites the bare 500 fallback instead of printing "Internal server error"', () => {
+        expect(
+            humaneMessage(500, { statusCode: 500, message: 'Internal server error' }),
+        ).toBe(SERVER_MESSAGE);
+        expect(humaneMessage(500, undefined)).toBe(SERVER_MESSAGE);
+        expect(humaneMessage(502, null)).toBe(SERVER_MESSAGE);
+    });
 
-  it("joins the array class-validator produces for several broken rules", () => {
-    expect(
-      extractApiMessage({
-        message: ["name should not be empty", "deadline must be a date"],
-      }),
-    ).toBe("name should not be empty deadline must be a date");
-  });
+    it('keeps deliberate 5xx copy (the backend answers 503 with real sentences)', () => {
+        const copy =
+            'The AI provider rejected the API key - check it under Settings.';
+        expect(humaneMessage(503, { message: copy })).toBe(copy);
+    });
 
-  it("drops empty entries rather than leaving double spaces", () => {
-    expect(extractApiMessage({ message: ["a", "", "b"] })).toBe("a b");
-  });
+    it('passes 4xx business copy through verbatim', () => {
+        const copy = 'This project still has 3 open blockers. Resolve them first.';
+        expect(humaneMessage(409, { message: copy })).toBe(copy);
+    });
 
-  it("accepts a bare string body", () => {
-    expect(extractApiMessage("Gateway timeout")).toBe("Gateway timeout");
-  });
+    it('joins validation arrays and caps them at three lines', () => {
+        expect(
+            humaneMessage(400, { message: ['name should not be empty', 'price must be positive'] }),
+        ).toBe('name should not be empty; price must be positive');
+        expect(
+            humaneMessage(400, { message: ['a', 'b', 'c', 'd', 'e'] }),
+        ).toBe('a; b; c (+2 more)');
+    });
 
-  it.each([
-    ["null", null],
-    ["undefined", undefined],
-    ["a number", 42],
-    ["an object with no message", { statusCode: 500 }],
-    ["a whitespace-only message", { message: "   " }],
-    ["an empty array", { message: [] }],
-    ["an empty string", ""],
-  ])("returns null for %s", (_label, payload) => {
-    expect(extractApiMessage(payload)).toBeNull();
-  });
+    it('maps throttling to a wait message regardless of phrasing', () => {
+        expect(humaneMessage(429, { message: 'ThrottlerException: Too Many Requests' })).toBe(
+            THROTTLE_MESSAGE,
+        );
+        expect(humaneMessage(429, undefined)).toBe(THROTTLE_MESSAGE);
+    });
+
+    it('turns bare framework 401/403 into instructions, but keeps real copy', () => {
+        expect(humaneMessage(401, { message: 'Unauthorized' })).toBe(SESSION_MESSAGE);
+        expect(humaneMessage(401, { message: 'Current password is incorrect.' })).toBe(
+            'Current password is incorrect.',
+        );
+        expect(humaneMessage(403, { message: 'Forbidden resource' })).toBe(
+            "You don't have permission to do that.",
+        );
+        expect(
+            humaneMessage(403, { message: 'Only admins can approve leave.' }),
+        ).toBe('Only admins can approve leave.');
+    });
+
+    it('gives empty bodies a status-appropriate fallback', () => {
+        expect(humaneMessage(404, undefined)).toBe(
+            'That record could not be found - it may have been deleted in the meantime.',
+        );
+        expect(humaneMessage(418, undefined)).toBe(
+            'The request failed (HTTP 418). Try again.',
+        );
+    });
 });
 
-describe("humaneError", () => {
-  it("prefers the API's own wording, because it is more specific than ours", () => {
-    expect(
-      humaneError(409, { message: "This project already has an open feedback round." }),
-    ).toBe("This project already has an open feedback round.");
-  });
-
-  it("falls back to status copy when there is no message", () => {
-    expect(humaneError(403)).toBe("You do not have permission to do that.");
-  });
-
-  it.each([
-    [400, "Some of the details are not valid. Check the highlighted fields and try again."],
-    [401, "Your session has ended. Sign in again to continue."],
-    [404, "That item no longer exists. It may have been deleted or renamed."],
-    [408, "The request took too long. Check your connection and try again."],
-    [429, "Too many requests. Wait a moment and try again."],
-    [500, "Something went wrong on our side. Try again in a moment."],
-    [503, "The service is temporarily unavailable. Try again in a moment."],
-  ])("maps %i to its own sentence", (status, expected) => {
-    expect(humaneError(status)).toBe(expected);
-  });
-
-  it("treats status 0 as no server rather than a server error", () => {
-    expect(humaneError(0)).toBe(
-      "Cannot reach the server. Check your connection and try again.",
-    );
-  });
-
-  it("points an unmapped 4xx at the request", () => {
-    expect(humaneError(418)).toBe(humaneError(400));
-  });
-
-  it("apologises for an unmapped 5xx", () => {
-    expect(humaneError(599)).toBe("Something went wrong. Try again in a moment.");
-  });
-
-  describe("rejects text that was written for a log, not a person", () => {
-    it.each([
-      ["an HTML error page", "<html><head><title>502 Bad Gateway</title></head>"],
-      ["a stack frame", "TypeError: x is undefined\n    at handler (/app/dist/main.js:1:1)"],
-      ["raw JSON", '{"code":"P2002","meta":{"target":["email"]}}'],
-      ["a socket error", "connect ECONNREFUSED 127.0.0.1:5432"],
-      ["a Prisma error name", "PrismaClientKnownRequestError: invalid invocation"],
-    ])("%s", (_label, raw) => {
-      expect(humaneError(502, { message: raw })).toBe(
-        "The server is unreachable. Try again in a moment.",
-      );
+describe('ApiError', () => {
+    it('is an Error (existing `err instanceof Error` guards keep working) and carries the status', () => {
+        const err = new ApiError('msg', 409, { message: 'msg' });
+        expect(err).toBeInstanceOf(Error);
+        expect(err.status).toBe(409);
+        expect(err.message).toBe('msg');
     });
-
-    it("a message too long to be a sentence", () => {
-      const wall = "detail ".repeat(100);
-      expect(humaneError(500, { message: wall })).toBe(
-        "Something went wrong on our side. Try again in a moment.",
-      );
-    });
-  });
-
-  it("keeps a long-but-plausible validation message under the length bound", () => {
-    const message = [
-      "name must be shorter than or equal to 120 characters",
-      "deadline must be a valid ISO 8601 date string",
-      "estimatedHours must not be less than 0",
-    ];
-    expect(humaneError(400, { message })).toBe(message.join(" "));
-  });
 });

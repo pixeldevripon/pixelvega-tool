@@ -1,49 +1,45 @@
-import * as React from "react";
-import { cn } from "@/lib/utils";
-import type { DisplayTone } from "@/types/permissions";
+import { cva, type VariantProps } from 'class-variance-authority';
+import { Slot } from 'radix-ui';
+import * as React from 'react';
 
-/**
- * A status, rendered in the tone the SERVER chose.
- *
- * The five tones are not a styling menu. They are `DISPLAY_TONES` in
- * `pmt-backend/src/common/dto/display.dto.ts`, and every enum in every response
- * arrives as `{ value, label, tone }`. Deciding that a project waiting on a
- * client reads as a warning while one on hold reads as danger is a judgment
- * about the business, and two clients must not be free to disagree about it
- * (ADR 0001).
- *
- * So this component's entire job is mapping a tone name onto a class. It has no
- * variants of its own, and a sixth tone is a change to both projects.
- *
- * This is also why it is NOT the registry's badge: that one is keyed on
- * `variant` (`default` / `secondary` / `destructive` / `outline`), which cannot
- * express the vocabulary the API speaks.
- */
-const toneClasses: Record<DisplayTone, string> = {
-  default: "bg-muted text-muted-foreground",
-  primary: "bg-accent text-accent-foreground",
-  // Tokens rather than `bg-emerald-100 dark:bg-emerald-950`. The values are
-  // identical; what changes is that the light and dark pair now lives in
-  // `globals.css` beside every other colour, instead of a manual `dark:`
-  // override that only this file knows about.
-  success: "bg-success-surface text-success-foreground",
-  warning: "bg-warning-surface text-warning-foreground",
-  danger: "bg-danger-surface text-danger-foreground",
-};
+import { cn } from '@/lib/utils';
 
-export function Badge({
-  className,
-  tone = "default",
-  ...props
-}: React.HTMLAttributes<HTMLSpanElement> & { tone?: DisplayTone }) {
-  return (
-    <span
-      className={cn(
-        "inline-flex items-center rounded-md px-2.5 py-1 text-xs font-bold",
-        toneClasses[tone],
-        className,
-      )}
-      {...props}
-    />
-  );
+const badgeVariants = cva(
+    'group/badge inline-flex w-fit shrink-0 items-center justify-center gap-1.5 overflow-hidden rounded-full border-0 bg-transparent px-0 py-0 text-2xs font-medium whitespace-nowrap transition-colors focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50 has-data-[icon=inline-end]:pr-0 has-data-[icon=inline-start]:pl-0 aria-invalid:border-destructive aria-invalid:ring-destructive/20 dark:aria-invalid:ring-destructive/40 [&>svg]:pointer-events-none [&>svg]:size-3!',
+    {
+        variants: {
+            variant: {
+                default: 'text-foreground [a]:hover:text-foreground/70',
+                secondary: 'text-muted-foreground [a]:hover:text-foreground',
+                destructive:
+                    'text-destructive focus-visible:ring-destructive/20 dark:focus-visible:ring-destructive/40 [a]:hover:text-destructive/70',
+                outline: 'text-foreground [a]:hover:text-foreground/70',
+                ghost: 'text-muted-foreground hover:text-foreground',
+                link: 'text-foreground underline-offset-4 hover:underline',
+            },
+        },
+        defaultVariants: { variant: 'default' },
+    }
+);
+
+function Badge({
+    className,
+    variant = 'default',
+    asChild = false,
+    ...props
+}: React.ComponentProps<'span'> &
+    VariantProps<typeof badgeVariants> & { asChild?: boolean }) {
+    const Comp = asChild ? Slot.Root : 'span';
+
+    return (
+        <Comp
+            data-slot='badge'
+            data-variant={variant}
+            className={cn(badgeVariants({ variant }), className)}
+            {...props}
+        />
+    );
 }
+
+export { Badge, badgeVariants };
+

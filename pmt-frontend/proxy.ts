@@ -1,118 +1,143 @@
-import { NextResponse } from "next/server";
-import type { NextRequest } from "next/server";
+import { getSessionCookie } from 'better-auth/cookies';
+import type { NextRequest } from 'next/server';
+import { NextResponse } from 'next/server';
 
 /**
- * An optimistic session check, and nothing more.
+ * The route guard (Next 16's renamed middleware).
  *
- * `proxy.ts` is what Next.js 16 calls the file that used to be `middleware.ts`.
- * The name change is the library's, and it describes the job better: this runs
- * before a route renders, on the edge, with no access to the database and no
- * business doing authorization.
- *
- * ## What this does, and what it deliberately does not
- *
- * It looks for the SHAPE of a session cookie. It does not read the cookie, does
- * not verify its signature, does not call the API, and does not know who the
- * user is. Three reasons, in order of how much they matter:
- *
- * 1. **The API is the control, and must stay the only one.** Every endpoint runs
- *    `AuthGuard` then `PermissionsGuard`. A check here that looked
- *    authoritative would become a second place where access is decided, and the
- *    two would eventually disagree. When they do, the one in the browser's
- *    request path is the one an attacker gets to skip.
- * 2. **A network call here is on the critical path of every navigation.** Next's
- *    own guidance is explicit that proxy is not for data fetching: it would add
- *    a round trip to the API before any HTML is sent, on every request.
- * 3. **A forged cookie gains nothing.** Setting `better-auth.session_token` to
- *    any value at all gets you past this and onto a dashboard shell whose every
- *    request then 401s. That is the same outcome as before, one screen later.
- *
- * So what is it FOR? A flash. Without it, an expired session renders the whole
- * dashboard chrome, fires a dozen requests, collects a dozen 401s and only then
- * redirects to sign in. This turns that into a redirect before anything is
- * drawn.
- *
- * ## The deployment constraint, which is real
- *
- * The cookie is set by the API on the API's own host. This code runs on the
- * dashboard's host. It can only see the cookie if the browser sends it to both,
- * which is true when they share a registrable domain (`api.example.com` and
- * `app.example.com`), and true in development because cookies ignore the port
- * so `localhost:5050` and `localhost:3000` are one host.
- *
- * If a deployment ever puts them on unrelated domains, this guard would see no
- * cookie for a perfectly valid session and redirect every signed-in user to the
- * sign-in page. `SESSION_GUARD=off` turns it off for exactly that case. It is
- * a server-side variable on purpose: `NEXT_PUBLIC_` would inline it into the
- * bundle, and this is not a decision a browser participates in.
+ * Everything not listed in `UNGUARDED_PREFIXES` is the app, and the app needs a
+ * session. That is the inverse of a public site with an admin area behind a
+ * prefix: here there is nothing public to serve.
  */
 
 /**
- * better-auth's default cookie name. `__Secure-` is prefixed automatically when
- * the library infers a secure context from its base URL, so both are checked.
- * No `cookiePrefix` is configured in `auth.instance.ts`; if one is ever added,
- * this list is the other half of that change.
- */
-const SESSION_COOKIES = [
-  "better-auth.session_token",
-  "__Secure-better-auth.session_token",
-];
-
-/** Signed-in users have no business on these, and get sent to their dashboard. */
-const ANONYMOUS_ONLY = ["/login", "/forgot-password"];
-
-/**
- * Where an unauthenticated visitor is sent, and where they come back to.
+ * Optimistic guard: redirect to the sign-in page only when the session cookie is
+ * absent. This is deliberately a cookie-PRESENCE check, never a backend call.
  *
- * The original path travels as `next` so that a link into a specific project
- * survives the sign-in it triggered.
+ * The guard runs on every navigation AND every `<Link>` prefetch. An earlier
+ * version of this file fetched `/api/auth/get-session` here with no internal
+ * API key, so each of those requests counted against both the NestJS per-IP
+ * throttle and better-auth's own limiter. In production the browser, this
+ * guard, and SSR all reach the backend as one egress IP, so the get-session
+ * storm exhausted the shared bucket after a few pages. A throttled 429 then
+ * read as "no session" and bounced a signed-in user to the login page, whose
+ * sign-in POST hit the same exhausted bucket.
+ *
+ * KEEP THIS FUNCTION FREE OF NETWORK CALLS. That property is the whole point.
+ *
+ * Authoritative validation still happens one hop later: the app layout reads
+ * the session server-side, forwarding the internal key so it bypasses the
+ * throttle, and redirects if the cookie is stale. A well-formed but expired
+ * cookie therefore passes here and is caught there.
+ *
+ * A genuinely MALFORMED cookie is the case worth special handling. It would
+ * pass a naive presence check, fail server validation on every request, and the
+ * browser would keep resending the broken value: a redirect loop. So the shape
+ * is checked and the cookies are STRIPPED on the way out, forcing a clean
+ * sign-in instead.
  */
-const SIGN_IN_PATH = "/login";
+function guardApp(request: NextRequest) {
+    const sessionToken = getSessionCookie(request);
 
-function hasSessionCookie(request: NextRequest): boolean {
-  return SESSION_COOKIES.some((name) => Boolean(request.cookies.get(name)?.value));
+    if (!sessionToken) {
+        return NextResponse.redirect(signInUrl(request));
+    }
+
+    // A valid better-auth session cookie is exactly `<token>.<signature>`: two
+    // non-empty segments. Anything else (no dot, an empty segment, or extra
+    // segments from tampering) is corrupt.
+    const parts = sessionToken.split('.');
+    if (parts.length !== 2 || !parts[0] || !parts[1]) {
+        const response = NextResponse.redirect(signInUrl(request));
+        clearSessionCookies(request, response);
+        return response;
+    }
+
+    return NextResponse.next();
 }
 
-export function proxy(request: NextRequest) {
-  // The escape hatch for a split-domain deployment. Checked first so that
-  // turning the guard off cannot be defeated by anything below it.
-  if (process.env.SESSION_GUARD === "off") return NextResponse.next();
+/**
+ * The sign-in URL, carrying where the visitor was trying to go.
+ *
+ * `next` is read back by the sign-in card through `safeRedirect`, which refuses
+ * anything that is not a same-origin path. Without that check this parameter
+ * would be an open redirect on the login page, which is a phishing primitive.
+ */
+function signInUrl(request: NextRequest): URL {
+    const url = new URL('/login', request.url);
+    const { pathname, search } = request.nextUrl;
+    if (pathname !== '/') {
+        url.searchParams.set('next', `${pathname}${search}`);
+    }
+    return url;
+}
 
-  const { pathname, search } = request.nextUrl;
-  const hasSession = hasSessionCookie(request);
+/**
+ * Expire every better-auth session cookie present on the request (the token and
+ * the data cookie, in both plain and `__Secure-` prefixed forms). Deleting by
+ * the exact names seen on the request preserves whatever prefix the deployment
+ * uses and is a no-op for names that are absent.
+ *
+ * If production ever sets the cookie on a parent domain
+ * (better-auth's `crossSubDomainCookies`), the delete MUST echo the same
+ * `domain` and `path`: a host-scoped delete does not match a domain-scoped
+ * cookie, so the strip would silently no-op exactly where it matters. That is
+ * what `COOKIE_DOMAIN` is for, and it must stay in step with the backend's auth
+ * instance.
+ */
+function clearSessionCookies(request: NextRequest, response: NextResponse) {
+    const domain =
+        process.env.NODE_ENV === 'production'
+            ? process.env.COOKIE_DOMAIN
+            : undefined;
 
-  if (!hasSession && pathname.startsWith("/dashboard")) {
-    const url = request.nextUrl.clone();
-    url.pathname = SIGN_IN_PATH;
-    url.search = "";
-    // `pathname + search` rather than the full URL: a caller-controlled
-    // absolute URL in a redirect param is an open redirect, and this value is
-    // read back by the sign-in page.
-    url.searchParams.set("next", `${pathname}${search}`);
-    return NextResponse.redirect(url);
-  }
+    for (const { name } of request.cookies.getAll()) {
+        if (name.includes('session_token') || name.includes('session_data')) {
+            response.cookies.delete({
+                name,
+                path: '/',
+                ...(domain && { domain }),
+            });
+        }
+    }
+}
 
-  if (hasSession && ANONYMOUS_ONLY.includes(pathname)) {
-    const url = request.nextUrl.clone();
-    url.pathname = "/dashboard";
-    url.search = "";
-    return NextResponse.redirect(url);
-  }
+/**
+ * Paths that must NOT hit the session guard.
+ *
+ * The signed-out screens, because guarding them is a redirect loop: no session
+ * sends you to `/login`, which has no session, which sends you to `/login`.
+ *
+ * `/set-password` and `/reset-password` are reached from an emailed link, very
+ * often on a phone with no session at all. Guarding them would bounce the link
+ * and drop the `?token=` it exists to read. They are safe to leave open because
+ * the single-use token IS the credential, which is also why the backend route
+ * that redeems it is `@Public`.
+ */
+const UNGUARDED_PREFIXES = [
+    '/login',
+    '/set-password',
+    '/reset-password',
+    '/api',
+];
 
-  return NextResponse.next();
+function isUnguarded(pathname: string): boolean {
+    return UNGUARDED_PREFIXES.some(
+        (prefix) => pathname === prefix || pathname.startsWith(`${prefix}/`),
+    );
+}
+
+export async function proxy(request: NextRequest) {
+    const { pathname } = request.nextUrl;
+
+    if (isUnguarded(pathname)) {
+        return NextResponse.next();
+    }
+
+    return guardApp(request);
 }
 
 export const config = {
-  /**
-   * Only the paths where the answer can change what renders.
-   *
-   * Without a matcher this runs on every request including `_next/static`,
-   * `_next/image` and everything in `public/`, so a redirect intended for a
-   * page would also fire for a stylesheet and the app would load unstyled.
-   *
-   * `/change-password` and `/profile-setup` are deliberately absent: an invited
-   * user reaches them mid-flow and the API decides whether they are allowed to
-   * be there, from `mustResetPassword` rather than from having a cookie.
-   */
-  matcher: ["/dashboard/:path*", "/login", "/forgot-password"],
+    // Everything except Next internals and files with an extension.
+    matcher: ['/((?!_next/static|_next/image|favicon.ico|.*\\..*).*)'],
 };

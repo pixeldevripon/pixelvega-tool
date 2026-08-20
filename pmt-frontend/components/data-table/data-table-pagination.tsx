@@ -1,120 +1,87 @@
-"use client";
+'use client';
 
-import { ChevronLeft, ChevronRight } from "lucide-react";
-import { Button } from "@/components/ui/button";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
-import { cn } from "@/lib/utils";
+import { HugeiconsIcon } from '@hugeicons/react';
+import { ArrowLeft01Icon, ArrowLeftDoubleIcon, ArrowRight01Icon, ArrowRightDoubleIcon } from '@hugeicons/core-free-icons';
 
-/**
- * Pagination for a list the server paginated.
- *
- * Everything shown here is arithmetic on `total`, `page` and `pageSize`, which
- * the API already sent in every paginated response as `{ items, total, page,
- * pageSize }`. Counting the rows on screen instead would say "20 of 20" on
- * every page of a four hundred row list, which is the bug this replaces.
- *
- * The page count is computed rather than requested, and that is the one
- * exception to "the backend serves everything": it is a division that cannot
- * disagree with itself, has no business rule in it, and two clients doing it
- * independently cannot produce different answers.
- */
+import type { Table } from '@tanstack/react-table';
+import { Button } from '@/components/ui/button';
 
-export const PAGE_SIZE_OPTIONS = [10, 20, 50, 100] as const;
-
-export interface DataTablePaginationProps {
-  page: number;
-  pageSize: number;
-  /** Rows matching the filters, across every page. Not the length of this page. */
-  total: number;
-  onPageChange: (page: number) => void;
-  onPageSizeChange: (pageSize: number) => void;
-  /** Word for one row, so the count reads as English on every screen. */
-  itemLabel?: string;
-  className?: string;
+interface ServerPagination {
+    total: number;
+    page: number;
+    limit: number;
+    onPageChange: (page: number) => void;
+    onLimitChange: (limit: number) => void;
 }
 
-export function DataTablePagination({
-  page,
-  pageSize,
-  total,
-  onPageChange,
-  onPageSizeChange,
-  itemLabel = "result",
-  className,
-}: DataTablePaginationProps) {
-  const pageCount = Math.max(1, Math.ceil(total / pageSize));
-  const first = total === 0 ? 0 : (page - 1) * pageSize + 1;
-  const last = Math.min(page * pageSize, total);
-  const plural = total === 1 ? itemLabel : `${itemLabel}s`;
+interface DataTablePaginationProps<TData> {
+    table: Table<TData>;
+    /** Present = server-driven; absent = TanStack client paging. */
+    pagination?: ServerPagination;
+    isLoading?: boolean;
+}
 
-  return (
-    <div
-      className={cn(
-        "flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between",
-        className,
-      )}
-    >
-      <p className="text-sm text-muted-foreground tabular-nums">
-        {total === 0
-          ? `No ${plural}`
-          : `${first} to ${last} of ${total} ${plural}`}
-      </p>
+export function DataTablePagination<TData>({
+    table,
+    pagination,
+    isLoading = false,
+}: DataTablePaginationProps<TData>) {
+    const server = pagination != null;
 
-      <div className="flex items-center gap-4">
-        <div className="flex items-center gap-2">
-          <label
-            htmlFor="data-table-page-size"
-            className="text-sm text-muted-foreground"
-          >
-            Per page
-          </label>
-          <Select
-            value={String(pageSize)}
-            onValueChange={(value) => onPageSizeChange(Number(value))}
-          >
-            <SelectTrigger id="data-table-page-size" className="w-20">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              {PAGE_SIZE_OPTIONS.map((option) => (
-                <SelectItem key={option} value={String(option)}>
-                  {option}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+    const page = server
+        ? pagination.page
+        : table.getState().pagination.pageIndex + 1;
+    const totalPages = server
+        ? Math.max(1, Math.ceil(pagination.total / pagination.limit))
+        : Math.max(1, table.getPageCount());
+
+    const goTo = (next: number) => {
+        if (server) pagination.onPageChange(next);
+        else table.setPageIndex(next - 1);
+    };
+
+    return (
+        // Page size is fixed at 20 (use-table-state / DataTable defaults);
+        // the rows-per-page selector was removed on purpose, so the pager
+        // sits alone on the right.
+        <div className='flex items-center justify-end px-1'>
+            <div className='flex items-center gap-1'>
+                <span className='mr-2 text-xs tabular-nums text-muted-foreground'>
+                    Page {page} of {totalPages}
+                </span>
+                <Button
+                    variant='outline'
+                    size='icon-sm'
+                    aria-label='First page'
+                    onClick={() => goTo(1)}
+                    disabled={isLoading || page <= 1}>
+                    <HugeiconsIcon icon={ArrowLeftDoubleIcon} />
+                </Button>
+                <Button
+                    variant='outline'
+                    size='icon-sm'
+                    aria-label='Previous page'
+                    onClick={() => goTo(page - 1)}
+                    disabled={isLoading || page <= 1}>
+                    <HugeiconsIcon icon={ArrowLeft01Icon} />
+                </Button>
+                <Button
+                    variant='outline'
+                    size='icon-sm'
+                    aria-label='Next page'
+                    onClick={() => goTo(page + 1)}
+                    disabled={isLoading || page >= totalPages}>
+                    <HugeiconsIcon icon={ArrowRight01Icon} />
+                </Button>
+                <Button
+                    variant='outline'
+                    size='icon-sm'
+                    aria-label='Last page'
+                    onClick={() => goTo(totalPages)}
+                    disabled={isLoading || page >= totalPages}>
+                    <HugeiconsIcon icon={ArrowRightDoubleIcon} />
+                </Button>
+            </div>
         </div>
-
-        <div className="flex items-center gap-2">
-          <span className="text-sm text-muted-foreground tabular-nums">
-            Page {page} of {pageCount}
-          </span>
-          <Button
-            variant="outline"
-            size="icon"
-            onClick={() => onPageChange(page - 1)}
-            disabled={page <= 1}
-            aria-label="Previous page"
-          >
-            <ChevronLeft className="size-4" aria-hidden />
-          </Button>
-          <Button
-            variant="outline"
-            size="icon"
-            onClick={() => onPageChange(page + 1)}
-            disabled={page >= pageCount}
-            aria-label="Next page"
-          >
-            <ChevronRight className="size-4" aria-hidden />
-          </Button>
-        </div>
-      </div>
-    </div>
-  );
+    );
 }

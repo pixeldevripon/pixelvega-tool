@@ -1,131 +1,95 @@
 /**
- * Turning a failed response into one sentence a person can act on.
+ * The single place technical API failures become words a user can act on.
  *
- * Pure by design: no `fetch`, no React, no imports from this package. That is
- * what makes it testable without a DOM and reusable from a server component,
- * and it is why the retry and abort logic lives next door in `fetch.ts` rather
- * than here.
- *
- * The contract with the API (`pmt-backend/src/common/dto/error-responses.dto.ts`)
- * is that `message` is written for a human and safe to render verbatim. This
- * module exists for the cases where that promise cannot be kept: a proxy
- * returning HTML, a gateway timing out before Nest is reached, a 500 whose
- * message is a stack frame. In those cases the raw text must never reach a
- * user, so a status-based sentence replaces it.
+ * Pure module (no fetch, no React, no client APIs) so both the browser client
+ * (`lib/api/fetch.ts`) and server actions (`app/_actions/*`) share one
+ * mapping. The contract: whatever this returns is safe to toast verbatim -
+ * raw technical text ("Internal server error", ThrottlerException, unbounded
+ * validation dumps) must never leave here.
  */
 
-/** The error envelope `AllExceptionsFilter` produces. Every field optional: a failure may not have come from the API at all. */
-export interface ApiErrorPayload {
-  statusCode?: number;
-  timestamp?: string;
-  path?: string;
-  message?: string | string[];
+export const NETWORK_MESSAGE =
+    "Can't reach the server. Check your internet connection and try again.";
+export const SERVER_MESSAGE =
+    'Something went wrong on our end. Try again in a moment - if it keeps happening, contact support.';
+export const THROTTLE_MESSAGE =
+    'Too many requests in a row - wait a moment and try again.';
+export const SESSION_MESSAGE =
+    'Your session has expired - sign in again to continue.';
+
+// Validation errors (Nest ValidationPipe) arrive as one line per failed DTO
+// rule. Three is enough to act on; a 20-line dump is not a toast.
+const MAX_VALIDATION_LINES = 3;
+
+/**
+ * The error every failed API call throws. `message` is always human-readable
+ * (toast it verbatim); `status` is the HTTP status (0 = never reached the
+ * server); `body` is the raw backend error body when one was parseable.
+ */
+export class ApiError extends Error {
+    readonly status: number;
+    readonly body: unknown;
+
+    constructor(message: string, status: number, body?: unknown) {
+        super(message);
+        this.name = 'ApiError';
+        this.status = status;
+        this.body = body;
+    }
 }
 
 /**
- * Copy per status, for when the payload carries nothing usable.
+ * Map a failed response to the message a user should read.
  *
- * Second person, active voice, and each one says what to do next rather than
- * only what went wrong. 401 is the exception: the app redirects on it, so its
- * text is a fallback that should rarely be seen.
+ * 4xx business messages written by the backend pass through verbatim - that
+ * copy is deliberate ("This project still has open blockers...") and this layer
+ * must not flatten it. Everything technical or absent gets rewritten.
  */
-const STATUS_COPY: Record<number, string> = {
-  400: "Some of the details are not valid. Check the highlighted fields and try again.",
-  401: "Your session has ended. Sign in again to continue.",
-  403: "You do not have permission to do that.",
-  404: "That item no longer exists. It may have been deleted or renamed.",
-  408: "The request took too long. Check your connection and try again.",
-  409: "That conflicts with something already saved. Reload the page to see the current state.",
-  413: "That file is too large to upload.",
-  422: "Some of the details are not valid. Check the highlighted fields and try again.",
-  429: "Too many requests. Wait a moment and try again.",
-  500: "Something went wrong on our side. Try again in a moment.",
-  502: "The server is unreachable. Try again in a moment.",
-  503: "The service is temporarily unavailable. Try again in a moment.",
-  504: "The server took too long to respond. Try again in a moment.",
-};
+export function humaneMessage(status: number, body: unknown): string {
+    const raw = (body as { message?: unknown } | null | undefined)?.message;
+    const text = typeof raw === 'string' ? raw.trim() : '';
 
-/** Used when the status is not one we have copy for, and is not obviously a client mistake. */
-const UNKNOWN_FAILURE = "Something went wrong. Try again in a moment.";
+    // Never surface server internals. But a 5xx is not automatically
+    // meaningless: the backend deliberately answers 502/503 with real copy
+    // ("The AI provider rejected the API key..."), and that must reach the
+    // user. Only the bare framework fallback gets rewritten.
+    if (status >= 500) {
+        return text && !/^internal server error$/i.test(text)
+            ? text
+            : SERVER_MESSAGE;
+    }
 
-/** No status at all: the request never reached a server. */
-const OFFLINE = "Cannot reach the server. Check your connection and try again.";
+    if (status === 429 || /throttl|too many requests/i.test(text)) {
+        return THROTTLE_MESSAGE;
+    }
 
-/**
- * The longest raw message worth showing.
- *
- * A validation failure across several fields legitimately runs long once the
- * constraint strings are joined, so this is generous. Past it, the text is
- * almost certainly not prose (an HTML error page, a serialized stack), and the
- * status sentence is better than a wall of markup.
- */
-const MAX_RAW_LENGTH = 400;
+    if (Array.isArray(raw)) {
+        const lines = raw.filter(
+            (line): line is string =>
+                typeof line === 'string' && line.trim() !== '',
+        );
+        if (lines.length > 0) {
+            const shown = lines.slice(0, MAX_VALIDATION_LINES).join('; ');
+            const extra = lines.length - MAX_VALIDATION_LINES;
+            return extra > 0 ? `${shown} (+${extra} more)` : shown;
+        }
+    }
 
-/** Markers that give away text written for a log rather than for a person. */
-const NOT_PROSE = [
-  /<[a-z!/]/i, // HTML or XML: an upstream proxy's error page
-  /\bat [\w$.]+ \(/, // a stack frame
-  /^\s*[{[]/, // raw JSON that was not the error envelope
-  /\b(?:ECONNREFUSED|ENOTFOUND|ETIMEDOUT|EPIPE|ECONNRESET)\b/,
-  /\bPrisma\w*Error\b/i,
-  /\bQueryFailedError\b/,
-];
+    // Bare framework defaults ("Unauthorized", "Forbidden") tell the user
+    // nothing; a backend that wrote real copy for these statuses keeps it.
+    if (status === 401) {
+        return text && !/^unauthorized\b/i.test(text) ? text : SESSION_MESSAGE;
+    }
+    if (status === 403) {
+        return text && !/^forbidden\b/i.test(text)
+            ? text
+            : "You don't have permission to do that.";
+    }
 
-/**
- * Does this message read as something written for a user?
- *
- * Deliberately a rejection list rather than an allowlist. The API's messages
- * are written by hand and vary in shape, so anything that tries to describe
- * what good prose looks like will reject some of them. Naming the handful of
- * shapes that are definitely NOT prose is both safer and easier to extend when
- * a new one turns up.
- */
-function readsAsProse(message: string): boolean {
-  if (!message.trim()) return false;
-  if (message.length > MAX_RAW_LENGTH) return false;
-  return !NOT_PROSE.some((pattern) => pattern.test(message));
-}
+    if (text) return text;
 
-/**
- * `class-validator` reports one string per broken rule, and a DTO can break
- * several at once. Joined with a space rather than a newline, because this ends
- * up in a toast; the per field detail comes from the form, not from here.
- */
-function joinMessage(message: string | string[]): string {
-  return Array.isArray(message) ? message.filter(Boolean).join(" ") : message;
-}
-
-/** Pull the message out of a parsed body, whatever shape it turned out to be. */
-export function extractApiMessage(payload: unknown): string | null {
-  if (typeof payload === "string") return payload || null;
-  if (!payload || typeof payload !== "object") return null;
-  const message = (payload as ApiErrorPayload).message;
-  if (message === undefined || message === null) return null;
-  const joined = joinMessage(message);
-  return joined.trim() ? joined : null;
-}
-
-/**
- * The sentence to show a user for a failed request.
- *
- * @param status HTTP status, or 0 when the request never got a response.
- * @param payload The parsed response body, the raw text, or nothing.
- *
- * The API's own wording wins whenever it is usable, because it is specific
- * ("This project already has a client feedback round open" beats "That
- * conflicts with something already saved"). The status sentence is the floor,
- * not the default.
- */
-export function humaneError(status: number, payload?: unknown): string {
-  const raw = extractApiMessage(payload);
-  if (raw && readsAsProse(raw)) return raw;
-
-  const known = STATUS_COPY[status];
-  if (known) return known;
-
-  if (!status) return OFFLINE;
-  // An unmapped 4xx is a client mistake, so point at the request rather than
-  // apologising for the server.
-  if (status >= 400 && status < 500) return STATUS_COPY[400];
-  return UNKNOWN_FAILURE;
+    if (status === 404) {
+        return 'That record could not be found - it may have been deleted in the meantime.';
+    }
+    return `The request failed (HTTP ${status}). Try again.`;
 }
