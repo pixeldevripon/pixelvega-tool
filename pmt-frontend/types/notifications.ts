@@ -1,3 +1,4 @@
+import type { Paginated } from '@/types/api';
 import type { EnumDisplay } from '@/contexts/role-context';
 
 /**

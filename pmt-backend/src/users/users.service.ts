@@ -5,7 +5,7 @@ import {
   Logger,
   NotFoundException,
 } from '@nestjs/common';
-import { Role } from '@prisma/client';
+import { Prisma, Role } from '@prisma/client';
 import { PrismaService } from '@/prisma/prisma.service';
 import { MailService } from '@/mail/mail.service';
 import { ProfilesService } from '@/profiles/profiles.service';
@@ -51,8 +51,26 @@ export class UsersService {
       pageSize = 20,
       sortBy = 'name',
       sortOrder = 'asc',
+      role,
+      status,
+      search,
     } = query;
-    const where = { deletedAt: null };
+
+    const where: Prisma.UserWhereInput = {
+      // Soft deleted people are gone, whatever else was asked for. This clause
+      // is not a filter and must never become one.
+      deletedAt: null,
+      ...(role && role.length > 0 && { role: { in: role } }),
+      ...(status && { status }),
+      // One box searches both, because a person looking for a colleague types
+      // whichever of the two they remember.
+      ...(search && {
+        OR: [
+          { name: { contains: search, mode: 'insensitive' as const } },
+          { email: { contains: search, mode: 'insensitive' as const } },
+        ],
+      }),
+    };
 
     const result = await paginate(
       (args) =>

@@ -1,7 +1,8 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { Permission, Role, UserStatus } from '@prisma/client';
-import { Type } from 'class-transformer';
+import { Transform, TransformFnParams, Type } from 'class-transformer';
 import {
+  IsArray,
   IsEmail,
   IsEnum,
   IsIn,
@@ -147,6 +148,39 @@ export class QueryUsersDto extends PaginationQueryDto {
   @IsOptional()
   @IsIn(SORT_ORDERS)
   sortOrder?: SortOrder = 'asc';
+
+  @ApiPropertyOptional({
+    enum: Role,
+    isArray: true,
+    example: [Role.DEVELOPER, Role.DESIGNER],
+    description:
+      'Comma separated (?role=DEVELOPER,DESIGNER) or repeated (?role=DEVELOPER&role=DESIGNER). Matches ANY of the given roles, not all of them.',
+  })
+  @IsOptional()
+  @Transform(({ value }: TransformFnParams): unknown => {
+    if (Array.isArray(value)) return value;
+    if (typeof value === 'string') return value.split(',').map((v) => v.trim());
+    return value;
+  })
+  @IsArray()
+  @IsEnum(Role, { each: true })
+  role?: Role[];
+
+  @ApiPropertyOptional({ enum: UserStatus })
+  @IsOptional()
+  @IsEnum(UserStatus)
+  status?: UserStatus;
+
+  @ApiPropertyOptional({
+    example: 'rezina',
+    description:
+      'Case insensitive, matches anywhere in the name OR the email. One box for both, because a person looking for a colleague types whichever they remember.',
+  })
+  @IsOptional()
+  @IsString()
+  @IsNotEmpty()
+  @MaxLength(FieldLength.SHORT_TEXT)
+  search?: string;
 }
 
 // ── Request DTOs ─────────────────────────────────────────────────────────────

@@ -274,6 +274,17 @@ export class QueryBlockersDto extends PaginationQueryDto {
   @IsOptional()
   @IsUUID()
   assignedToId?: string;
+
+  @ApiPropertyOptional({
+    example: 'staging credentials',
+    description:
+      'Case insensitive, matches anywhere in the description. A blocker is found by what it says, not by an id: nobody remembers which project a half recalled problem belonged to.',
+  })
+  @IsOptional()
+  @IsString()
+  @IsNotEmpty()
+  @MaxLength(FieldLength.SHORT_TEXT)
+  search?: string;
 }
 
 export class QueryProjectBlockersDto extends PaginationQueryDto {

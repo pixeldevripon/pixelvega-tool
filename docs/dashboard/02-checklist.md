@@ -19,7 +19,7 @@ A stale checklist is worse than no checklist, because the next person trusts it.
 | D4    | Backend, the contract gaps                  | 7       | 0       | not started |
 | D5    | Projects, list to detail                    | 52      | 24      | in progress |
 | D6    | Time tracking and standups                  | 20      | 0       | not started |
-| D7    | Blockers, requirements, reviews, feedback   | 29      | 0       | not started |
+| D7    | Blockers, requirements, reviews, feedback   | 31      | 5       | in progress |
 | D8    | People, leave, notifications, audit, client | 30      | 4       | in progress |
 | D9    | The AI module                               | 24      | 0       | not started |
 | D10   | The named gaps                              | 29      | 1       | in progress |
@@ -678,16 +678,23 @@ hours figure until the response phrased one.
 
 ### Blockers (I1 to I13)
 
-- [ ] Module recipe: types, client, hook with key factory
-- [ ] The cross-project list with filters by status, severity, project and owner (I11)
+- [x] Module recipe: types, client, hook with key factory
+- [x] The cross-project list with filters by status, severity and a description search (I11).
+      `GET /blockers` gained `search`: a blocker is found by what it says, because nobody remembers
+      which project a half recalled problem belonged to
+- [x] The staff scope is the backend's: a DEVELOPER or DESIGNER sees only blockers on projects they
+      are an active member of, and the scope clause sits LAST in the where so no filter can spread
+      over it
 - [ ] Report a blocker, severity and a reason from the list (I1 to I3)
 - [ ] The reason list admin screen (I4)
 - [ ] Open, In Progress, Resolved (I5), assignment (I6), days open (I7)
 - [ ] Resolution notes (I8) and deadline impact days (I9)
 - [ ] The per-project deadline impact screen the endpoint already serves (I10)
 - [ ] Blockers surface to the PM (I13)
-- [ ] Clients reach none of it (I12)
-- [ ] Tests: four view states plus every form rule
+- [x] Clients reach none of it (I12). They hold no `VIEW_BLOCKERS`, so the nav row is absent and
+      the route answers 403
+- [~] Tests: the four view states are covered; **the form rules are not**, because reporting a
+  blocker is a mutation and lands with the rest of them
 
 ### Additional requirements (J1 to J8)
 
@@ -730,19 +737,32 @@ hours figure until the response phrased one.
 - [ ] Work status: sick, casual, WFH, onsite (B6)
 - [ ] Availability: ready or occupied (B7)
 - [ ] How many and which projects each developer is on (B8)
-- [ ] Users admin: invite, edit, delete across all roles (B1, B9)
+- [~] Users admin (B1, B9). **The list is done**, filtered by role, status and one search box over
+  name OR email, sorted by name, email or join date. Invite, edit and delete are mutations and
+  land separately
+- [x] `GET /users` gained `role`, `status` and `search`. It took only `sortBy` and `sortOrder`, so
+      the screen had no way to answer "who are the designers" except by paging 235 people
 - [ ] An Admin opens any person's record (B5)
 - [ ] Tests
 
 ### Leave (M1 to M8)
 
-- [ ] Module recipe: types, clients for requests, types, holidays and balances, hooks
+- [~] Module recipe. **Requests are done**; the clients for types, holidays and balances land with
+  their own screens
 - [ ] Request leave, including as an Admin. Clients cannot (M1)
 - [ ] Own remaining balance (M4)
 - [ ] Cancel your own pending request (M7)
 - [ ] The leave types admin screen (M2)
 - [ ] The public holiday calendar admin screen (M3)
-- [ ] The PM's queue: sees everything, opens anything, **cannot approve or reject** (M5). Gated from `REVIEW_LEAVE_REQUEST`, never from the role
+- [~] The PM's queue (M5). **The queue is done** and opens on Pending, because a reviewer comes here
+  to answer "what is waiting". The approve and reject controls are not built yet, so there is
+  nothing to hide from a PM; when they are, they gate on each row's own `capabilities.canApprove`
+- [x] `GET /leave/requests` gained `status` and `leaveTypeId`. A review queue without a status filter
+      is 420 requests of which most are already decided
+- [x] **The status filter NARROWS what a role may see, never widens it.** A PROJECT_MANAGER is
+      restricted to PENDING and APPROVED, and the filter is intersected with that rather than spread
+      over it: `?status=REJECTED` would otherwise have handed them exactly the rows the rule
+      withholds. Three specs pin it, and a mutation putting the spread back fails all three
 - [ ] The Admin's approve and reject (M6)
 - [ ] The summary and its CSV export (M8)
 - [ ] Tests, including one asserting a PM is shown no approve control
@@ -761,8 +781,18 @@ spec and the reasoning are in [`03-header-chrome.md`](./03-header-chrome.md).
 
 ### Audit log (P1)
 
-- [ ] Move the existing screen onto the module recipe
-- [ ] Tests
+- [x] The screen, on the module recipe: types, client, hook with a key factory, columns, list view
+- [x] `GET /audit-logs` gained `action`, `startDate` and `endDate`. An audit log without a date range
+      is unusable at any real size, and `endDate` reads to the END of the day it names
+- [x] **The module had no mapper**, so `paginate()`'s result went out untouched: `action` reached the
+      screen as the raw `user.password_changed` and the actor row went out whole. It has one now, and
+      it maps field by field rather than spreading
+- [x] `actionLabel`, DERIVED from the action rather than looked up. The vocabulary is deliberately
+      open (the DTO says so), so a lookup table would render a blank cell for whichever new action
+      nobody remembered to add, and it would be blank for exactly the event worth auditing
+- [x] `targetType` and `targetId` are nullable in the schema and the DTO claimed they were required.
+      A system action with no row behind it now renders as "System"
+- [x] Tests: 23 backend, plus the queue's own cases
 
 ### The client portal (L1 to L3, L9, L10)
 

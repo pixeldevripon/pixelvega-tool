@@ -325,3 +325,105 @@ describe('LeaveRequestsService.findAll capability flags', () => {
     expect(result.items[0].capabilities.canReject).toBe(false);
   });
 });
+
+describe('LeaveRequestsService.findAll status filtering', () => {
+  /**
+   * The `status` query param NARROWS what a role may see. It must never widen
+   * it.
+   *
+   * A PROJECT_MANAGER is restricted to PENDING and APPROVED: they can approve
+   * leave but must not learn that somebody's was turned down, which is the
+   * requester's business and the admin's. The restriction and the filter both
+   * write `status`, so spreading the filter after the role clause silently
+   * overwrites it and `?status=REJECTED` becomes a privilege escalation with a
+   * query string for a key.
+   *
+   * These cases assert the WHERE clause the service builds, because that is
+   * where the rule lives. Asserting the returned rows would pass against a
+   * mock that ignores the clause entirely.
+   */
+  let service: LeaveRequestsService;
+  let prisma: { leaveRequest: { findMany: jest.Mock; count: jest.Mock } };
+
+  const whereFrom = () =>
+    (prisma.leaveRequest.findMany.mock.calls[0][0] as { where: unknown }).where;
+
+  beforeEach(async () => {
+    prisma = {
+      leaveRequest: {
+        findMany: jest.fn().mockResolvedValue([]),
+        count: jest.fn().mockResolvedValue(0),
+      },
+    };
+
+    const module: TestingModule = await Test.createTestingModule({
+      providers: [
+        LeaveRequestsService,
+        { provide: PrismaService, useValue: prisma },
+        { provide: AuditLogService, useValue: { log: jest.fn() } },
+        {
+          provide: LeaveBalancesService,
+          useValue: { incrementUsedDays: jest.fn() },
+        },
+        {
+          provide: NotificationsService,
+          useValue: {
+            notify: jest.fn(),
+            resolveManagingPmAndAdminIds: jest.fn().mockResolvedValue([]),
+          },
+        },
+        PermissionsService,
+      ],
+    }).compile();
+
+    service = module.get(LeaveRequestsService);
+  });
+
+  it('keeps a project manager to pending and approved when no status is asked for', async () => {
+    await service.findAll(Role.PROJECT_MANAGER, {}, 'pm-1');
+
+    expect(whereFrom()).toMatchObject({
+      status: { in: ['PENDING', 'APPROVED'] },
+    });
+  });
+
+  it('lets a project manager narrow to pending', async () => {
+    await service.findAll(Role.PROJECT_MANAGER, { status: 'PENDING' }, 'pm-1');
+
+    expect(whereFrom()).toMatchObject({ status: { in: ['PENDING'] } });
+  });
+
+  it('MATCHES NOTHING when a project manager asks for rejected', async () => {
+    // The escalation this exists to stop. An overwriting spread would produce
+    // `{ status: 'REJECTED' }` here and hand over exactly the withheld rows.
+    await service.findAll(Role.PROJECT_MANAGER, { status: 'REJECTED' }, 'pm-1');
+
+    expect(whereFrom()).toMatchObject({ status: { in: [] } });
+  });
+
+  it('lets an admin filter to rejected, because nothing is withheld from them', async () => {
+    await service.findAll(Role.ADMIN, { status: 'REJECTED' }, 'a-1');
+
+    expect(whereFrom()).toMatchObject({ status: 'REJECTED' });
+  });
+
+  it('places no status clause at all for an admin who asked for none', async () => {
+    await service.findAll(Role.ADMIN, {}, 'a-1');
+
+    expect('status' in (whereFrom() as object)).toBe(false);
+  });
+
+  it('combines the user and leave type filters with the status rule', async () => {
+    await service.findAll(
+      Role.PROJECT_MANAGER,
+      { userId: 'dev-9', leaveTypeId: 'annual', status: 'APPROVED' },
+      'pm-1',
+    );
+
+    expect(whereFrom()).toEqual({
+      status: { in: ['APPROVED'] },
+      userId: 'dev-9',
+      leaveTypeId: 'annual',
+    });
+  });
+});

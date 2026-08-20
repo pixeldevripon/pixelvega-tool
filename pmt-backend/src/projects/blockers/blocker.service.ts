@@ -259,6 +259,7 @@ export class BlockerService {
       severity,
       projectId,
       assignedToId,
+      search,
     } = query;
     const isStaffScoped =
       actorRole === Role.DEVELOPER || actorRole === Role.DESIGNER;
@@ -267,6 +268,11 @@ export class BlockerService {
       ...(severity && { severity }),
       ...(projectId && { projectId }),
       ...(assignedToId && { assignedToId }),
+      ...(search && {
+        description: { contains: search, mode: 'insensitive' as const },
+      }),
+      // The scope clause, and the only part a caller cannot influence. It stays
+      // LAST so no filter above can spread over it.
       ...(isStaffScoped && {
         project: { members: { some: { userId: actorId, leftAt: null } } },
       }),

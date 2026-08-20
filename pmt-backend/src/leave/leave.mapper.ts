@@ -10,12 +10,37 @@ import {
 import { daysBetweenInclusive } from '@/common/utils/date.util';
 import {
   LEAVE_STATUS_DISPLAY,
+  ROLE_DISPLAY,
   toEnumDisplay,
 } from '@/common/utils/enum-display.util';
 
-import { HolidayResponseDto, LeaveRequestResponseDto } from './dto/leave.dto';
+import {
+  HolidayResponseDto,
+  LeaveRequestResponseDto,
+  LeaveUserDto,
+} from './dto/leave.dto';
 
-type LeaveUser = Pick<User, 'id' | 'name' | 'email'>;
+type LeaveUser = Pick<User, 'id' | 'name' | 'email'> & {
+  /** Selected for the requester, not for the reviewer. */
+  role?: Role;
+};
+
+/**
+ * A person on a leave request.
+ *
+ * Field by field, deliberately. `...(request.user && { user: request.user })`
+ * put the raw row in the response, which shipped an undeclared `role` as a bare
+ * enum for as long as the query happened to select it. A mapper that spreads is
+ * a mapper that cannot say what it returns.
+ */
+function toLeaveUser(user: LeaveUser): LeaveUserDto {
+  return {
+    id: user.id,
+    name: user.name,
+    email: user.email,
+    ...(user.role && { role: toEnumDisplay(ROLE_DISPLAY, user.role) }),
+  };
+}
 
 export type LeaveRequestWithRelations = LeaveRequest & {
   user?: LeaveUser;
@@ -44,14 +69,14 @@ export function toLeaveRequestResponse(
   return {
     id: request.id,
     userId: request.userId,
-    ...(request.user && { user: request.user }),
+    ...(request.user && { user: toLeaveUser(request.user) }),
     leaveType: request.leaveType,
     startDate: toDateOnlyString(request.startDate),
     endDate: toDateOnlyString(request.endDate),
     days: request.days,
     reason: request.reason,
     status: toEnumDisplay(LEAVE_STATUS_DISPLAY, request.status),
-    reviewedBy: request.reviewedBy ?? null,
+    reviewedBy: request.reviewedBy ? toLeaveUser(request.reviewedBy) : null,
     reviewedAt: request.reviewedAt,
     isPending,
     createdAt: request.createdAt,

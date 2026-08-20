@@ -4,16 +4,17 @@ import {
   IsArray,
   IsBoolean,
   IsDateString,
+  IsEnum,
   IsIn,
   IsInt,
   IsNotEmpty,
   IsOptional,
   IsString,
   IsUUID,
-  Min,
   MaxLength,
+  Min,
 } from 'class-validator';
-import { Role } from '@prisma/client';
+import { LeaveStatus, Role } from '@prisma/client';
 
 import { PaginationQueryDto } from '@/common/dto/pagination-query.dto';
 import { EnumDisplayDto } from '@/common/dto/display.dto';
@@ -40,6 +41,23 @@ export class LeaveUserDto {
 
   @ApiProperty({ example: 'rezina@pixelvega.com' })
   email!: string;
+
+  /**
+   * Who is asking, which a reviewer needs: a project manager's absence and a
+   * developer's are different problems to cover for.
+   *
+   * Optional because `reviewedBy` uses this same class and its query does not
+   * select a role. Absent is therefore "not asked for", never "has none".
+   *
+   * It was ALREADY arriving, as the bare string `"DEVELOPER"`, because the list
+   * query selects `role` and the mapper spread the row wholesale. Two defects in
+   * one: an undeclared field in a response, and a bare enum (ADR 0001). A screen
+   * reading `.label` off it rendered nothing. `whitelist` and
+   * `forbidNonWhitelisted` guard request bodies, not responses, so nothing
+   * caught it: the mapper now maps field by field instead of spreading.
+   */
+  @ApiPropertyOptional({ type: EnumDisplayDto })
+  role?: EnumDisplayDto;
 }
 
 export class LeaveTypeResponseDto {
@@ -291,6 +309,20 @@ export class QueryLeaveRequestsDto extends PaginationQueryDto {
   @IsOptional()
   @IsString()
   userId?: string;
+
+  @ApiPropertyOptional({
+    enum: LeaveStatus,
+    description:
+      'The one filter a review queue cannot work without: a reviewer opens this screen to answer "what is waiting for me", and 420 requests of which most are already decided is not that screen.',
+  })
+  @IsOptional()
+  @IsEnum(LeaveStatus)
+  status?: LeaveStatus;
+
+  @ApiPropertyOptional({ description: 'Filter to one kind of leave.' })
+  @IsOptional()
+  @IsString()
+  leaveTypeId?: string;
 }
 
 export class QueryLeaveSummaryDto {
